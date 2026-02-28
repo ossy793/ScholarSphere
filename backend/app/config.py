@@ -31,6 +31,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:5501",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
+            "https://scholar-sphere-five.vercel.app",
         ]
         if self.EXTRA_ORIGINS:
             extra = [o.strip() for o in self.EXTRA_ORIGINS.split(",") if o.strip()]
