@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Dashboard</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <!-- Stats Row -->
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon purple">📚</div>
+            <div class="stat-info">
+              <h3 id="stat-courses">–</h3>
+              <p>Courses</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">📝</div>
+            <div class="stat-info">
+              <h3 id="stat-quizzes">–</h3>
+              <p>Quizzes</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div class="stat-info">
+              <h3 id="stat-attempts">–</h3>
+              <p>Attempts</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">⭐</div>
+            <div class="stat-info">
+              <h3 id="stat-avg">–</h3>
+              <p>Avg. Score</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Best course highlight -->
+        <div class="card mb-6" id="best-course-card" style="display:none">
+          <div class="flex items-center gap-3">
+            <span style="font-size:1.5rem">🏆</span>
+            <div>
+              <p class="text-sm text-muted">Best performing course</p>
+              <p class="font-bold" id="best-course-name"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <h2 class="font-semibold mb-4" style="font-size:1rem;">Quick Actions</h2>
+        <div class="action-grid">
+          <a href="input-questions.html" class="action-card">
+            <div class="action-card-icon purple">✏️</div>
+            <div>
+              <h3>Input Questions</h3>
+              <p>Manually create quizzes with MCQs, short answers, or true/false questions linked to a course.</p>
+            </div>
+          </a>
+          <a href="ai-generate.html" class="action-card">
+            <div class="action-card-icon teal">🤖</div>
+            <div>
+              <h3>AI Generate</h3>
+              <p>Upload a PDF, Word document, or paste text — let AI craft quiz questions from your material.</p>
+            </div>
+          </a>
+          <a href="my-questions.html" class="action-card">
+            <div class="action-card-icon green">📋</div>
+            <div>
+              <h3>My Questions</h3>
+              <p>Browse your saved quizzes, take practice sessions, and share quizzes with others.</p>
+            </div>
+          </a>
+          <a href="performance.html" class="action-card">
+            <div class="action-card-icon orange">📊</div>
+            <div>
+              <h3>Performance</h3>
+              <p>Track your progress with visual score trends, course analytics, and detailed stats.</p>
+            </div>
+          </a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

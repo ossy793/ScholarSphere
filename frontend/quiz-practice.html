@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Practice – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/quiz.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Quiz Practice</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body" style="max-width:760px">
+
+        <!-- Setup Screen -->
+        <div id="setup-screen">
+          <div class="card">
+            <h2 class="card-title" id="quiz-title-display">Loading quiz…</h2>
+            <p class="text-muted text-sm mb-4" id="quiz-desc-display"></p>
+            <p class="text-sm mb-6" id="q-count-display"></p>
+
+            <div class="form-group">
+              <label class="form-label">Mode</label>
+              <div class="mode-toggle">
+                <button class="mode-btn active" onclick="setMode('exam', this)">Exam Mode</button>
+                <button class="mode-btn" onclick="setMode('practice', this)">Practice Mode</button>
+              </div>
+              <p class="form-hint mt-2">
+                <strong>Exam:</strong> Score tracked, answers revealed at end.
+                <strong>Practice:</strong> Instant feedback per question.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Timer</label>
+              <div class="flex items-center gap-3">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="timer-enabled" checked style="width:16px;height:16px">
+                  Enable countdown timer
+                </label>
+                <input type="number" id="timer-minutes" value="15" min="1" max="180"
+                  class="form-control" style="width:100px">
+                <span class="text-sm text-muted">minutes</span>
+              </div>
+            </div>
+
+            <div id="setup-alert" class="alert alert-error hidden"></div>
+            <button class="btn btn-primary btn-lg" id="start-btn" onclick="startQuiz()">Start Quiz</button>
+          </div>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="hidden">
+          <div class="quiz-header">
+            <div>
+              <p class="font-bold" id="active-quiz-title"></p>
+              <p class="quiz-meta">
+                <span id="mode-label"></span> &middot;
+                <span id="q-progress-label"></span>
+              </p>
+            </div>
+            <div id="timer-container" class="timer-display">
+              ⏱ <span id="timer-text">15:00</span>
+            </div>
+          </div>
+
+          <div class="question-progress">
+            <div class="progress-bar" style="flex:1">
+              <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+            </div>
+            <span id="progress-label">0 / 0</span>
+          </div>
+
+          <div id="question-container"></div>
+
+          <div class="quiz-nav">
+            <button class="btn btn-secondary" id="prev-btn" onclick="navigate(-1)">← Previous</button>
+            <div class="flex gap-2">
+              <button class="btn btn-secondary" id="skip-btn" onclick="navigate(1)">Skip →</button>
+              <button class="btn btn-primary" id="next-btn" onclick="navigate(1)">Next →</button>
+              <button class="btn btn-success hidden" id="submit-btn" onclick="submitQuiz()">Submit Quiz</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="hidden">
+          <div class="results-card">
+            <p class="text-muted text-sm mb-2">Quiz Complete!</p>
+            <div class="results-score" id="results-score-display">–%</div>
+            <p class="results-label" id="results-label-text"></p>
+
+            <div class="results-stats">
+              <div class="result-stat">
+                <h4 id="res-correct">–</h4>
+                <p>Correct</p>
+              </div>
+              <div class="result-stat">
+                <h4 id="res-wrong">–</h4>
+                <p>Wrong</p>
+              </div>
+              <div class="result-stat">
+                <h4 id="res-time">–</h4>
+                <p>Time</p>
+              </div>
+            </div>
+
+            <!-- Answer review -->
+            <div class="mt-6" id="answer-review" style="text-align:left"></div>
+
+            <div class="flex gap-3 mt-6" style="justify-content:center;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="restartQuiz()">Try Again</button>
+              <a href="my-questions.html" class="btn btn-secondary">Back to My Quizzes</a>
+              <a href="performance.html" class="btn btn-outline">View Performance</a>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/quiz-practice.js"></script>
+</body>
+</html>

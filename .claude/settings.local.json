@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"db\\\\.query\\\\|db\\\\.add\\\\|db\\\\.commit\\\\|db\\\\.delete\" /c/Users/hp/Desktop/OssyQuiz/backend/app/routers/*.py)",
+      "Bash(pip install pdf2image==1.17.0 pytesseract==0.3.13)",
+      "Bash(cmd.exe /c \"dir C:\\\\poppler /b 2>&1 & dir C:\\\\Users\\\\hp\\\\Downloads /b 2>&1 | findstr /i poppler\")",
+      "Bash(cmd.exe /c \"dir C:\\\\poppler\\\\Library\\\\bin\\\\poppler-25.12.0\\\\Library\\\\bin\\\\pdfinfo.exe 2>&1\")",
+      "Bash(cmd.exe /c \"dir /s /b C:\\\\poppler\\\\pdfinfo.exe 2>&1\")",
+      "Bash(python migrate.py)",
+      "Bash(source ossyquizenv/Scripts/activate)",
+      "Bash(source \"../ossyquizenv/Scripts/activate\")",
+      "Bash(python -m pip install psycopg2-binary)"
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Questions – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/quiz.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">My Questions</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <!-- Filters -->
+        <div class="flex items-center gap-3 mb-6" style="flex-wrap:wrap">
+          <select id="filter-course" class="form-control" style="max-width:220px;" onchange="loadQuizzes()">
+            <option value="">All Courses</option>
+          </select>
+          <input type="text" id="filter-search" class="form-control" style="max-width:240px;"
+            placeholder="Search quizzes…" oninput="filterQuizzes()">
+          <div class="flex gap-2 ml-auto">
+            <a href="input-questions.html" class="btn btn-primary btn-sm">+ Manual Quiz</a>
+            <a href="ai-generate.html" class="btn btn-outline btn-sm">🤖 AI Generate</a>
+          </div>
+        </div>
+
+        <!-- Quiz grid -->
+        <div id="quiz-grid" class="grid-3"></div>
+        <div id="empty-state" class="empty-state hidden">
+          <div class="icon">📋</div>
+          <h3>No quizzes yet</h3>
+          <p>Create a quiz manually or use AI generation.</p>
+          <div class="flex gap-2 mt-4" style="justify-content:center">
+            <a href="input-questions.html" class="btn btn-primary">Create Manual Quiz</a>
+            <a href="ai-generate.html" class="btn btn-outline">AI Generate</a>
+          </div>
+        </div>
+
+        <div id="loading" class="text-center text-muted mt-6 hidden">Loading quizzes…</div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Share Modal -->
+  <div class="modal-overlay hidden" id="share-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Share Quiz</h3>
+        <button class="modal-close" onclick="closeShareModal()">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Share Link</label>
+        <div class="flex gap-2">
+          <input type="text" id="share-link" class="form-control" readonly>
+          <button class="btn btn-primary btn-sm" onclick="copyShareLink()">Copy</button>
+        </div>
+      </div>
+      <p class="text-xs text-muted">Anyone with this link can view and practice this quiz (read-only).</p>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay hidden" id="delete-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Quiz</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <p class="mb-4">Are you sure you want to delete <strong id="delete-quiz-name"></strong>? This cannot be undone.</p>
+      <div class="flex gap-2">
+        <button class="btn btn-danger" id="confirm-delete-btn" onclick="confirmDelete()">Delete</button>
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/my-questions.js"></script>
+</body>
+</html>

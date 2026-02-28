@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Input Questions – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 28px;
+    }
+    .step-indicator .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .step-indicator .step.active { color: var(--primary); }
+    .step-indicator .step.done   { color: var(--success); }
+    .step-indicator .step-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .step-indicator .step.active .step-num { background: var(--primary); color: #fff; }
+    .step-indicator .step.done   .step-num { background: var(--success); color: #fff; }
+    .step-indicator .step-line {
+      flex: 1; height: 2px; background: var(--border); min-width: 24px; max-width: 48px;
+    }
+    .step-indicator .step-line.done { background: var(--success); }
+
+    .review-card { transition: box-shadow 0.15s; }
+    .review-card:hover { box-shadow: var(--shadow-md); }
+
+    .opt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .opt-label { width: 22px; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Input Questions</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div style="max-width: 780px;">
+
+          <!-- Step indicator -->
+          <div class="step-indicator" id="step-indicator">
+            <div class="step active" id="si-1">
+              <div class="step-num">1</div>
+              <span>Quiz Details</span>
+            </div>
+            <div class="step-line" id="sl-1"></div>
+            <div class="step" id="si-2">
+              <div class="step-num">2</div>
+              <span>Paste Questions</span>
+            </div>
+            <div class="step-line" id="sl-2"></div>
+            <div class="step" id="si-3">
+              <div class="step-num">3</div>
+              <span>Review & Save</span>
+            </div>
+          </div>
+
+          <!-- ── Step 1: Quiz Details ── -->
+          <div class="card mb-4" id="quiz-details-card">
+            <h2 class="card-title">1. Quiz Details</h2>
+            <div id="quiz-alert" class="alert alert-error hidden"></div>
+
+            <div class="form-group">
+              <label class="form-label">Course <span style="color:var(--danger)">*</span></label>
+              <div class="flex gap-2">
+                <select id="course-select" class="form-control" style="flex:1"></select>
+                <button class="btn btn-outline btn-sm" onclick="openCourseModal()">+ New Course</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Quiz Title <span style="color:var(--danger)">*</span></label>
+              <input type="text" id="quiz-title" class="form-control" placeholder="e.g. Chapter 3 Review">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Description <span class="text-muted text-xs">(optional)</span></label>
+              <textarea id="quiz-desc" class="form-control" rows="2" placeholder="Brief description of this quiz"></textarea>
+            </div>
+
+            <button class="btn btn-primary" id="create-quiz-btn" onclick="createQuiz()">
+              Create Quiz & Continue →
+            </button>
+          </div>
+
+          <!-- ── Step 2: Content Input ── -->
+          <div id="bulk-input-section" class="hidden">
+            <div class="card mb-3">
+              <h2 class="card-title">2. Add Your Content</h2>
+
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Content <span style="color:var(--danger)">*</span></label>
+                <p class="form-hint">
+                  Paste questions, a past paper, lecture notes, or any educational material — in any format.
+                  The AI will automatically detect all questions and generate options and correct answers.
+                </p>
+
+                <!-- File upload bar -->
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="triggerFileInput()">
+                    📎 Upload File (PDF · DOCX · TXT)
+                  </button>
+                  <span id="file-badge" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+                    <span id="file-name-label"></span>
+                    <button type="button" onclick="clearUploadedFile()"
+                      style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1rem;line-height:1;padding:0">×</button>
+                  </span>
+                  <span id="file-reading" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+                    <span class="spinner spinner-dark"></span> Reading file…
+                  </span>
+                </div>
+
+                <textarea id="content-textarea" class="form-control" rows="13"
+                  placeholder="Paste your content here. For example:&#10;&#10;1. What is the capital of France?&#10;2. The sun is the centre of our solar system. True or False?&#10;3. Explain the process of photosynthesis.&#10;4. Which of the following is Newton's second law?&#10;   a) F = ma  b) E = mc²  c) V = IR  d) PV = nRT&#10;&#10;The AI will extract every question and generate a complete quiz automatically."></textarea>
+
+                <input type="file" id="content-file-input" accept=".pdf,.docx,.txt"
+                  style="display:none" onchange="handleContentFileInput(event)">
+              </div>
+            </div>
+
+            <div class="card mb-4">
+              <div class="flex gap-3 items-center flex-wrap">
+                <button class="btn btn-primary" id="analyze-btn" onclick="analyzeAndGenerate()">
+                  ✨ Analyze &amp; Generate Quiz
+                </button>
+                <span class="text-xs text-muted" style="flex:1">
+                  AI will detect all questions and create complete quiz entries with options and correct answers.
+                </span>
+              </div>
+              <div id="parse-alert" class="alert alert-error hidden" style="margin-top:14px;margin-bottom:0"></div>
+            </div>
+          </div>
+
+          <!-- ── Step 3: Review & Edit ── -->
+          <div id="review-section" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <h2 class="font-bold" style="font-size:1rem">3. Review & Edit</h2>
+                <span class="badge badge-primary" id="review-count">0 questions</span>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="goBackToBulkInput()">← Back</button>
+            </div>
+
+            <div id="review-list"></div>
+
+            <div class="card mt-4">
+              <div id="save-alert" class="alert hidden" style="margin-bottom:14px"></div>
+              <div class="flex gap-3 items-center flex-wrap">
+                <button class="btn btn-success btn-lg" id="save-all-btn" onclick="saveAllQuestions()">
+                  Save All Questions
+                </button>
+                <button class="btn btn-secondary" onclick="resetAll()">Start Over</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- New Course Modal -->
+  <div class="modal-overlay hidden" id="course-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Create New Course</h3>
+        <button class="modal-close" onclick="closeCourseModal()">&times;</button>
+      </div>
+      <div id="course-modal-alert" class="alert alert-error hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Course Name <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="new-course-name" class="form-control" placeholder="e.g. Biology 101">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description <span class="text-muted text-xs">(optional)</span></label>
+        <textarea id="new-course-desc" class="form-control" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary w-full" onclick="createCourse()">Create Course</button>
+    </div>
+  </div>
+
+  <!-- mammoth.js for DOCX text extraction -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <script type="module" src="js/input-questions.js"></script>
+</body>
+</html>

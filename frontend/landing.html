@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScholarSphere – Read, Brainstorm & Master Any Subject</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #fff; color: #0A1628; line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+    img { display: block; max-width: 100%; }
+
+    :root {
+      --blue:       #0077FF;
+      --blue-dark:  #0055CC;
+      --blue-light: #3399FF;
+      --blue-glow:  rgba(0,119,255,0.18);
+      --cyan:       #00C8FF;
+      --text:       #0A1628;
+      --text-muted: #4A6080;
+      --border:     #D6E4F7;
+      --bg:         #F0F6FF;
+      --radius:     12px;
+      --radius-lg:  20px;
+    }
+
+    /* ── Navbar ── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 0 5%; height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(0,119,255,0.1);
+      transition: box-shadow 0.2s;
+    }
+    .nav.scrolled { box-shadow: 0 2px 20px rgba(0,119,255,0.1); }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 1.15rem; color: var(--blue);
+    }
+
+    /* ── S Logo SVG icon ── */
+    /* To use the actual logo image: replace the <svg> below with:        */
+    /* <img src="img/logo.png" width="36" height="36" alt="ScholarSphere">*/
+    .nav-logo-icon {
+      width: 36px; height: 36px;
+      border-radius: 9px; overflow: hidden; flex-shrink: 0;
+    }
+    .nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
+    .nav-links a { font-size: 0.9rem; font-weight: 500; color: var(--text-muted); transition: color 0.15s; }
+    .nav-links a:hover { color: var(--blue); }
+    .nav-cta { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 9px 20px; border-radius: 8px; font-weight: 600; font-size: 0.88rem;
+      cursor: pointer; border: none; transition: all 0.15s; text-decoration: none;
+    }
+    .btn-ghost { background: none; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+    .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 2px 12px rgba(0,119,255,0.3); }
+    .btn-primary:hover { background: var(--blue-dark); box-shadow: 0 4px 20px rgba(0,119,255,0.4); transform: translateY(-1px); }
+    .btn-lg  { padding: 13px 28px; font-size: 0.98rem; border-radius: 10px; }
+    .btn-xl  { padding: 15px 36px; font-size: 1.05rem; border-radius: 12px; }
+    .btn-outline-white {
+      background: rgba(255,255,255,0.12); color: #fff;
+      border: 1.5px solid rgba(255,255,255,0.4); backdrop-filter: blur(6px);
+    }
+    .btn-outline-white:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.65); }
+    .btn-white { background: #fff; color: var(--blue); font-weight: 700; box-shadow: 0 4px 20px rgba(0,0,0,0.18); }
+    .btn-white:hover { background: #e8f2ff; box-shadow: 0 6px 28px rgba(0,0,0,0.22); transform: translateY(-2px); }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #050D1E 0%, #061A40 35%, #0A3080 65%, #0055CC 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 120px 5% 80px; position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: ''; position: absolute; width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(0,119,255,0.25) 0%, transparent 65%);
+      top: -150px; left: -150px; pointer-events: none;
+    }
+    .hero::after {
+      content: ''; position: absolute; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(0,200,255,0.18) 0%, transparent 65%);
+      bottom: -80px; right: -80px; pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(0,119,255,0.18); border: 1px solid rgba(0,119,255,0.4);
+      border-radius: 100px; padding: 6px 18px;
+      font-size: 0.8rem; font-weight: 600; color: #80CCFF;
+      margin-bottom: 28px; backdrop-filter: blur(6px);
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 900; line-height: 1.1;
+      color: #fff; max-width: 860px; margin-bottom: 22px; letter-spacing: -0.03em;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, #60BFFF, #00C8FF);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.18rem); color: rgba(255,255,255,0.7);
+      max-width: 600px; margin: 0 auto 40px; line-height: 1.75;
+    }
+    .hero-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+    /* Hero 3-column mockup */
+    .hero-visual { margin-top: 64px; position: relative; z-index: 1; max-width: 920px; width: 100%; }
+    .hero-mockup {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-lg); padding: 20px; backdrop-filter: blur(10px); text-align: left;
+    }
+    .mock-topbar { display: flex; align-items: center; gap: 7px; margin-bottom: 16px; }
+    .mock-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .mock-dot-r { background: #ff5f57; }
+    .mock-dot-y { background: #febc2e; }
+    .mock-dot-g { background: #28c840; }
+    .mock-title { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-left: auto; }
+    .mock-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .mock-col { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
+    .mock-col-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cyan); margin-bottom: 10px; }
+    .mock-row-item { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 9px 10px; margin-bottom: 6px; font-size: 0.73rem; color: rgba(255,255,255,0.65); }
+    .mock-row-item.active { border-left: 2px solid var(--cyan); color: rgba(255,255,255,0.9); }
+    .mock-chat-msg { font-size: 0.72rem; margin-bottom: 8px; padding: 8px 10px; border-radius: 8px; }
+    .mock-chat-user { background: rgba(0,119,255,0.25); color: #80CCFF; text-align: right; }
+    .mock-chat-ai { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75); }
+    .mock-score { text-align: center; padding: 8px 0; }
+    .mock-score-val { font-size: 1.8rem; font-weight: 900; color: #60FFAA; line-height: 1; }
+    .mock-score-lbl { font-size: 0.65rem; color: rgba(255,255,255,0.45); margin-top: 3px; }
+    .mock-bar-row { margin-bottom: 6px; }
+    .mock-bar-label { font-size: 0.65rem; color: rgba(255,255,255,0.5); margin-bottom: 3px; }
+    .mock-bar-bg { height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; }
+    .mock-bar-fill { height: 5px; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 3px; }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 28px 5%; display: flex; align-items: center; justify-content: center;
+      gap: clamp(24px, 5vw, 80px); flex-wrap: wrap;
+    }
+    .stat-item { text-align: center; }
+    .stat-number { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; color: var(--blue); line-height: 1.1; }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
+
+    /* ── Section ── */
+    section { padding: 88px 5%; }
+    .section-label { display: inline-block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 12px; }
+    .section-title { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 900; letter-spacing: -0.02em; color: var(--text); line-height: 1.15; margin-bottom: 16px; }
+    .section-sub { font-size: 1.05rem; color: var(--text-muted); max-width: 560px; line-height: 1.7; }
+    .text-center { text-align: center; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+
+    /* ── 3 Pillars ── */
+    .pillars-section { background: #fff; }
+    .pillars-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 56px; }
+    .pillar {
+      border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 36px 28px;
+      text-align: center; position: relative; overflow: hidden;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+    }
+    .pillar::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, var(--blue-glow) 0%, transparent 60%);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .pillar:hover { border-color: var(--blue); box-shadow: 0 12px 40px rgba(0,119,255,0.12); transform: translateY(-4px); }
+    .pillar:hover::before { opacity: 1; }
+    .pillar-num {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: #fff; font-size: 1.3rem; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; position: relative; z-index: 1;
+      box-shadow: 0 6px 20px rgba(0,119,255,0.35);
+    }
+    .pillar-icon { font-size: 2.2rem; margin-bottom: 16px; position: relative; z-index: 1; }
+    .pillar h3 { font-size: 1.15rem; font-weight: 800; color: var(--text); margin-bottom: 12px; position: relative; z-index: 1; }
+    .pillar p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.7; position: relative; z-index: 1; }
+    .pillar-tag {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 16px; position: relative; z-index: 1;
+    }
+    .tag-core { background: rgba(0,119,255,0.1); color: var(--blue); }
+    .tag-ai { background: rgba(0,200,255,0.12); color: #0099CC; }
+    .tag-track { background: rgba(16,185,129,0.1); color: #059669; }
+
+    /* ── How it works ── */
+    .how-bg { background: var(--bg); }
+    .steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 28px; margin-top: 52px; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; top: 34px; left: 12%; right: 12%; height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan)); opacity: 0.3;
+    }
+    .step { text-align: center; padding: 0 10px; }
+    .step-num {
+      width: 58px; height: 58px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: #fff; font-size: 1.2rem; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; box-shadow: 0 6px 20px rgba(0,119,255,0.35); position: relative; z-index: 1;
+    }
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .step p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; }
+
+    /* ── Features grid ── */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px,1fr)); gap: 22px; margin-top: 52px; }
+    .feature-card {
+      background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 28px 26px;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .feature-card:hover { border-color: var(--blue-light); box-shadow: 0 8px 32px rgba(0,119,255,0.1); transform: translateY(-3px); }
+    .feature-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 16px; }
+    .icon-blue   { background: rgba(0,119,255,0.1); }
+    .icon-cyan   { background: rgba(0,200,255,0.1); }
+    .icon-green  { background: rgba(16,185,129,0.1); }
+    .icon-amber  { background: rgba(245,158,11,0.1); }
+    .icon-rose   { background: rgba(239,68,68,0.1); }
+    .icon-violet { background: rgba(139,92,246,0.1); }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .feature-card p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; }
+
+    /* ── CTA ── */
+    .cta-section {
+      background: linear-gradient(135deg, #0044AA 0%, #0077FF 50%, #00AAFF 100%);
+      text-align: center; padding: 96px 5%; position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content: ''; position: absolute; width: 500px; height: 500px; border-radius: 50%;
+      background: rgba(255,255,255,0.06); top: -200px; right: -100px;
+    }
+    .cta-section h2 { font-size: clamp(1.8rem,4vw,2.8rem); font-weight: 900; color: #fff; letter-spacing: -0.02em; margin-bottom: 16px; }
+    .cta-section p { font-size: 1.05rem; color: rgba(255,255,255,0.78); max-width: 500px; margin: 0 auto 36px; line-height: 1.7; }
+
+    /* ── Footer ── */
+    footer {
+      background: #050D1E; color: rgba(255,255,255,0.5); padding: 48px 5%;
+    }
+    .footer-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: start; }
+    .footer-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .footer-logo-icon { width: 32px; height: 32px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+    .footer-logo-text { font-size: 1.05rem; font-weight: 800; color: rgba(255,255,255,0.85); }
+    .footer-tagline { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-bottom: 20px; line-height: 1.6; }
+    .footer-copy { font-size: 0.78rem; color: rgba(255,255,255,0.3); margin-top: 8px; }
+
+    .footer-social { text-align: right; }
+    .footer-social-label { font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.4); margin-bottom: 12px; display: block; }
+    .social-links { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+    .social-link {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.5); text-decoration: none; transition: all 0.15s;
+    }
+    .social-link:hover { border-color: var(--blue-light); color: #60BFFF; background: rgba(0,119,255,0.15); }
+    .social-link svg { width: 17px; height: 17px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .pillars-grid { grid-template-columns: 1fr; }
+      .mock-cols { grid-template-columns: 1fr; }
+      .mock-col:nth-child(2), .mock-col:nth-child(3) { display: none; }
+      .footer-inner { grid-template-columns: 1fr; }
+      .footer-social { text-align: left; }
+      .social-links { justify-content: flex-start; }
+    }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .steps::before { display: none; }
+      .hero-cta { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <nav class="nav" id="navbar">
+    <a href="landing.html" class="nav-logo">
+      <!-- S Logo: To use the actual image file, save it as frontend/img/logo.png -->
+      <!-- and replace the <svg> below with: <img src="img/logo.png" width="36" height="36" alt="ScholarSphere"> -->
+      <div class="nav-logo-icon">
+        <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" width="36" height="36">
+          <rect width="36" height="36" rx="9" fill="url(#navLogoGrad)"/>
+          <path d="M25 14C25 11.8 23.1 10 20.8 10H15.5C13.02 10 11 12.02 11 14.5S13.02 19 15.5 19H20.5C22.98 19 25 21.02 25 23.5S22.98 28 20.5 28H15.2C12.9 28 11 26.2 11 24" stroke="white" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <defs>
+            <linearGradient id="navLogoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#33BBFF"/>
+              <stop offset="100%" stop-color="#0044CC"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      ScholarSphere
+    </a>
+    <ul class="nav-links">
+      <li><a href="#pillars">Features</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#features">For Students</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="index.html" class="btn btn-ghost">Sign In</a>
+      <a href="index.html" class="btn btn-primary">Get Started Free</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <section class="hero">
+    <div class="hero-badge">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+      AI-Powered Academic Platform &nbsp;·&nbsp; Free to use
+    </div>
+
+    <h1>Read. Brainstorm.<br><em>Master Any Subject.</em></h1>
+
+    <p>
+      ScholarSphere is the complete student learning platform — upload your study materials,
+      chat with AI to deepen understanding, auto-generate quizzes, and track your academic
+      progress all in one place.
+    </p>
+
+    <div class="hero-cta">
+      <a href="index.html" class="btn btn-primary btn-xl">🚀 Get Started Free</a>
+      <a href="#pillars" class="btn btn-outline-white btn-xl">See How It Works</a>
+    </div>
+
+    <!-- App Mockup -->
+    <div class="hero-visual">
+      <div class="hero-mockup">
+        <div class="mock-topbar">
+          <div class="mock-dot mock-dot-r"></div>
+          <div class="mock-dot mock-dot-y"></div>
+          <div class="mock-dot mock-dot-g"></div>
+          <span class="mock-title">ScholarSphere · Student Dashboard</span>
+        </div>
+        <div class="mock-cols">
+          <!-- Col 1: Documents -->
+          <div class="mock-col">
+            <div class="mock-col-label">📖 My Documents</div>
+            <div class="mock-row-item active">Chapter 5 – Cell Biology.pdf</div>
+            <div class="mock-row-item">Organic Chemistry Notes.docx</div>
+            <div class="mock-row-item">History Textbook Ch.3.pdf</div>
+          </div>
+          <!-- Col 2: Brainstorm chat -->
+          <div class="mock-col">
+            <div class="mock-col-label">💬 Brainstorm Session</div>
+            <div class="mock-chat-msg mock-chat-user">What is the function of the Golgi apparatus?</div>
+            <div class="mock-chat-msg mock-chat-ai">The Golgi apparatus modifies, packages, and sorts proteins for transport. It processes vesicles from the ER and targets them to their correct destinations…</div>
+          </div>
+          <!-- Col 3: Quiz performance -->
+          <div class="mock-col">
+            <div class="mock-col-label">📊 Performance</div>
+            <div class="mock-score">
+              <div class="mock-score-val">84%</div>
+              <div class="mock-score-lbl">Average Score</div>
+            </div>
+            <div class="mock-bar-row">
+              <div class="mock-bar-label">Cell Biology</div>
+              <div class="mock-bar-bg"><div class="mock-bar-fill" style="width:88%"></div></div>
+            </div>
+            <div class="mock-bar-row">
+              <div class="mock-bar-label">Chemistry</div>
+              <div class="mock-bar-bg"><div class="mock-bar-fill" style="width:72%"></div></div>
+            </div>
+            <div class="mock-bar-row">
+              <div class="mock-bar-label">History</div>
+              <div class="mock-bar-bg"><div class="mock-bar-fill" style="width:91%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Stats bar ── -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-number" id="stat-questions">—</div>
+      <div class="stat-label">Questions Generated</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number" id="stat-users">—</div>
+      <div class="stat-label">Students Registered</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">3+</div>
+      <div class="stat-label">File Formats (PDF, DOCX, TXT)</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">100%</div>
+      <div class="stat-label">Free to Use</div>
+    </div>
+  </div>
+
+  <!-- ── 3 Core Pillars ── -->
+  <section id="pillars" class="pillars-section">
+    <div class="text-center">
+      <span class="section-label">Three Pillars</span>
+      <h2 class="section-title">Everything a student needs, in one platform</h2>
+      <p class="section-sub mx-auto">
+        ScholarSphere is built around three interconnected learning activities —
+        reading, brainstorming, and testing — so you can master any subject thoroughly.
+      </p>
+    </div>
+
+    <div class="pillars-grid">
+
+      <div class="pillar">
+        <span class="pillar-tag tag-core">Core</span>
+        <div class="pillar-icon">📖</div>
+        <h3>Read & Explore</h3>
+        <p>
+          Upload any PDF, Word document, or paste text. Your material is stored, organised
+          by course, and always available. Read alongside an AI that can highlight key concepts
+          and answer questions about your content on demand.
+        </p>
+      </div>
+
+      <div class="pillar">
+        <span class="pillar-tag tag-ai">AI-Powered</span>
+        <div class="pillar-icon">💬</div>
+        <h3>Brainstorm with AI</h3>
+        <p>
+          Don't just read — understand. Chat with an AI that has read your document and can
+          explain concepts, clarify confusing passages, generate summaries, and help you
+          explore ideas deeply. Every conversation is grounded in your own material.
+        </p>
+      </div>
+
+      <div class="pillar">
+        <span class="pillar-tag tag-track">Track & Improve</span>
+        <div class="pillar-icon">📊</div>
+        <h3>Quiz & Track Performance</h3>
+        <p>
+          Convert your knowledge into practice. Generate MCQs, short-answer, and essay
+          questions from your documents with one click. Take quizzes in exam or practice
+          mode, and track your score trends over time with detailed analytics.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── How It Works ── -->
+  <section id="how-it-works" class="how-bg">
+    <div class="text-center">
+      <span class="section-label">How It Works</span>
+      <h2 class="section-title">From document to mastery in four steps</h2>
+      <p class="section-sub mx-auto">
+        A simple, focused workflow designed for how students actually study.
+      </p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Upload Your Material</h3>
+        <p>Add a PDF, Word document, or paste text directly. Organise everything by course for easy access.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Read & Brainstorm</h3>
+        <p>Open a brainstorm session and chat with AI about your content. Ask questions, request summaries, explore concepts.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Generate a Quiz</h3>
+        <p>Turn your material into MCQs, short-answer, or essay questions automatically with the AI quiz generator.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Practice & Track</h3>
+        <p>Take the quiz in exam or practice mode. Your results are saved so you can track improvement over time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Full Features ── -->
+  <section id="features">
+    <div class="text-center">
+      <span class="section-label">All Features</span>
+      <h2 class="section-title">A complete toolkit for smarter studying</h2>
+      <p class="section-sub mx-auto">
+        Everything built specifically for students who want to go beyond passive reading.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon icon-blue">🤖</div>
+        <h3>AI Quiz Generation</h3>
+        <p>Upload a PDF or paste text, and the AI generates a complete, accurate quiz in seconds — MCQ, short-answer, or essay.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-cyan">💬</div>
+        <h3>Brainstorm Sessions</h3>
+        <p>Chat directly with AI about any document you've uploaded. Get explanations, summaries, and concept clarifications instantly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-violet">✏️</div>
+        <h3>Manual Question Input</h3>
+        <p>Prefer full control? Type questions manually, choose the type, add answer options, and include explanations.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-green">🎯</div>
+        <h3>Exam & Practice Modes</h3>
+        <p>Exam mode hides answers until you submit. Practice mode gives instant feedback per question with explanations.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-amber">📊</div>
+        <h3>Performance Analytics</h3>
+        <p>Track scores over time with visual charts. See which topics need more attention and watch your progress improve.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-rose">🔗</div>
+        <h3>Share Quizzes</h3>
+        <p>Generate a shareable link for any quiz so classmates and study groups can practice the same material together.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ── -->
+  <section class="cta-section">
+    <h2>Start learning the smarter way today</h2>
+    <p>
+      Create your free ScholarSphere account and transform the way you study.
+      No credit card required — always free to start.
+    </p>
+    <a href="index.html" class="btn btn-white btn-xl">🚀 Get Started Free</a>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <div class="footer-inner">
+
+      <div>
+        <div class="footer-logo">
+          <!-- Footer logo icon (same S logo) -->
+          <div class="footer-logo-icon">
+            <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+              <rect width="32" height="32" rx="8" fill="url(#footerLogoGrad)"/>
+              <path d="M22 12.5C22 10.6 20.4 9 18.5 9H13.8C11.7 9 10 10.7 10 12.8s1.7 3.8 3.8 3.8h4.4C20.3 16.6 22 18.3 22 20.4S20.3 24.2 18.2 24.2H13.5C11.4 24.2 9.8 22.6 9.8 21" stroke="white" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+              <defs>
+                <linearGradient id="footerLogoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#33BBFF"/>
+                  <stop offset="100%" stop-color="#0044CC"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="footer-logo-text">ScholarSphere</span>
+        </div>
+        <p class="footer-tagline">
+          The AI-powered academic platform for students who want to<br>
+          read deeper, brainstorm smarter, and track their mastery.
+        </p>
+        <p class="footer-copy">© 2025 ScholarSphere · All rights reserved · Governed under the laws of Nigeria</p>
+      </div>
+
+      <div class="footer-social">
+        <span class="footer-social-label">Follow us</span>
+        <!--
+          ╔══════════════════════════════════════════════════════════╗
+          ║  SOCIAL MEDIA HANDLES — Replace the href="#" below      ║
+          ║  X/Twitter:  href="https://x.com/YOUR_X_HANDLE"         ║
+          ║  Instagram:  href="https://instagram.com/YOUR_IG_HANDLE" ║
+          ║  LinkedIn:   href="https://linkedin.com/in/YOUR_PROFILE" ║
+          ╚══════════════════════════════════════════════════════════╝
+        -->
+        <div class="social-links">
+
+          <!-- X (Twitter) — replace href="#" with your X profile URL -->
+          <a href="#" class="social-link" title="Follow us on X" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+          </a>
+
+          <!-- Instagram — replace href="#" with your Instagram profile URL -->
+          <a href="#" class="social-link" title="Follow us on Instagram" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+              <circle cx="12" cy="12" r="4.5"/>
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+
+          <!-- LinkedIn — replace href="#" with your LinkedIn profile/company URL -->
+          <a href="#" class="social-link" title="Connect on LinkedIn" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+              <circle cx="4" cy="4" r="2"/>
+            </svg>
+          </a>
+
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    // Navbar shadow on scroll
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    // Live stats from API
+    const API_BASE = 'http://localhost:8000';
+    async function loadStats() {
+      const qEl = document.getElementById('stat-questions');
+      const uEl = document.getElementById('stat-users');
+      try {
+        const res  = await fetch(`${API_BASE}/api/stats`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const q = data.total_questions || 0;
+        const u = data.total_users || 0;
+        animateCount(qEl, q);
+        animateCount(uEl, u);
+      } catch {
+        qEl.textContent = '—';
+        uEl.textContent = '—';
+      }
+    }
+    function animateCount(el, target) {
+      const start = performance.now();
+      (function step(now) {
+        const p = Math.min((now - start) / 1400, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(target * eased).toLocaleString() + (target % 10 === 0 && target > 0 ? '+' : '');
+        if (p < 1) requestAnimationFrame(step);
+      })(start);
+    }
+    loadStats();
+    setInterval(loadStats, 60_000);
+  </script>
+</body>
+</html>

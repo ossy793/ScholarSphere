@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upgrade to Premium – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/upgrade.css">
+</head>
+<body>
+  <div class="upgrade-page">
+
+    <!-- Header -->
+    <div class="upgrade-header">
+      <a href="dashboard.html" class="upgrade-back">← Back</a>
+      <div class="upgrade-logo">
+        <div class="logo-icon">S</div>
+        <span>ScholarSphere</span>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="upgrade-hero">
+      <div class="upgrade-badge">FREE → PREMIUM</div>
+      <h1>Unlock Full Access</h1>
+      <p>Enter your Gmail to receive a free promo code and unlock all ScholarSphere features.</p>
+    </div>
+
+    <!-- Feature comparison -->
+    <div class="upgrade-features">
+      <div class="feature-col free">
+        <h3>Free</h3>
+        <ul>
+          <li class="yes">✓ Brainstorm AI Chat</li>
+          <li class="no">✗ Dashboard Analytics</li>
+          <li class="no">✗ AI Question Generation</li>
+          <li class="no">✗ Input Questions</li>
+          <li class="no">✗ My Questions</li>
+          <li class="no">✗ Performance Tracking</li>
+        </ul>
+      </div>
+      <div class="feature-col premium">
+        <div class="premium-badge">PREMIUM</div>
+        <h3>Premium</h3>
+        <ul>
+          <li class="yes">✓ Brainstorm AI Chat</li>
+          <li class="yes">✓ Dashboard Analytics</li>
+          <li class="yes">✓ AI Question Generation</li>
+          <li class="yes">✓ Input Questions</li>
+          <li class="yes">✓ My Questions</li>
+          <li class="yes">✓ Performance Tracking</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Promo Flow -->
+    <div class="upgrade-card">
+
+      <!-- Global alert -->
+      <div id="global-alert" class="alert hidden"></div>
+
+      <!-- Step 1: Request code -->
+      <div id="step-request">
+        <h2>Step 1 — Get Your Code</h2>
+        <p class="step-sub">Enter your Gmail address and we'll send you a one-time access code.</p>
+        <div class="form-group">
+          <label class="form-label">Gmail Address</label>
+          <input type="email" id="req-email" class="form-control"
+                 placeholder="yourname@gmail.com" required>
+        </div>
+        <button class="btn btn-primary w-full btn-lg" id="req-btn" onclick="requestCode()">
+          Send My Code
+        </button>
+      </div>
+
+      <!-- Step 2: Verify code (hidden initially) -->
+      <div id="step-verify" class="hidden">
+        <h2>Step 2 — Enter Your Code</h2>
+        <p class="step-sub">Check your inbox. The code expires in <strong>15 minutes</strong>.</p>
+        <div class="form-group">
+          <label class="form-label">Gmail Address</label>
+          <input type="email" id="ver-email" class="form-control" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Promo Code</label>
+          <input type="text" id="ver-code" class="form-control code-input"
+                 placeholder="e.g. A3K9X2M7" maxlength="10" autocomplete="off"
+                 oninput="this.value = this.value.toUpperCase()">
+        </div>
+        <button class="btn btn-primary w-full btn-lg" id="ver-btn" onclick="verifyCode()">
+          Activate Premium
+        </button>
+        <button class="btn btn-ghost w-full mt-2" onclick="backToRequest()">
+          ← Use a different email
+        </button>
+      </div>
+
+      <!-- Step 3: Success (hidden initially) -->
+      <div id="step-success" class="hidden success-block">
+        <div class="success-icon">🎉</div>
+        <h2>You're Premium!</h2>
+        <p>Welcome to ScholarSphere Premium. All features are now unlocked.</p>
+        <a id="whatsapp-link" href="#" target="_blank" class="btn btn-whatsapp w-full btn-lg">
+          Join the WhatsApp Group
+        </a>
+        <a href="dashboard.html" class="btn btn-primary w-full btn-lg mt-2">
+          Go to Dashboard
+        </a>
+      </div>
+
+    </div><!-- /.upgrade-card -->
+  </div><!-- /.upgrade-page -->
+
+  <script type="module" src="js/upgrade.js"></script>
+</body>
+</html>

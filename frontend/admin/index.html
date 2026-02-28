@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ── Detail modal grid ── */
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin-bottom: 16px; }
+    .detail-field { display: flex; flex-direction: column; gap: 2px; }
+    .detail-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+    .detail-value { font-size: 0.88rem; color: var(--text); font-weight: 500; }
+    .detail-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary); margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .detail-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+    .detail-stat { background: rgba(0,119,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; text-align: center; }
+    .detail-stat-val { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
+    .detail-stat-lbl { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+    .detail-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+
+  <!-- User detail modal -->
+  <div class="modal-overlay hidden" id="detail-modal">
+    <div class="modal-box" style="max-width:560px;width:92vw;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin:0;font-size:1.05rem">User Details</h3>
+        <button class="btn-icon" onclick="closeDetailModal()" style="font-size:1.1rem;line-height:1;padding:4px 8px">✕</button>
+      </div>
+      <div id="detail-content"><div style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- Send notification modal -->
+  <div class="modal-overlay hidden" id="notif-modal">
+    <div class="modal-box" style="max-width:460px;width:92vw">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin:0;font-size:1.05rem">Send Notification</h3>
+        <button class="btn-icon" onclick="closeNotifModal()" style="font-size:1.1rem;line-height:1;padding:4px 8px">✕</button>
+      </div>
+      <div id="notif-target-label" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:14px;padding:8px 12px;background:rgba(0,119,255,0.06);border-radius:8px;border:1px solid rgba(0,119,255,0.15)"></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label" style="font-size:0.82rem">Title</label>
+          <input type="text" id="notif-title" class="form-control" placeholder="Notification title" style="font-size:0.85rem">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label" style="font-size:0.82rem">Message</label>
+          <textarea id="notif-message" class="form-control" rows="4" placeholder="Write your message here…" style="font-size:0.85rem;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm" onclick="closeNotifModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="send-notif-btn" onclick="sendNotification()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div class="modal-overlay hidden" id="delete-modal">
+    <div class="modal-box">
+      <div class="modal-icon">🗑️</div>
+      <h3>Delete User</h3>
+      <p id="delete-modal-text">
+        This will permanently delete the user and all their data (quizzes, attempts, courses).
+        This action cannot be undone.
+      </p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" id="confirm-delete-btn" onclick="confirmDelete()">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="admin-toast hidden" id="admin-toast"></div>
+
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <header class="top-header">
+        <div>
+          <h1 id="page-title">Admin Dashboard</h1>
+          <p style="font-size:.8rem;color:var(--text-muted);margin-top:2px">
+            User management &amp; platform analytics
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-outline btn-sm" onclick="openBroadcastModal()" title="Send to all users">📢 Broadcast</button>
+          <span class="badge badge-primary">ADMIN</span>
+          <div class="user-badge">
+            <span id="user-name"></span>
+            <div class="avatar" id="user-avatar"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="page-body">
+
+        <!-- Stats -->
+        <div class="admin-stats" id="stats-row">
+          <!-- Rendered by JS -->
+          <div class="admin-stat-card"><div class="stat-label">Loading…</div></div>
+        </div>
+
+        <!-- User management -->
+        <div class="admin-toolbar">
+          <h2>All Users</h2>
+          <div class="admin-search">
+            <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor"
+                 stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input type="text" id="search-input" placeholder="Search name or email…"
+                   oninput="onSearch(this.value)">
+          </div>
+          <select class="admin-filter" id="filter-select" onchange="onFilter(this.value)">
+            <option value="all">All Users</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="premium">Premium</option>
+            <option value="free">Free</option>
+          </select>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Activity</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="user-tbody">
+              <tr><td colspan="6" class="table-loading">Loading users…</td></tr>
+            </tbody>
+          </table>
+          <div class="admin-pagination" id="pagination">
+            <span id="pagination-info"></span>
+            <div class="pagination-btns">
+              <button id="prev-btn" onclick="changePage(-1)">← Prev</button>
+              <button id="next-btn" onclick="changePage(1)">Next →</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.page-body -->
+    </div><!-- /.main-content -->
+  </div><!-- /.app-layout -->
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

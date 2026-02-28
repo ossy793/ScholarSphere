@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScholarSphere – Sign In or Create Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/auth.css">
+  <style>
+    body { background: var(--bg); }
+
+    .landing-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Top nav ── */
+    .landing-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px; border-bottom: 1px solid var(--border);
+      background: var(--bg-card); position: sticky; top: 0; z-index: 10;
+    }
+    .landing-nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 1.15rem; color: var(--primary); text-decoration: none;
+    }
+    .landing-nav-logo .logo-s {
+      width: 32px; height: 32px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+    }
+    .landing-nav-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* ── Hero split ── */
+    .landing-hero {
+      display: flex; align-items: flex-start; gap: 60px;
+      padding: 56px 40px 60px; max-width: 1100px; margin: 0 auto; width: 100%; flex: 1;
+    }
+    .hero-copy { flex: 1; min-width: 0; padding-top: 10px; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(0,119,255,0.1); color: var(--primary); border-radius: 20px;
+      padding: 4px 14px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; margin-bottom: 20px;
+    }
+    .hero-title { font-size: 2.4rem; font-weight: 900; line-height: 1.18; color: var(--text); margin-bottom: 16px; }
+    .hero-title span { color: var(--primary); }
+    .hero-desc { font-size: 1rem; color: var(--text-muted); line-height: 1.75; max-width: 440px; margin-bottom: 28px; }
+    .hero-bullets { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .hero-bullets li { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--text-muted); }
+    .bullet-icon {
+      width: 22px; height: 22px; background: rgba(0,119,255,0.1); color: var(--primary);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; flex-shrink: 0;
+    }
+
+    /* ── Auth box ── */
+    .hero-auth { width: 400px; flex-shrink: 0; }
+    .auth-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .auth-card-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+    .auth-card-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; }
+    .auth-tabs { margin-bottom: 20px; }
+
+    /* ── T&C box ── */
+    .tc-box {
+      border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 14px;
+      max-height: 160px; overflow-y: auto; font-size: 0.75rem; color: var(--text-muted);
+      line-height: 1.6; background: var(--bg); margin-bottom: 10px;
+    }
+    .tc-box h4 { font-size: 0.78rem; font-weight: 700; color: var(--text); margin: 10px 0 4px; }
+    .tc-box h4:first-child { margin-top: 0; }
+    .tc-box p { margin-bottom: 4px; }
+
+    .tc-check-row {
+      display: flex; align-items: flex-start; gap: 9px;
+      font-size: 0.8rem; color: var(--text); font-weight: 500; margin-bottom: 16px; cursor: pointer;
+    }
+    .tc-check-row input[type="checkbox"] {
+      width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; accent-color: var(--primary); cursor: pointer;
+    }
+
+    /* ── How it works section ── */
+    .landing-how { background: var(--bg); border-top: 1px solid var(--border); padding: 64px 40px; }
+    .landing-how-inner { max-width: 1100px; margin: 0 auto; }
+    .section-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); margin-bottom: 10px; }
+    .section-title { font-size: 1.8rem; font-weight: 900; color: var(--text); margin-bottom: 10px; }
+    .section-sub { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 40px; max-width: 520px; }
+    .how-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .how-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 26px 26px 22px; transition: box-shadow 0.2s, border-color 0.2s; position: relative;
+    }
+    .how-card:hover { box-shadow: 0 4px 20px rgba(0,119,255,0.1); border-color: rgba(0,119,255,0.25); }
+    .how-card-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 14px; }
+    .how-card-icon.blue   { background: rgba(0,119,255,0.1); }
+    .how-card-icon.teal   { background: rgba(0,200,255,0.1); }
+    .how-card-icon.green  { background: rgba(34,197,94,0.1); }
+    .how-card-icon.orange { background: rgba(249,115,22,0.1); }
+    .how-card h3 { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+    .how-card p { font-size: 0.87rem; color: var(--text-muted); line-height: 1.65; margin: 0; }
+    .how-card-tag { position: absolute; top: 18px; right: 18px; font-size: 0.67rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.04em; }
+    .tag-ai  { background: rgba(0,200,255,0.1);  color: #0099CC; }
+    .tag-new { background: rgba(0,119,255,0.1);  color: var(--primary); }
+
+    /* ── Footer ── */
+    .landing-footer { background: var(--bg-card); border-top: 1px solid var(--border); padding: 28px 40px; }
+    .landing-footer-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .footer-brand { display: flex; align-items: center; gap: 9px; }
+    .footer-brand .logo-s { width: 24px; height: 24px; border-radius: 6px; overflow: hidden; }
+    .footer-brand-name { font-weight: 800; font-size: 0.95rem; color: var(--text); }
+    .footer-copy { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    @media (max-width: 760px) {
+      .how-grid { grid-template-columns: 1fr; }
+      .landing-hero { flex-direction: column; padding: 36px 20px; gap: 32px; }
+      .hero-auth { width: 100%; }
+      .landing-nav { padding: 14px 20px; }
+      .hero-title { font-size: 1.85rem; }
+      .landing-how { padding: 48px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="landing-wrap">
+
+  <!-- ── Navigation ── -->
+  <nav class="landing-nav">
+    <a class="landing-nav-logo" href="landing.html">
+      <div class="logo-s">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+          <rect width="32" height="32" rx="8" fill="url(#idxLogoGrad)"/>
+          <path d="M22 12.5C22 10.6 20.4 9 18.5 9H13.8C11.7 9 10 10.7 10 12.8s1.7 3.8 3.8 3.8h4.4C20.3 16.6 22 18.3 22 20.4S20.3 24.2 18.2 24.2H13.5C11.4 24.2 9.8 22.6 9.8 21" stroke="white" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+          <defs><linearGradient id="idxLogoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#33BBFF"/><stop offset="100%" stop-color="#0044CC"/></linearGradient></defs>
+        </svg>
+      </div>
+      ScholarSphere
+    </a>
+    <div class="landing-nav-actions">
+      <button class="btn btn-outline btn-sm" onclick="scrollToAuth()">Sign In</button>
+      <button class="btn btn-primary btn-sm" onclick="scrollToAuth();showTab('register')">Get Started Free</button>
+    </div>
+  </nav>
+
+  <!-- ── Hero + Auth ── -->
+  <section class="landing-hero">
+
+    <!-- Left copy -->
+    <div class="hero-copy">
+      <div class="hero-badge">✨ AI-Powered Academic Platform</div>
+      <h1 class="hero-title">
+        Read, Brainstorm &<br>
+        <span>Master Any Subject</span>
+      </h1>
+      <p class="hero-desc">
+        Upload your study materials, chat with AI to deepen understanding,
+        auto-generate quizzes, and track your academic progress — all in one place.
+      </p>
+      <ul class="hero-bullets">
+        <li><div class="bullet-icon">📖</div> Read and explore your documents with AI guidance</li>
+        <li><div class="bullet-icon">💬</div> Brainstorm and chat with AI about your material</li>
+        <li><div class="bullet-icon">🤖</div> Generate MCQ, short-answer and essay questions automatically</li>
+        <li><div class="bullet-icon">📊</div> Track your performance with detailed analytics</li>
+      </ul>
+    </div>
+
+    <!-- Right auth -->
+    <div class="hero-auth" id="auth-section">
+      <div class="auth-card">
+        <p class="auth-card-title">Get started today</p>
+        <p class="auth-card-sub">Free forever · No credit card needed</p>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login" onclick="showTab('login')">Sign In</button>
+          <button class="auth-tab" id="tab-register" onclick="showTab('register')">Create Account</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-panel">
+          <div id="login-alert" class="alert alert-error hidden"></div>
+          <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="login-email" class="form-control" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-full btn-lg" id="login-btn">Sign In</button>
+          </form>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-panel" class="hidden">
+          <div id="register-alert" class="alert alert-error hidden"></div>
+          <form id="register-form" onsubmit="handleRegister(event)">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input type="text" id="reg-name" class="form-control" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="reg-email" class="form-control" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" id="reg-password" class="form-control" placeholder="Min 8 chars, upper, lower &amp; number/symbol" minlength="8" required>
+              <p class="form-hint">Must include uppercase, lowercase, and a number or symbol.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+              <input type="text" id="reg-department" class="form-control" placeholder="e.g. Computer Science">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">University <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+                <input type="text" id="reg-university" class="form-control" placeholder="e.g. University of Lagos">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Level <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+                <input type="text" id="reg-level" class="form-control" placeholder="e.g. 300L">
+              </div>
+            </div>
+
+            <!-- Terms & Conditions -->
+            <div class="form-group">
+              <div class="tc-box" id="tc-box">
+                <h4>1. Acceptance and Eligibility</h4>
+                <p>By accessing ScholarSphere, you agree to be bound by these Terms. <strong>Minimum age: 15 years.</strong></p>
+
+                <h4>2. Nature of the AI Service</h4>
+                <p><strong>AI Accuracy Disclaimer:</strong> This AI does NOT provide 100% guaranteed future exam/test questions — only practice questions and quizzes.</p>
+                <p><strong>Educational Purpose:</strong> This tool is a learning aid, not a replacement for independent thought, teacher instruction, or official academic work.</p>
+
+                <h4>3. Intellectual Property</h4>
+                <p><strong>Site Content:</strong> All proprietary materials — code, design, and educational modules — belong to the administrators of ScholarSphere.</p>
+                <p><strong>User-Generated Content:</strong> Users retain rights to their input, but ScholarSphere holds a licence to use it for service improvements.</p>
+                <p><strong>Prohibited Use:</strong> It is strictly forbidden to reverse-engineer this AI model or use this site to train competing AI systems.</p>
+
+                <h4>4. User Conduct and Academic Integrity</h4>
+                <p><strong>Academic Honesty:</strong> It is prohibited to use this site to facilitate cheating, plagiarism, or any activity that violates school or university policies.</p>
+                <p><strong>Acceptable Use:</strong> Submission of harmful, discriminatory, or illegal content is banned.</p>
+                <p><strong>Account Security:</strong> Users are responsible for maintaining the confidentiality of their login credentials.</p>
+
+                <h4>5. Privacy and Data Governance</h4>
+                <p><strong>Data Use for Training:</strong> Educational materials you upload may be used to improve this AI service.</p>
+                <p><strong>Third-Party Sharing:</strong> User prompts may be shared with external AI model providers (e.g., Groq/Meta LLaMA) solely to generate responses.</p>
+
+                <h4>6. Limitation of Liability and Indemnification</h4>
+                <p><strong>"As-Is" Warranty:</strong> This service is provided on an "as-available" basis without any express or implied warranties.</p>
+                <p><strong>Indemnity:</strong> Users must indemnify ScholarSphere against claims arising from their misuse of the platform or violation of these terms.</p>
+
+                <h4>7. Termination and Governing Law</h4>
+                <p><strong>Termination Right:</strong> ScholarSphere reserves the right to suspend or terminate accounts for any violations of conduct or intellectual property policies.</p>
+                <p><strong>Governing Law:</strong> These terms are governed by the laws of the Federal Republic of Nigeria.</p>
+              </div>
+              <label class="tc-check-row">
+                <input type="checkbox" id="tc-agree" required>
+                <span>I have read and agree to ScholarSphere's Terms &amp; Conditions. I confirm I am 15 years of age or older.</span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-full btn-lg" id="register-btn">Create Account</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── How it works ── -->
+  <section class="landing-how">
+    <div class="landing-how-inner">
+      <p class="section-label">How it works</p>
+      <h2 class="section-title">Three ways to learn smarter</h2>
+      <p class="section-sub">
+        ScholarSphere gives you three interconnected tools — reading, brainstorming with AI,
+        and testing yourself — so you can truly master any subject.
+      </p>
+
+      <div class="how-grid">
+        <div class="how-card">
+          <div class="how-card-icon blue">📖</div>
+          <span class="how-card-tag tag-new">Core</span>
+          <h3>Read & Explore</h3>
+          <p>Upload PDFs or documents and organise them by course. Your material is always accessible and ready for brainstorm sessions and quiz generation.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-card-icon teal">💬</div>
+          <span class="how-card-tag tag-ai">AI</span>
+          <h3>Brainstorm with AI</h3>
+          <p>Chat with an AI that has read your document. Ask questions, request explanations, explore concepts deeply — all grounded in your uploaded content.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-card-icon green">🤖</div>
+          <span class="how-card-tag tag-ai">AI</span>
+          <h3>AI Generate Quizzes</h3>
+          <p>Turn any document into MCQs, short-answer, or essay questions automatically. Edit them if you wish, then practise until you're confident.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-card-icon orange">📊</div>
+          <h3>Track Your Mastery</h3>
+          <p>Take quizzes in exam or practice mode. Your scores are saved so you can see your improvement trend, identify weak spots, and focus your revision.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer class="landing-footer">
+    <div class="landing-footer-inner">
+      <div>
+        <div class="footer-brand">
+          <div class="logo-s">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+              <rect width="24" height="24" rx="6" fill="url(#footerIdxGrad)"/>
+              <path d="M17 9.5C17 8.1 15.9 7 14.5 7H10.5C8.9 7 7.6 8.3 7.6 9.9s1.3 2.9 2.9 2.9h3.3C15.4 12.8 17 14.1 17 15.7S15.7 18.4 14.1 18.4H10.1C8.5 18.4 7.3 17.2 7.3 15.7" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <defs><linearGradient id="footerIdxGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#33BBFF"/><stop offset="100%" stop-color="#0044CC"/></linearGradient></defs>
+            </svg>
+          </div>
+          <span class="footer-brand-name">ScholarSphere</span>
+        </div>
+        <p class="footer-copy">© 2025 ScholarSphere · AI-powered academic learning platform</p>
+      </div>
+      <p style="font-size:0.75rem;color:var(--text-muted)">
+        <a href="landing.html" style="color:var(--primary)">Back to homepage</a>
+      </p>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  function scrollToAuth() {
+    document.getElementById('auth-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+</script>
+<script type="module" src="js/auth.js"></script>
+</body>
+</html>

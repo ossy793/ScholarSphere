@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Generate – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    .type-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .type-option:has(input:checked) {
+      border-color: var(--primary);
+      background: rgba(79,70,229,0.04);
+    }
+    .type-option input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .type-option-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .type-option-body strong {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .type-option-body span {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">AI Generate Questions</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div style="max-width: 760px;">
+
+          <!-- Course + title -->
+          <div class="card mb-4">
+            <h2 class="card-title">Quiz Details</h2>
+            <div id="details-alert" class="alert alert-error hidden"></div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Course <span style="color:var(--danger)">*</span></label>
+                <div class="flex gap-2">
+                  <select id="course-select" class="form-control" style="flex:1"></select>
+                  <button class="btn btn-outline btn-sm" onclick="openCourseModal()">+ New</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Quiz Title <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="quiz-title" class="form-control" placeholder="e.g. AI-generated Chapter 5 Quiz">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Number of Questions</label>
+              <input type="number" id="num-questions" class="form-control" value="10" min="3" max="30">
+            </div>
+
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Question Types <span style="color:var(--danger)">*</span></label>
+              <p class="form-hint">Select the types of questions you want the AI to generate. Tick one or more.</p>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+
+                <label class="type-option">
+                  <input type="checkbox" id="type-mcq" value="mcq" checked>
+                  <span class="type-option-icon">🔘</span>
+                  <span class="type-option-body">
+                    <strong>Multiple Choice Questions (MCQ)</strong>
+                    <span>Four-option questions with one correct answer. Ideal for testing factual recall.</span>
+                  </span>
+                </label>
+
+                <label class="type-option">
+                  <input type="checkbox" id="type-short" value="short_answer" checked>
+                  <span class="type-option-icon">✏️</span>
+                  <span class="type-option-body">
+                    <strong>Short Answer Questions</strong>
+                    <span>Concise 1–2 sentence answers. Good for definitions, terms, and key facts.</span>
+                  </span>
+                </label>
+
+                <label class="type-option">
+                  <input type="checkbox" id="type-essay" value="essay" checked>
+                  <span class="type-option-icon">📝</span>
+                  <span class="type-option-body">
+                    <strong>Theory / Essay Questions</strong>
+                    <span>Open-ended questions that require detailed explanations and critical thinking.</span>
+                  </span>
+                </label>
+
+              </div>
+              <div id="types-alert" class="alert alert-error hidden" style="margin-top:10px;margin-bottom:0">
+                Please select at least one question type.
+              </div>
+            </div>
+          </div>
+
+          <!-- Input source tabs -->
+          <div class="card mb-4">
+            <h2 class="card-title">Learning Material</h2>
+            <div class="tabs">
+              <button class="tab-btn active" onclick="switchTab('text', this)">Paste Text</button>
+              <button class="tab-btn" onclick="switchTab('pdf', this)">Upload PDF</button>
+              <button class="tab-btn" onclick="switchTab('docx', this)">Upload Word (.docx)</button>
+            </div>
+
+            <!-- Text tab -->
+            <div id="tab-text" class="tab-panel active">
+              <div class="form-group">
+                <label class="form-label">Paste your content</label>
+                <textarea id="text-content" class="form-control" rows="10"
+                  placeholder="Paste notes, article text, or any study material here..."></textarea>
+                <p class="form-hint">Up to ~8,000 characters will be processed.</p>
+              </div>
+            </div>
+
+            <!-- PDF tab -->
+            <div id="tab-pdf" class="tab-panel">
+              <div class="upload-zone" id="pdf-zone" onclick="document.getElementById('pdf-file').click()"
+                ondragover="onDragOver(event)" ondrop="onDrop(event, 'pdf')">
+                <div class="upload-icon">📄</div>
+                <p class="font-semibold">Click or drag a PDF file here</p>
+                <p class="text-sm text-muted mt-1">Supported: .pdf</p>
+                <p id="pdf-filename" class="text-sm mt-2" style="color:var(--primary)"></p>
+              </div>
+              <input type="file" id="pdf-file" accept=".pdf" class="hidden" onchange="onFileSelect('pdf')">
+            </div>
+
+            <!-- DOCX tab -->
+            <div id="tab-docx" class="tab-panel">
+              <div class="upload-zone" id="docx-zone" onclick="document.getElementById('docx-file').click()"
+                ondragover="onDragOver(event)" ondrop="onDrop(event, 'docx')">
+                <div class="upload-icon">📝</div>
+                <p class="font-semibold">Click or drag a Word document here</p>
+                <p class="text-sm text-muted mt-1">Supported: .docx</p>
+                <p id="docx-filename" class="text-sm mt-2" style="color:var(--primary)"></p>
+              </div>
+              <input type="file" id="docx-file" accept=".docx" class="hidden" onchange="onFileSelect('docx')">
+            </div>
+          </div>
+
+          <div id="gen-alert" class="alert alert-error hidden"></div>
+          <div id="gen-success" class="alert alert-success hidden"></div>
+
+          <div class="flex gap-3 items-center">
+            <button class="btn btn-primary btn-lg" id="generate-btn" onclick="generate()">
+              🤖 Generate Questions
+            </button>
+            <div class="spinner spinner-dark hidden" id="gen-spinner"></div>
+            <span id="gen-status" class="text-sm text-muted"></span>
+          </div>
+
+          <!-- Preview generated questions -->
+          <div id="preview-section" class="hidden mt-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-bold" style="font-size:1rem">Generated Questions Preview</h2>
+              <span class="badge badge-success" id="gen-count"></span>
+            </div>
+            <div id="preview-list"></div>
+            <div class="flex gap-2 mt-4">
+              <a id="view-quiz-btn" href="#" class="btn btn-primary">View Quiz</a>
+              <button class="btn btn-secondary" onclick="resetGenerate()">Generate Another</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Course Modal -->
+  <div class="modal-overlay hidden" id="course-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Create New Course</h3>
+        <button class="modal-close" onclick="closeCourseModal()">&times;</button>
+      </div>
+      <div id="course-modal-alert" class="alert alert-error hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Course Name <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="new-course-name" class="form-control" placeholder="e.g. Biology 101">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description (optional)</label>
+        <textarea id="new-course-desc" class="form-control" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary w-full" onclick="createCourse()">Create Course</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/ai-generate.js"></script>
+</body>
+</html>

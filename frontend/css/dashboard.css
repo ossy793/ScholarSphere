@@ -1,0 +1,88 @@
+/* ── Dashboard ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow);
+}
+
+.stat-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.stat-icon.purple  { background: #ede9fe; }
+.stat-icon.blue    { background: #dbeafe; }
+.stat-icon.green   { background: #d1fae5; }
+.stat-icon.orange  { background: #fef3c7; }
+
+.stat-info h3 { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1; }
+.stat-info p  { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Quick action cards */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.action-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  box-shadow: var(--shadow);
+}
+
+.action-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: inherit;
+}
+
+.action-card-icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.action-card-icon.purple { background: #ede9fe; }
+.action-card-icon.teal   { background: #ccfbf1; }
+.action-card-icon.green  { background: #d1fae5; }
+.action-card-icon.orange { background: #fef3c7; }
+
+.action-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.action-card p  { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .stats-grid, .action-grid { grid-template-columns: 1fr; }
+}

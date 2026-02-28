@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Performance – ScholarSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Performance Analysis</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <!-- Overview stats -->
+        <div class="stats-grid mb-6" id="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon purple">🎯</div>
+            <div class="stat-info"><h3 id="s-attempts">–</h3><p>Total Attempts</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">📈</div>
+            <div class="stat-info"><h3 id="s-avg">–</h3><p>Avg. Score</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon blue">📚</div>
+            <div class="stat-info"><h3 id="s-courses">–</h3><p>Courses</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">🏆</div>
+            <div class="stat-info"><h3 id="s-best" style="font-size:0.9rem;font-weight:700">–</h3><p>Best Course</p></div>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="grid-2 mb-6">
+          <!-- Score trend -->
+          <div class="card">
+            <h2 class="card-title">Score Trend (Last 20 Attempts)</h2>
+            <div id="trend-empty" class="empty-state hidden" style="padding:30px 0">
+              <p>No attempts yet. Take a quiz to see your trend.</p>
+            </div>
+            <canvas id="trend-chart" height="200"></canvas>
+          </div>
+
+          <!-- Per-course bar -->
+          <div class="card">
+            <h2 class="card-title">Avg. Score by Course</h2>
+            <div id="course-empty" class="empty-state hidden" style="padding:30px 0">
+              <p>No data yet.</p>
+            </div>
+            <canvas id="course-chart" height="200"></canvas>
+          </div>
+        </div>
+
+        <!-- Attempt history table -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title" style="margin-bottom:0">Attempt History</h2>
+            <select id="filter-course" class="form-control" style="max-width:200px" onchange="loadAttempts()">
+              <option value="">All Courses</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Quiz</th>
+                  <th>Mode</th>
+                  <th>Score</th>
+                  <th>Correct</th>
+                  <th>Time</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="attempt-table"></tbody>
+            </table>
+            <div id="attempt-empty" class="empty-state hidden" style="padding:30px 0">
+              <p>No attempts yet.</p>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/performance.js"></script>
+</body>
+</html>
