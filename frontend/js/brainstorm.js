@@ -456,7 +456,7 @@ window.changeDocument = function () {
 function enableChat() {
   const input = document.getElementById('chat-input');
   input.disabled    = false;
-  input.placeholder = 'Ask anything about the document… (Enter to send)';
+  input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
   document.getElementById('send-btn').disabled = false;
   input.focus();
 }
@@ -464,7 +464,7 @@ function enableChat() {
 function disableChat() {
   const input = document.getElementById('chat-input');
   input.disabled    = true;
-  input.placeholder = 'Upload a file or paste text to start chatting…';
+  input.placeholder = 'Upload a document to start chatting with UrPadi…';
   document.getElementById('send-btn').disabled = true;
 }
 
@@ -479,7 +479,7 @@ window.clearChat = function (showEmpty = true) {
     container.innerHTML = `
       <div class="chat-empty" id="chat-empty">
         <div class="empty-icon">🧠</div>
-        <h3>${documentContext ? 'Document loaded!' : 'Ready to Brainstorm'}</h3>
+        <h3>${documentContext ? 'UrPadi is ready!' : 'Meet UrPadi'}</h3>
         <p>${msg}</p>
       </div>`;
   } else {
@@ -533,7 +533,7 @@ function appendBubble(role, content) {
   const el   = document.createElement('div');
   el.className = `msg ${role}`;
   el.innerHTML = `
-    <div class="msg-avatar">${role === 'user' ? _initials : 'AI'}</div>
+    <div class="msg-avatar">${role === 'user' ? _initials : 'UP'}</div>
     <div class="msg-bubble">${html}</div>`;
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
@@ -545,7 +545,7 @@ function showTyping() {
   el.className = 'msg assistant';
   el.id = id;
   el.innerHTML = `
-    <div class="msg-avatar">AI</div>
+    <div class="msg-avatar">UP</div>
     <div class="msg-bubble">
       <div class="typing-indicator"><span></span><span></span><span></span></div>
     </div>`;
@@ -586,6 +586,14 @@ window.startResize = function (e) {
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
+};
+
+// ── Chat panel collapse / restore ────────────────────────────────────────────
+window.toggleChatPanel = function () {
+  const layout     = document.getElementById('bs-layout');
+  const restoreBtn = document.getElementById('chat-restore-btn');
+  const isCollapsed = layout.classList.toggle('chat-collapsed');
+  restoreBtn.classList.toggle('visible', isCollapsed);
 };
 
 // ── History panel ─────────────────────────────────────────────────────────────

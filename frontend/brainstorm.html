@@ -19,14 +19,22 @@
 
     /* ── Document panel ── */
     .doc-panel {
-      width: 45%;
-      min-width: 280px;
-      max-width: 640px;
+      width: 60%;
+      min-width: 320px;
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       background: #f8fafc;
+      flex-shrink: 0;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    /* When chat is collapsed, doc panel fills everything */
+    .bs-layout.chat-collapsed .doc-panel {
+      width: 100% !important;
+      flex: 1;
+      border-right: none;
+    }
+    .bs-layout.chat-collapsed .resize-bar { display: none; }
 
     .panel-head {
       padding: 10px 16px;
@@ -208,11 +216,77 @@
 
     /* ── Chat panel ── */
     .chat-panel {
-      flex: 1;
+      width: 40%;
+      min-width: 260px;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
       background: var(--bg);
-      min-width: 0;
+      overflow: hidden;
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                  min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.25s ease;
+    }
+    .bs-layout.chat-collapsed .chat-panel {
+      width: 0 !important;
+      min-width: 0 !important;
+      opacity: 0;
+    }
+
+    /* ── Collapse button (inside chat header) ── */
+    .chat-collapse-btn {
+      width: 28px; height: 28px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .chat-collapse-btn:hover {
+      background: rgba(0,119,255,0.06);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .chat-collapse-btn svg { width: 14px; height: 14px; }
+
+    /* ── Floating restore button ── */
+    .chat-restore-btn {
+      position: fixed;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 500;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 12px 0 0 12px;
+      cursor: pointer;
+      padding: 22px 10px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      box-shadow: -3px 0 18px rgba(0,119,255,0.35);
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .chat-restore-btn.visible { display: flex; animation: slideInRight 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .chat-restore-btn:hover { background: var(--primary-dark); box-shadow: -4px 0 22px rgba(0,119,255,0.45); }
+    .chat-restore-btn svg { width: 18px; height: 18px; }
+    .chat-restore-btn-label {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(100%) translateY(-50%); }
+      to   { transform: translateX(0)    translateY(-50%); }
     }
 
     .chat-messages {
@@ -251,7 +325,7 @@
       flex-shrink: 0;
     }
     .msg.user      .msg-avatar { background: var(--primary); color: #fff; }
-    .msg.assistant .msg-avatar { background: #818cf8; color: #fff; }
+    .msg.assistant .msg-avatar { background: linear-gradient(135deg, #0077FF, #00C8FF); color: #fff; }
 
     .msg-bubble {
       max-width: 78%;
@@ -453,6 +527,66 @@
       outline: none;
       color: var(--text);
     }
+
+    /* ── Mobile responsive ── */
+    @media (max-width: 768px) {
+      .bs-layout { flex-direction: column; }
+
+      .doc-panel {
+        width: 100% !important;
+        min-width: 0;
+        height: 42vh;
+        flex-shrink: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .bs-layout.chat-collapsed .doc-panel {
+        height: calc(100vh - var(--header-h));
+        flex: 1;
+      }
+
+      .chat-panel {
+        width: 100% !important;
+        min-width: 0;
+        flex: 1;
+        transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+        min-height: 0;
+      }
+      .bs-layout.chat-collapsed .chat-panel {
+        height: 0 !important;
+        flex: 0 !important;
+        min-height: 0 !important;
+        width: 100% !important;
+        opacity: 0;
+      }
+
+      .resize-bar { display: none !important; }
+
+      /* FAB on mobile */
+      .chat-restore-btn {
+        right: 16px;
+        bottom: 24px;
+        top: auto;
+        transform: none;
+        border-radius: 50%;
+        width: 52px; height: 52px;
+        padding: 0;
+        justify-content: center;
+        align-items: center;
+      }
+      .chat-restore-btn.visible { animation: fadeInUp 0.3s ease; }
+      .chat-restore-btn-label { display: none; }
+      .chat-restore-btn svg { width: 22px; height: 22px; }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .chat-input-bar { padding: 10px 12px; }
+      .chat-messages { padding: 14px 14px; }
+      .doc-upload-area { padding: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -530,7 +664,7 @@
                 <div class="paste-panel">
                   <textarea id="paste-textarea"
                     placeholder="Paste your notes, lecture content, article text, or any study material here…"></textarea>
-                  <p class="paste-hint">The AI will use this text as context for your brainstorm session.</p>
+                  <p class="paste-hint">UrPadi will use this text as context for your brainstorm session.</p>
                   <button class="btn btn-primary" onclick="submitPastedText()">
                     Use This Text →
                   </button>
@@ -569,7 +703,7 @@
           <div class="resize-bar" id="resize-bar"
             onmousedown="startResize(event)" title="Drag to resize"></div>
 
-          <!-- ── Right: Chat Panel ── -->
+          <!-- ── Right: UrPadi Chat Panel ── -->
           <div class="chat-panel" id="chat-panel">
 
             <div class="panel-head">
@@ -578,22 +712,31 @@
                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
                 </svg>
-                Chat
+                UrPadi
               </div>
-              <button class="btn btn-secondary btn-sm" onclick="clearChat()">Clear Chat</button>
+              <div style="display:flex;align-items:center;gap:7px">
+                <button class="btn btn-secondary btn-sm" onclick="clearChat()">Clear Chat</button>
+                <button class="chat-collapse-btn" id="chat-collapse-btn"
+                  onclick="toggleChatPanel()" title="Collapse UrPadi">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div class="chat-messages" id="chat-messages">
               <div class="chat-empty" id="chat-empty">
                 <div class="empty-icon">🧠</div>
-                <h3>Ready to Brainstorm</h3>
-                <p>Upload a file or paste text on the left, then ask anything about it.</p>
+                <h3>Meet UrPadi</h3>
+                <p>Upload a file or paste text on the left, then ask UrPadi anything about it.</p>
               </div>
             </div>
 
             <div class="chat-input-bar">
               <textarea id="chat-input" rows="1"
-                placeholder="Upload a document to start chatting…"
+                placeholder="Upload a document to start chatting with UrPadi…"
                 disabled onkeydown="onInputKeydown(event)"
                 oninput="autoResize(this)"></textarea>
               <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Send (Enter)">
@@ -607,6 +750,16 @@
 
           </div>
         </div>
+
+        <!-- Floating UrPadi restore button (shown when chat panel is collapsed) -->
+        <button class="chat-restore-btn" id="chat-restore-btn"
+          onclick="toggleChatPanel()" title="Open UrPadi">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span class="chat-restore-btn-label">UrPadi</span>
+        </button>
       </main>
     </div>
   </div>
