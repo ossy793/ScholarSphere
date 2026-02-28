@@ -143,9 +143,7 @@ async function _bsRestore() {
       if (buf) {
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
-        scroll.style.height = '100%';
-        scroll.innerHTML = `<iframe src="${currentBlobUrl}#toolbar=1&navpanes=0"
-          title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+        _renderPdfInScroll(scroll, currentBlobUrl, ctx);
       } else {
         scroll.style.height = '';
         scroll.innerHTML = `${pdfRestoredNotice()}<pre class="txt-render">${escHtml(ctx)}</pre>`;
@@ -318,6 +316,39 @@ async function handleFile(file) {
   }
 }
 
+// ── Mobile PDF helper ────────────────────────────────────────────────────────
+// Mobile browsers can't embed PDFs in iframes — show extracted text + open link instead.
+function _isMobile() {
+  return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function _renderPdfInScroll(scroll, blobUrl, extractedText) {
+  if (_isMobile()) {
+    scroll.style.height = '';
+    scroll.innerHTML = `
+      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          style="width:15px;height:15px;color:var(--primary);flex-shrink:0">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span style="font-size:0.78rem;color:var(--text-muted);flex:1">PDF text extracted for UrPadi</span>
+        <a href="${blobUrl}" target="_blank" rel="noopener"
+           style="padding:5px 12px;background:var(--primary);color:#fff;border-radius:6px;
+                  font-size:0.78rem;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0;">
+          Open PDF ↗
+        </a>
+      </div>
+      <pre class="txt-render">${escHtml(extractedText)}</pre>`;
+  } else {
+    scroll.style.height = '100%';
+    scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
+      title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+  }
+}
+
 // ── PDF ───────────────────────────────────────────────────────────────────────
 async function handlePdf(file) {
   if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
@@ -330,15 +361,31 @@ async function handlePdf(file) {
 
   const scroll = document.getElementById('doc-viewer-scroll');
   scroll.style.padding = '0';
-  scroll.style.height  = '100%';
-  scroll.innerHTML = `<iframe src="${currentBlobUrl}#toolbar=1&navpanes=0"
-    title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+
+  if (_isMobile()) {
+    // Mobile: show loading spinner while extracting text (iframe doesn't work on mobile)
+    scroll.style.height = '';
+    scroll.innerHTML = `
+      <div style="padding:40px;text-align:center;color:var(--text-muted)">
+        <div class="spinner spinner-dark" style="margin:0 auto 14px"></div>
+        <p style="font-size:0.85rem">Extracting text from PDF…</p>
+      </div>`;
+  } else {
+    scroll.style.height = '100%';
+    scroll.innerHTML = `<iframe src="${currentBlobUrl}#toolbar=1&navpanes=0"
+      title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+  }
 
   // Combined endpoint: extract text + create session + persist file bytes on backend
   const formData = new FormData();
   formData.append('file', file);
   const res = await api.postForm('/brainstorm/sessions/from-file', formData);
   documentContext = res.text;
+
+  // On mobile, replace loading state with extracted text view
+  if (_isMobile()) {
+    _renderPdfInScroll(scroll, currentBlobUrl, documentContext);
+  }
 
   // Session is now created — store its ID and cache bytes under the session key too
   currentSessionId = res.id;
@@ -708,9 +755,7 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
       if (buf) {
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
-        scroll.style.height = '100%';
-        scroll.innerHTML = `<iframe src="${currentBlobUrl}#toolbar=1&navpanes=0"
-          title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+        _renderPdfInScroll(scroll, currentBlobUrl, documentContext);
       } else {
         scroll.style.height = '';
         scroll.innerHTML = `${pdfRestoredNotice()}<pre class="txt-render">${escHtml(documentContext)}</pre>`;
