@@ -484,10 +484,42 @@ tr:hover td { background: #f8fafc; }
 
 @media (max-width: 640px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); }
   .main-content { margin-left: 0; }
+  .header-menu-btn { display: flex; }
+  .sidebar-expand-btn { display: none !important; }
+  .top-header { padding: 0 14px; gap: 8px; }
+  .top-header h1 { font-size: 1rem; }
+  .page-body { padding: 16px; }
+  .user-badge span { display: none; }  /* hide name, show avatar only */
 }
+
+/* ── Mobile hamburger button (shown in top-header on mobile) ── */
+.header-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.header-menu-btn:hover { background: var(--bg); color: var(--text); }
+.header-menu-btn svg { width: 22px; height: 22px; display: block; }
+
+/* ── Sidebar overlay (mobile) ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 99;
+}
+body.sidebar-open .sidebar-overlay { display: block; }
+body.sidebar-open .sidebar { transform: translateX(0) !important; }
 
 /* ── File upload zone ── */
 .upload-zone {

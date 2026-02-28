@@ -80,7 +80,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   _injectNotifBell(basePath);
   _loadUnreadCount();
 
-  // ── Inject floating expand button (once per page) ──
+  // ── Inject floating expand button (desktop only) ──
   if (!document.getElementById('sidebar-expand-btn')) {
     const expandBtn = document.createElement('button');
     expandBtn.id        = 'sidebar-expand-btn';
@@ -91,8 +91,31 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     document.body.appendChild(expandBtn);
   }
 
-  // ── Apply saved sidebar state ──
-  if (localStorage.getItem('ossyquiz_nav_collapsed') === '1') {
+  // ── Inject hamburger into top-header (mobile) ──
+  const headerEl = document.querySelector('.top-header');
+  if (headerEl && !document.getElementById('header-menu-btn')) {
+    const menuBtn = document.createElement('button');
+    menuBtn.id        = 'header-menu-btn';
+    menuBtn.className = 'header-menu-btn';
+    menuBtn.title     = 'Open menu';
+    menuBtn.setAttribute('onclick', 'toggleSidebar()');
+    menuBtn.innerHTML = svgMenu();
+    headerEl.insertBefore(menuBtn, headerEl.firstChild);
+  }
+
+  // ── Inject sidebar overlay (mobile) ──
+  if (!document.getElementById('sidebar-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'sidebar-overlay';
+    overlay.className = 'sidebar-overlay';
+    overlay.addEventListener('click', () => {
+      document.body.classList.remove('sidebar-open');
+    });
+    document.body.appendChild(overlay);
+  }
+
+  // ── Apply saved sidebar state (desktop only) ──
+  if (window.innerWidth > 640 && localStorage.getItem('ossyquiz_nav_collapsed') === '1') {
     document.body.classList.add('nav-collapsed');
   }
 
@@ -102,8 +125,12 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   };
 
   window.toggleSidebar = function () {
-    const collapsed = document.body.classList.toggle('nav-collapsed');
-    localStorage.setItem('ossyquiz_nav_collapsed', collapsed ? '1' : '0');
+    if (window.innerWidth <= 640) {
+      document.body.classList.toggle('sidebar-open');
+    } else {
+      const collapsed = document.body.classList.toggle('nav-collapsed');
+      localStorage.setItem('ossyquiz_nav_collapsed', collapsed ? '1' : '0');
+    }
   };
 }
 
@@ -210,6 +237,17 @@ function _injectNotifBell(basePath) {
     .notif-item-msg { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
     .notif-item-time { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
     .notif-empty { padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+    @media (max-width: 640px) {
+      #notif-panel {
+        position: fixed;
+        top: var(--header-h);
+        right: 0; left: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0 0 14px 14px;
+        max-height: 60vh;
+      }
+    }
   `;
   document.head.appendChild(style);
 
