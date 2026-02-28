@@ -278,6 +278,20 @@
       .steps::before { display: none; }
       .hero-cta { flex-direction: column; align-items: center; }
     }
+
+    /* ── Mobile nav button fix ── */
+    @media (max-width: 540px) {
+      .nav { padding: 0 14px; }
+      .nav-cta { gap: 6px; }
+      .nav-cta .btn { padding: 7px 12px; font-size: 0.8rem; white-space: nowrap; }
+    }
+    /* On very small screens, hide the logo wordmark to free up space */
+    @media (max-width: 390px) {
+      .nav-logo-wordmark { display: none; }
+      .nav-logo { gap: 0; }
+      .nav-cta .btn-ghost { padding: 7px 10px; }
+      .nav-cta .btn-primary { padding: 7px 11px; }
+    }
   </style>
 </head>
 <body>
@@ -299,7 +313,7 @@
           </defs>
         </svg>
       </div>
-      ScholarSphere
+      <span class="nav-logo-wordmark">ScholarSphere</span>
     </a>
     <ul class="nav-links">
       <li><a href="#pillars">Features</a></li>
@@ -615,7 +629,7 @@
     });
 
     // Live stats from API
-    const API_BASE = 'http://localhost:8000';
+    const API_BASE = 'https://scholarsphere-n277.onrender.com';
     async function loadStats() {
       const qEl = document.getElementById('stat-questions');
       const uEl = document.getElementById('stat-users');
