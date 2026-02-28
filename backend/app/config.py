@@ -19,14 +19,23 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_DAYS: int = 30
 
     # CORS — allowed frontend origins
-    ALLOWED_ORIGINS: list[str] = [
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-        "http://localhost:5501",
-        "http://127.0.0.1:5501",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+    # Add your deployed frontend URL here or via EXTRA_ORIGINS env var
+    EXTRA_ORIGINS: str = ""   # comma-separated list set in Render env vars
+
+    @property
+    def ALLOWED_ORIGINS(self) -> list[str]:
+        base = [
+            "http://localhost:5500",
+            "http://127.0.0.1:5500",
+            "http://localhost:5501",
+            "http://127.0.0.1:5501",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+        if self.EXTRA_ORIGINS:
+            extra = [o.strip() for o in self.EXTRA_ORIGINS.split(",") if o.strip()]
+            base.extend(extra)
+        return base
 
     # Email (SMTP) — used for promo code delivery
     SMTP_HOST:     str = "smtp.gmail.com"
