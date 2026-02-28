@@ -1,5 +1,5 @@
 /* ── OssyQuiz API Client ── */
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = "https://scholarsphere-n277.onrender.com/api";
 
 export function getToken() {
   return localStorage.getItem('ossyquiz_token');
