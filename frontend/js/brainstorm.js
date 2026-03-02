@@ -317,36 +317,107 @@ async function handleFile(file) {
 }
 
 // ── Mobile PDF helper ────────────────────────────────────────────────────────
-// Mobile browsers can't embed PDFs in iframes — show extracted text + open link instead.
+// Mobile browsers can't embed PDFs in iframes — use PDF.js to render pages as canvases.
 function _isMobile() {
   return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
 function _renderPdfInScroll(scroll, blobUrl, extractedText) {
-  if (_isMobile()) {
-    scroll.style.height = '';
-    scroll.innerHTML = `
-      <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
-                  display:flex;align-items:center;gap:10px;flex-shrink:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-          style="width:15px;height:15px;color:var(--primary);flex-shrink:0">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-        <span style="font-size:0.78rem;color:var(--text-muted);flex:1">PDF text extracted for UrPadi</span>
-        <a href="${blobUrl}" target="_blank" rel="noopener"
-           style="padding:5px 12px;background:var(--primary);color:#fff;border-radius:6px;
-                  font-size:0.78rem;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0;">
-          Open PDF ↗
-        </a>
-      </div>
-      <pre class="txt-render">${escHtml(extractedText)}</pre>`;
-  } else {
+  scroll.style.padding = '0';
+  if (!_isMobile()) {
+    // Desktop: native iframe PDF viewer
     scroll.style.height = '100%';
     scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
       title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+    return;
   }
+
+  // Mobile: render via PDF.js if available
+  if (typeof pdfjsLib !== 'undefined') {
+    scroll.style.height = '';
+    scroll.innerHTML = `
+      <div style="padding:40px;text-align:center;color:var(--text-muted)">
+        <div class="spinner spinner-dark" style="margin:0 auto 14px"></div>
+        <p style="font-size:0.85rem">Rendering PDF pages…</p>
+      </div>`;
+    _renderPdfPages(scroll, blobUrl, extractedText);
+  } else {
+    _renderPdfTextFallback(scroll, blobUrl, extractedText);
+  }
+}
+
+async function _renderPdfPages(scroll, blobUrl, extractedText) {
+  const PAGE_LIMIT = 30;
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+    const pdf       = await pdfjsLib.getDocument(blobUrl).promise;
+    const total     = pdf.numPages;
+    const toRender  = Math.min(total, PAGE_LIMIT);
+    const panelW    = scroll.clientWidth || 360;
+
+    scroll.innerHTML = '';
+    scroll.style.background = '#888';
+    scroll.style.overflowY  = 'auto';
+    scroll.style.padding    = '8px 6px';
+
+    for (let i = 1; i <= toRender; i++) {
+      const page     = await pdf.getPage(i);
+      const baseVp   = page.getViewport({ scale: 1 });
+      const scale    = (panelW - 12) / baseVp.width;
+      const viewport = page.getViewport({ scale });
+
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'margin-bottom:8px;border-radius:4px;overflow:hidden;' +
+                              'box-shadow:0 1px 6px rgba(0,0,0,.25)';
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.cssText = 'display:block;width:100%;background:#fff';
+
+      wrapper.appendChild(canvas);
+      scroll.appendChild(wrapper);
+
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    }
+
+    if (total > PAGE_LIMIT) {
+      const notice = document.createElement('div');
+      notice.style.cssText = 'text-align:center;padding:14px;font-size:.8rem;color:#f0f0f0';
+      notice.innerHTML = `Showing first ${PAGE_LIMIT} of ${total} pages &nbsp;·&nbsp; ` +
+        `<a href="${blobUrl}" target="_blank" rel="noopener" ` +
+        `style="color:#90caf9;font-weight:600">Open full PDF ↗</a>`;
+      scroll.appendChild(notice);
+    }
+  } catch {
+    // PDF.js failed — fall back to extracted text
+    scroll.style.background = '';
+    scroll.style.padding    = '0';
+    _renderPdfTextFallback(scroll, blobUrl, extractedText);
+  }
+}
+
+function _renderPdfTextFallback(scroll, blobUrl, extractedText) {
+  scroll.style.height = '';
+  scroll.innerHTML = `
+    <div style="padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);
+                display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        style="width:15px;height:15px;color:var(--primary);flex-shrink:0">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <span style="font-size:0.78rem;color:var(--text-muted);flex:1">PDF text extracted for UrPadi</span>
+      <a href="${blobUrl}" target="_blank" rel="noopener"
+         style="padding:5px 12px;background:var(--primary);color:#fff;border-radius:6px;
+                font-size:0.78rem;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0;">
+        Open PDF ↗
+      </a>
+    </div>
+    <pre class="txt-render">${escHtml(extractedText)}</pre>`;
 }
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
