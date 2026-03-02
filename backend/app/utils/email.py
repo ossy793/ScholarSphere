@@ -1,9 +1,10 @@
 """
 Email Utility
 -------------
-Production:  Resend API  (HTTP — works on Render, no SMTP ports needed)
-             Set RESEND_API_KEY in Render environment variables.
-Local dev:   SMTP fallback via Gmail (set SMTP_USER + SMTP_PASSWORD in .env)
+Production:  Brevo API   (HTTP — no domain verification needed, just verify sender email)
+             Set BREVO_API_KEY + BREVO_SENDER_EMAIL in Render environment variables.
+Fallback:    Resend API  (requires verified domain at resend.com/domains)
+Local dev:   SMTP via Gmail (set SMTP_USER + SMTP_PASSWORD in .env)
 """
 
 import smtplib
@@ -54,6 +55,27 @@ def _html_body(code: str) -> str:
 """
 
 
+def _send_via_brevo(to_email: str, code: str) -> None:
+    """Send via Brevo HTTP API — no domain needed, just a verified sender email."""
+    import requests
+    resp = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "accept": "application/json",
+            "api-key": settings.BREVO_API_KEY,
+            "content-type": "application/json",
+        },
+        json={
+            "sender": {"name": "Pistis", "email": settings.BREVO_SENDER_EMAIL},
+            "to": [{"email": to_email}],
+            "subject": "Your Pistis Premium Access Code",
+            "htmlContent": _html_body(code),
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+
 def _send_via_resend(to_email: str, code: str) -> None:
     """Send via Resend HTTP API — works on Render (no SMTP port restrictions)."""
     import resend
@@ -90,10 +112,11 @@ def _send_via_smtp(to_email: str, code: str) -> None:
 def send_promo_email(to_email: str, code: str) -> None:
     """
     Send the promo activation code.
-    Uses Resend API when RESEND_API_KEY is set (production),
-    otherwise falls back to SMTP (local dev).
+    Priority: Brevo (no domain needed) → Resend (domain needed) → SMTP (local dev).
     """
-    if settings.RESEND_API_KEY:
+    if settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL:
+        _send_via_brevo(to_email, code)
+    elif settings.RESEND_API_KEY:
         _send_via_resend(to_email, code)
     else:
         _send_via_smtp(to_email, code)

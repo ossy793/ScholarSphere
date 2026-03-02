@@ -38,7 +38,11 @@ class Settings(BaseSettings):
             base.extend(extra)
         return base
 
-    # Email — Resend API (production / Render)
+    # Email — Brevo API (production / Render) — no domain verification needed
+    BREVO_API_KEY:      str = ""
+    BREVO_SENDER_EMAIL: str = ""   # Must be a verified sender in Brevo dashboard
+
+    # Email — Resend API (production / Render) — requires verified domain
     RESEND_API_KEY: str = ""
     RESEND_FROM:    str = "Pistis <onboarding@resend.dev>"
 
