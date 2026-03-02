@@ -17,6 +17,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.course import Course
@@ -34,15 +35,17 @@ from ..schemas.attempt import AttemptCreate, AttemptSubmit, AttemptResponse
 #  Helpers
 # ──────────────────────────────────────────────
 
-def _quiz_to_response(quiz: Quiz, db: Session) -> QuizResponse:
-    question_count = db.query(Question).filter(Question.quiz_id == quiz.id).count()
+def _quiz_to_response(quiz: Quiz, db: Session, question_count: int = None) -> QuizResponse:
+    if question_count is None:
+        question_count = db.query(func.count(Question.id)).filter(Question.quiz_id == quiz.id).scalar() or 0
     resp = QuizResponse.model_validate(quiz)
     resp.question_count = question_count
     return resp
 
 
-def _course_to_response(course: Course, db: Session) -> CourseResponse:
-    quiz_count = db.query(Quiz).filter(Quiz.course_id == course.id).count()
+def _course_to_response(course: Course, db: Session, quiz_count: int = None) -> CourseResponse:
+    if quiz_count is None:
+        quiz_count = db.query(func.count(Quiz.id)).filter(Quiz.course_id == course.id).scalar() or 0
     resp = CourseResponse.model_validate(course)
     resp.quiz_count = quiz_count
     return resp
@@ -77,7 +80,17 @@ def list_courses(user_id, db: Session) -> List[CourseResponse]:
         .order_by(Course.created_at.desc())
         .all()
     )
-    return [_course_to_response(c, db) for c in courses]
+    if not courses:
+        return []
+    # Batch count quizzes per course in one query
+    course_ids = [c.id for c in courses]
+    counts = dict(
+        db.query(Quiz.course_id, func.count(Quiz.id))
+        .filter(Quiz.course_id.in_(course_ids))
+        .group_by(Quiz.course_id)
+        .all()
+    )
+    return [_course_to_response(c, db, quiz_count=counts.get(c.id, 0)) for c in courses]
 
 
 def create_course(payload: CourseCreate, user_id, db: Session) -> CourseResponse:
@@ -123,7 +136,17 @@ def list_quizzes(user_id, db: Session, course_id: Optional[UUID] = None) -> List
     if course_id:
         q = q.filter(Quiz.course_id == course_id)
     quizzes = q.order_by(Quiz.created_at.desc()).all()
-    return [_quiz_to_response(quiz, db) for quiz in quizzes]
+    if not quizzes:
+        return []
+    # Batch count questions per quiz in one query
+    quiz_ids = [quiz.id for quiz in quizzes]
+    counts = dict(
+        db.query(Question.quiz_id, func.count(Question.id))
+        .filter(Question.quiz_id.in_(quiz_ids))
+        .group_by(Question.quiz_id)
+        .all()
+    )
+    return [_quiz_to_response(quiz, db, question_count=counts.get(quiz.id, 0)) for quiz in quizzes]
 
 
 def create_quiz(payload: QuizCreate, user_id, db: Session) -> QuizResponse:

@@ -136,17 +136,12 @@ window.loadAttempts = async function() {
 
     empty.classList.add('hidden');
 
-    // Load quiz titles for display (cache by id)
-    const quizCache = {};
-    for (const a of attempts) {
-      if (!quizCache[a.quiz_id]) {
-        try {
-          quizCache[a.quiz_id] = await api.get(`/quizzes/${a.quiz_id}`);
-        } catch {
-          quizCache[a.quiz_id] = { title: 'Unknown Quiz' };
-        }
-      }
-    }
+    // Load all unique quiz titles in parallel (not sequentially)
+    const uniqueIds = [...new Set(attempts.map(a => a.quiz_id))];
+    const quizResults = await Promise.all(
+      uniqueIds.map(id => api.get(`/quizzes/${id}`).catch(() => ({ id, title: 'Unknown Quiz' })))
+    );
+    const quizCache = Object.fromEntries(quizResults.map(q => [q.id, q]));
 
     tbody.innerHTML = attempts.map(a => {
       const quiz   = quizCache[a.quiz_id] || {};

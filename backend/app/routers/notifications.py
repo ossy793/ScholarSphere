@@ -37,15 +37,19 @@ def _get_user_notifications(user_id, db: Session):
     )
 
 
-def _is_read(notif: Notification, user_id, db: Session) -> bool:
-    return (
-        db.query(NotificationRead)
+def _get_read_ids(user_id, notif_ids: list, db: Session) -> set:
+    """Return the set of notification IDs already read by this user — single query."""
+    if not notif_ids:
+        return set()
+    rows = (
+        db.query(NotificationRead.notification_id)
         .filter(
-            NotificationRead.notification_id == notif.id,
             NotificationRead.user_id == user_id,
+            NotificationRead.notification_id.in_(notif_ids),
         )
-        .first()
-    ) is not None
+        .all()
+    )
+    return {r.notification_id for r in rows}
 
 
 @router.get("")
@@ -54,17 +58,18 @@ def list_notifications(
     db: Session = Depends(get_db),
 ):
     notifs = _get_user_notifications(current_user.id, db)
-    result = []
-    for n in notifs:
-        result.append({
-            "id":         str(n.id),
-            "title":      n.title,
-            "message":    n.message,
-            "is_read":    _is_read(n, current_user.id, db),
-            "created_at": n.created_at.isoformat(),
+    read_ids = _get_read_ids(current_user.id, [n.id for n in notifs], db)
+    return [
+        {
+            "id":           str(n.id),
+            "title":        n.title,
+            "message":      n.message,
+            "is_read":      n.id in read_ids,
+            "created_at":   n.created_at.isoformat(),
             "is_broadcast": n.target_user_id is None,
-        })
-    return result
+        }
+        for n in notifs
+    ]
 
 
 @router.get("/unread-count")
@@ -73,8 +78,8 @@ def unread_count(
     db: Session = Depends(get_db),
 ):
     notifs = _get_user_notifications(current_user.id, db)
-    count = sum(1 for n in notifs if not _is_read(n, current_user.id, db))
-    return {"unread": count}
+    read_ids = _get_read_ids(current_user.id, [n.id for n in notifs], db)
+    return {"unread": sum(1 for n in notifs if n.id not in read_ids)}
 
 
 @router.patch("/read-all", status_code=status.HTTP_200_OK)
@@ -83,10 +88,15 @@ def mark_all_read(
     db: Session = Depends(get_db),
 ):
     notifs = _get_user_notifications(current_user.id, db)
-    for n in notifs:
-        if not _is_read(n, current_user.id, db):
-            db.add(NotificationRead(notification_id=n.id, user_id=current_user.id))
-    db.commit()
+    read_ids = _get_read_ids(current_user.id, [n.id for n in notifs], db)
+    new_reads = [
+        NotificationRead(notification_id=n.id, user_id=current_user.id)
+        for n in notifs
+        if n.id not in read_ids
+    ]
+    if new_reads:
+        db.add_all(new_reads)
+        db.commit()
     return {"message": "All notifications marked as read."}
 
 
@@ -101,7 +111,8 @@ def mark_read(
         raise HTTPException(status_code=404, detail="Notification not found")
     if n.target_user_id and n.target_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your notification")
-    if not _is_read(n, current_user.id, db):
+    already_read = _get_read_ids(current_user.id, [notification_id], db)
+    if notification_id not in already_read:
         db.add(NotificationRead(notification_id=n.id, user_id=current_user.id))
         db.commit()
     return {"message": "Marked as read."}
