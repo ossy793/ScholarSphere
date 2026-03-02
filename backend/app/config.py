@@ -38,9 +38,14 @@ class Settings(BaseSettings):
             base.extend(extra)
         return base
 
+    # Email — Mailjet API (production / Render) — free 6k/month, no domain needed
+    MAILJET_API_KEY:      str = ""
+    MAILJET_API_SECRET:   str = ""
+    MAILJET_SENDER_EMAIL: str = ""   # Must be a verified sender in Mailjet dashboard
+
     # Email — Brevo API (production / Render) — no domain verification needed
     BREVO_API_KEY:      str = ""
-    BREVO_SENDER_EMAIL: str = ""   # Must be a verified sender in Brevo dashboard
+    BREVO_SENDER_EMAIL: str = ""
 
     # Email — Resend API (production / Render) — requires verified domain
     RESEND_API_KEY: str = ""

@@ -1,9 +1,9 @@
 """
 Email Utility
 -------------
-Production:  Brevo API   (HTTP — no domain verification needed, just verify sender email)
-             Set BREVO_API_KEY + BREVO_SENDER_EMAIL in Render environment variables.
-Fallback:    Resend API  (requires verified domain at resend.com/domains)
+Production:  Mailjet API (HTTP — free 6k/month, just verify sender email, no domain needed)
+             Set MAILJET_API_KEY + MAILJET_API_SECRET + MAILJET_SENDER_EMAIL in Render.
+Fallback:    Brevo API / Resend API
 Local dev:   SMTP via Gmail (set SMTP_USER + SMTP_PASSWORD in .env)
 """
 
@@ -53,6 +53,25 @@ def _html_body(code: str) -> str:
 </body>
 </html>
 """
+
+
+def _send_via_mailjet(to_email: str, code: str) -> None:
+    """Send via Mailjet — free 6,000 emails/month, only sender email verification needed."""
+    import requests
+    resp = requests.post(
+        "https://api.mailjet.com/v3.1/send",
+        auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+        json={
+            "Messages": [{
+                "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pistis"},
+                "To":   [{"Email": to_email}],
+                "Subject":  "Your Pistis Premium Access Code",
+                "HTMLPart": _html_body(code),
+            }]
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
 
 
 def _send_via_brevo(to_email: str, code: str) -> None:
@@ -112,9 +131,11 @@ def _send_via_smtp(to_email: str, code: str) -> None:
 def send_promo_email(to_email: str, code: str) -> None:
     """
     Send the promo activation code.
-    Priority: Brevo (no domain needed) → Resend (domain needed) → SMTP (local dev).
+    Priority: Mailjet → Brevo → Resend → SMTP (local dev).
     """
-    if settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL:
+    if settings.MAILJET_API_KEY and settings.MAILJET_API_SECRET:
+        _send_via_mailjet(to_email, code)
+    elif settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL:
         _send_via_brevo(to_email, code)
     elif settings.RESEND_API_KEY:
         _send_via_resend(to_email, code)
