@@ -286,8 +286,8 @@ async function handleFile(file) {
   errEl.classList.add('hidden');
 
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-  if (!['.pdf', '.docx', '.txt'].includes(ext)) {
-    errEl.textContent = 'Unsupported file. Please upload a PDF, DOCX, or TXT file.';
+  if (!['.pdf', '.docx', '.pptx', '.txt'].includes(ext)) {
+    errEl.textContent = 'Unsupported file. Please upload a PDF, DOCX, PPTX, or TXT file.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -298,6 +298,7 @@ async function handleFile(file) {
   try {
     if (ext === '.pdf')  await handlePdf(file);
     if (ext === '.docx') await handleDocx(file);
+    if (ext === '.pptx') await handlePptx(file);
     if (ext === '.txt')  await handleTxt(file);
 
     const extLabel = ext.slice(1).toUpperCase();
@@ -546,6 +547,22 @@ async function handleTxt(file) {
     : text;
 }
 
+// ── PPTX ──────────────────────────────────────────────────────────────────────
+async function handlePptx(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await api.postForm('/brainstorm/sessions/from-file', formData);
+  documentContext = res.text;
+
+  const scroll = document.getElementById('doc-viewer-scroll');
+  scroll.style.padding = '0';
+  scroll.style.height  = '';
+  scroll.innerHTML = `<pre class="txt-render">${escHtml(res.text)}</pre>`;
+
+  currentSessionId = res.id;
+  localStorage.setItem('ossyquiz_bs_session_id', currentSessionId);
+}
+
 // ── UI helpers ────────────────────────────────────────────────────────────────
 function setLoadingState(filename) {
   document.getElementById('upload-zone').innerHTML = `
@@ -560,7 +577,7 @@ function resetUploadZone() {
     <div class="upload-icon">📄</div>
     <h3>Upload your material</h3>
     <p>Drop a file here or click to browse</p>
-    <p class="text-xs" style="margin-bottom:16px">PDF · DOCX · TXT</p>
+    <p class="text-xs" style="margin-bottom:16px">PDF · DOCX · PPTX · TXT</p>
     <button class="btn btn-primary btn-sm"
       onclick="event.stopPropagation();document.getElementById('file-input').click()">
       Choose File

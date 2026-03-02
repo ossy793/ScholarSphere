@@ -164,7 +164,7 @@ window.generate = async function() {
       form.append('file', file);
       quiz = await api.postForm('/generate/from-pdf', form);
 
-    } else {
+    } else if (activeTab === 'docx') {
       const file = document.getElementById('docx-file').files[0];
       if (!file) throw new Error('Please select a DOCX file.');
       const form = new FormData();
@@ -174,6 +174,17 @@ window.generate = async function() {
       form.append('question_types', questionTypes.join(','));
       form.append('file', file);
       quiz = await api.postForm('/generate/from-docx', form);
+
+    } else {
+      const file = document.getElementById('pptx-file').files[0];
+      if (!file) throw new Error('Please select a PowerPoint file.');
+      const form = new FormData();
+      form.append('course_id', courseId);
+      form.append('quiz_title', title);
+      form.append('num_questions', String(numQ));
+      form.append('question_types', questionTypes.join(','));
+      form.append('file', file);
+      quiz = await api.postForm('/generate/from-pptx', form);
     }
 
     // Load questions for preview

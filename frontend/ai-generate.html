@@ -133,6 +133,7 @@
               <button class="tab-btn active" onclick="switchTab('text', this)">Paste Text</button>
               <button class="tab-btn" onclick="switchTab('pdf', this)">Upload PDF</button>
               <button class="tab-btn" onclick="switchTab('docx', this)">Upload Word (.docx)</button>
+              <button class="tab-btn" onclick="switchTab('pptx', this)">Upload PowerPoint</button>
             </div>
 
             <!-- Text tab -->
@@ -167,6 +168,18 @@
                 <p id="docx-filename" class="text-sm mt-2" style="color:var(--primary)"></p>
               </div>
               <input type="file" id="docx-file" accept=".docx" class="hidden" onchange="onFileSelect('docx')">
+            </div>
+
+            <!-- PPTX tab -->
+            <div id="tab-pptx" class="tab-panel">
+              <div class="upload-zone" id="pptx-zone" onclick="document.getElementById('pptx-file').click()"
+                ondragover="onDragOver(event)" ondrop="onDrop(event, 'pptx')">
+                <div class="upload-icon">📊</div>
+                <p class="font-semibold">Click or drag a PowerPoint file here</p>
+                <p class="text-sm text-muted mt-1">Supported: .pptx</p>
+                <p id="pptx-filename" class="text-sm mt-2" style="color:var(--primary)"></p>
+              </div>
+              <input type="file" id="pptx-file" accept=".pptx" class="hidden" onchange="onFileSelect('pptx')">
             </div>
           </div>
 

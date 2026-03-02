@@ -11,7 +11,7 @@ from ..database import get_db
 from ..models.user import User
 from ..models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument
 from ..utils.security import get_current_user
-from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, truncate_text
+from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, truncate_text
 from ..services.ai_service import get_groq_client
 
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
@@ -229,6 +229,13 @@ async def create_session_from_file(
             raise HTTPException(status_code=422, detail=str(e))
         file_type = "docx"
 
+    elif fname.endswith(".pptx"):
+        try:
+            text = extract_text_from_pptx(file_bytes)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        file_type = "pptx"
+
     elif fname.endswith(".txt"):
         text = file_bytes.decode("utf-8", errors="replace")
         if not text.strip():
@@ -238,7 +245,7 @@ async def create_session_from_file(
     else:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file type. Please upload a PDF, DOCX, or TXT file.",
+            detail="Unsupported file type. Please upload a PDF, DOCX, PPTX, or TXT file.",
         )
 
     text = truncate_text(text, max_chars=12000)
@@ -289,6 +296,7 @@ def get_session_file(
     content_types = {
         "pdf":  "application/pdf",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "txt":  "text/plain; charset=utf-8",
     }
     media_type = content_types.get(s.document.file_type, "application/octet-stream")
@@ -323,6 +331,12 @@ async def upload_document(
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
+    elif fname.endswith(".pptx"):
+        try:
+            text = extract_text_from_pptx(file_bytes)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
     elif fname.endswith(".txt"):
         text = file_bytes.decode("utf-8", errors="replace")
         if not text.strip():
@@ -331,7 +345,7 @@ async def upload_document(
     else:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file type. Please upload a PDF, DOCX, or TXT file.",
+            detail="Unsupported file type. Please upload a PDF, DOCX, PPTX, or TXT file.",
         )
 
     text = truncate_text(text, max_chars=12000)

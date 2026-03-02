@@ -145,6 +145,35 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
         raise ValueError(f"Failed to parse DOCX: {str(e)}")
 
 
+def extract_text_from_pptx(file_bytes: bytes) -> str:
+    """Extract text content from a PPTX (PowerPoint) file."""
+    try:
+        from pptx import Presentation
+        prs = Presentation(io.BytesIO(file_bytes))
+        parts = []
+        for slide in prs.slides:
+            slide_parts = []
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for para in shape.text_frame.paragraphs:
+                        line = " ".join(run.text for run in para.runs if run.text.strip())
+                        if line.strip():
+                            slide_parts.append(line.strip())
+            if slide_parts:
+                parts.append("\n".join(slide_parts))
+        text = "\n\n".join(parts).strip()
+        if not text:
+            raise ValueError(
+                "This PowerPoint file contains no extractable text. "
+                "Please ensure the presentation has readable text content."
+            )
+        return text
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to parse PPTX: {str(e)}")
+
+
 def truncate_text(text: str, max_chars: int = 8000) -> str:
     """Truncate text to avoid exceeding LLM context limits."""
     if len(text) <= max_chars:

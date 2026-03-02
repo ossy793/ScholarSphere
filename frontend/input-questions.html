@@ -123,7 +123,7 @@
                 <!-- File upload bar -->
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
                   <button type="button" class="btn btn-outline btn-sm" onclick="triggerFileInput()">
-                    📎 Upload File (PDF · DOCX · TXT)
+                    📎 Upload File (PDF · DOCX · PPTX · TXT)
                   </button>
                   <span id="file-badge" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
                     <span id="file-name-label"></span>
@@ -138,7 +138,7 @@
                 <textarea id="content-textarea" class="form-control" rows="13"
                   placeholder="Paste your content here. For example:&#10;&#10;1. What is the capital of France?&#10;2. The sun is the centre of our solar system. True or False?&#10;3. Explain the process of photosynthesis.&#10;4. Which of the following is Newton's second law?&#10;   a) F = ma  b) E = mc²  c) V = IR  d) PV = nRT&#10;&#10;The AI will extract every question and generate a complete quiz automatically."></textarea>
 
-                <input type="file" id="content-file-input" accept=".pdf,.docx,.txt"
+                <input type="file" id="content-file-input" accept=".pdf,.docx,.pptx,.txt"
                   style="display:none" onchange="handleContentFileInput(event)">
               </div>
             </div>

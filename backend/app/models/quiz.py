@@ -12,6 +12,7 @@ class SourceType(str, enum.Enum):
     ai_text = "ai_text"
     ai_pdf = "ai_pdf"
     ai_docx = "ai_docx"
+    ai_pptx = "ai_pptx"
 
 
 class Quiz(Base):

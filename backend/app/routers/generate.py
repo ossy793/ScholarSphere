@@ -9,7 +9,7 @@ from ..models.user import User
 from ..schemas.quiz import QuizResponse
 from ..services import quiz_service
 from ..services.ai_service import generate_questions, generate_options_for_questions, parse_and_generate_from_content
-from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, truncate_text
+from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, truncate_text
 from ..utils.security import get_current_user
 
 router = APIRouter(prefix="/generate", tags=["generate"])
@@ -150,4 +150,30 @@ async def generate_from_docx(
     return quiz_service.save_generated_quiz(
         db, current_user.id, course_id,
         quiz_title, SourceType.ai_docx, raw_questions,
+    )
+
+
+@router.post("/from-pptx", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
+async def generate_from_pptx(
+    course_id: UUID = Form(...),
+    quiz_title: str = Form(...),
+    num_questions: int = Form(10),
+    question_types: str = Form("mcq,short_answer,essay"),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not file.filename.lower().endswith(".pptx"):
+        raise HTTPException(status_code=400, detail="Only PPTX files are accepted")
+
+    file_bytes = await file.read()
+    try:
+        text = extract_text_from_pptx(file_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    raw_questions = _run_ai(text, num_questions, _parse_types(question_types))
+    return quiz_service.save_generated_quiz(
+        db, current_user.id, course_id,
+        quiz_title, SourceType.ai_pptx, raw_questions,
     )

@@ -145,8 +145,8 @@ window.handleContentFileInput = async function (e) {
   alertEl.classList.add('hidden');
 
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-  if (!['.pdf', '.docx', '.txt'].includes(ext)) {
-    showAlert(alertEl, 'Unsupported file. Please upload a PDF, DOCX, or TXT file.');
+  if (!['.pdf', '.docx', '.pptx', '.txt'].includes(ext)) {
+    showAlert(alertEl, 'Unsupported file. Please upload a PDF, DOCX, PPTX, or TXT file.');
     return;
   }
 
@@ -160,8 +160,8 @@ window.handleContentFileInput = async function (e) {
       text = await readTextFile(file);
     } else if (ext === '.docx') {
       text = await readDocxFile(file);
-    } else if (ext === '.pdf') {
-      text = await uploadPdfForText(file);
+    } else if (ext === '.pdf' || ext === '.pptx') {
+      text = await uploadFileForText(file);
     }
 
     if (!text.trim()) {
@@ -203,7 +203,7 @@ async function readDocxFile(file) {
   return text;
 }
 
-async function uploadPdfForText(file) {
+async function uploadFileForText(file) {
   const formData = new FormData();
   formData.append('file', file);
   const res = await api.postForm('/brainstorm/upload', formData);
