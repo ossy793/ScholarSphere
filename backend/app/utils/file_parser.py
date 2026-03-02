@@ -114,15 +114,9 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
         return text
 
     raise ValueError(
-        "This PDF contains no extractable text and OCR also failed. "
-        "Possible causes:\n"
-        "• The PDF is image-based and Tesseract/Poppler are not installed.\n"
-        "• The images are too low-resolution for OCR.\n"
-        "Solutions:\n"
-        "1. Install Tesseract (https://github.com/UB-Mannheim/tesseract/wiki) "
-        "and Poppler (https://github.com/oschwartz10612/poppler-windows/releases), "
-        "then restart the server.\n"
-        "2. Or paste the text manually using the Text tab."
+        "This PDF appears to be a scanned image — it contains no selectable text. "
+        "Please use a PDF with embedded/selectable text, or switch to the "
+        "'Paste Text' tab and paste the content manually."
     )
 
 
