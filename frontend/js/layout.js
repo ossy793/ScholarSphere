@@ -179,6 +179,10 @@ function svgBell() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>`;
 }
 
+function svgHomeOutline() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+}
+
 // ── Notification Bell ────────────────────────────────────────────────────────
 
 function _injectNotifBell(basePath) {
@@ -255,6 +259,27 @@ function _injectNotifBell(basePath) {
   const header = document.querySelector('.top-header');
   if (!header) return;
 
+  // Home button
+  const homeBtn = document.createElement('a');
+  homeBtn.id        = 'header-home-btn';
+  homeBtn.href      = basePath + 'landing.html';
+  homeBtn.title     = 'Go to Homepage';
+  homeBtn.innerHTML = svgHomeOutline();
+  homeBtn.style.cssText = `
+    background:none; border:none; cursor:pointer;
+    color:var(--text-muted); padding:6px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    transition:background 0.15s, color 0.15s; text-decoration:none;
+  `;
+  homeBtn.addEventListener('mouseenter', () => {
+    homeBtn.style.background = 'rgba(0,119,255,0.08)';
+    homeBtn.style.color = 'var(--primary)';
+  });
+  homeBtn.addEventListener('mouseleave', () => {
+    homeBtn.style.background = 'none';
+    homeBtn.style.color = 'var(--text-muted)';
+  });
+
   const bellWrap = document.createElement('div');
   bellWrap.className = 'notif-bell-wrap';
   bellWrap.innerHTML = `
@@ -273,11 +298,13 @@ function _injectNotifBell(basePath) {
     </div>
   `;
 
-  // Insert before user-badge
+  // Insert home btn + bell before user-badge
   const userBadge = header.querySelector('.user-badge');
   if (userBadge) {
+    userBadge.parentNode.insertBefore(homeBtn, userBadge);
     userBadge.parentNode.insertBefore(bellWrap, userBadge);
   } else {
+    header.appendChild(homeBtn);
     header.appendChild(bellWrap);
   }
 
