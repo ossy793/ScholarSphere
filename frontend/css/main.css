@@ -578,3 +578,25 @@ body.sidebar-open .sidebar { transform: translateX(0) !important; }
   font-weight: 700;
   color: var(--primary);
 }
+
+/* ── Upload / Generation Progress Bar ──────────────────────────────────────── */
+.progress-track {
+  background: var(--border);
+  border-radius: 99px;
+  height: 8px;
+  overflow: hidden;
+  width: 100%;
+  margin: 6px 0;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: 99px;
+  transition: width 0.3s ease;
+  min-width: 4px;
+}
+.progress-pct {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}

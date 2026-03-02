@@ -203,10 +203,49 @@ async function readDocxFile(file) {
   return text;
 }
 
+// ── Progress helpers ──────────────────────────────────────────────────────────
+function _iqFileProgress(pct, label) {
+  const fill  = document.getElementById('iq-file-progress-fill');
+  const pctEl = document.getElementById('iq-file-pct');
+  const lbl   = document.getElementById('iq-file-label');
+  if (fill)  fill.style.width  = Math.max(4, Math.min(100, Math.round(pct))) + '%';
+  if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+  if (lbl && label) lbl.textContent = label;
+}
+
+function _iqSimProgress(from, to, durationMs, cb) {
+  const interval = 80;
+  const steps    = Math.ceil(durationMs / interval);
+  let   step     = 0;
+  const id = setInterval(() => {
+    step = Math.min(step + 1, steps);
+    const eased = 1 - Math.pow(1 - step / steps, 2.5);
+    cb(Math.round(from + (to - from) * eased));
+    if (step >= steps) clearInterval(id);
+  }, interval);
+  return id;
+}
+
 async function uploadFileForText(file) {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await api.postForm('/brainstorm/upload', formData);
+
+  _iqFileProgress(4, 'Uploading…');
+  let simTimer = null;
+
+  const res = await api.postFormProgress('/brainstorm/upload', formData, {
+    onProgress: (r) => {
+      if (!simTimer) _iqFileProgress(r * 40, 'Uploading…');
+    },
+    onUploadComplete: () => {
+      simTimer = _iqSimProgress(40, 90, 10000, (p) => {
+        _iqFileProgress(p, p < 65 ? 'Extracting text…' : 'Processing…');
+      });
+    },
+  });
+
+  if (simTimer) clearInterval(simTimer);
+  _iqFileProgress(100, 'Done!');
   return res.text;
 }
 
@@ -218,12 +257,34 @@ window.analyzeAndGenerate = async function () {
 
   if (!content) return showAlert(alertEl, 'Please paste some content or upload a file first.');
 
-  const btn = document.getElementById('analyze-btn');
+  const btn      = document.getElementById('analyze-btn');
+  const progWrap = document.getElementById('iq-analyze-progress-wrap');
+  const progFill = document.getElementById('iq-analyze-progress-fill');
+  const progLbl  = document.getElementById('iq-analyze-progress-label');
+  const progPct  = document.getElementById('iq-analyze-progress-pct');
+
+  const setAnalyzeProgress = (pct, msg) => {
+    progFill.style.width  = Math.max(4, Math.min(100, Math.round(pct))) + '%';
+    progLbl.textContent   = msg;
+    progPct.textContent   = Math.round(pct) + '%';
+  };
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  progWrap.classList.remove('hidden');
+  setAnalyzeProgress(4, 'Sending content…');
+
+  const simTimer = _iqSimProgress(4, 88, 12000, (p) => {
+    const msg = p < 35 ? `Sending content… ${p}%`
+              : p < 65 ? `Detecting questions… ${p}%`
+              : `Generating answers… ${p}%`;
+    setAnalyzeProgress(p, msg);
+  });
 
   try {
     const generated = await api.post('/generate/parse', { content });
+    clearInterval(simTimer);
+    setAnalyzeProgress(100, 'Done!');
 
     if (!Array.isArray(generated) || generated.length === 0) {
       showAlert(alertEl, 'AI could not detect any questions in the content. Please check the input and try again.');
@@ -248,10 +309,12 @@ window.analyzeAndGenerate = async function () {
     showReviewSection(items);
     _iqSave();
   } catch (err) {
+    clearInterval(simTimer);
     showAlert(alertEl, `Analysis failed: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '✨ Analyze &amp; Generate Quiz';
+    setTimeout(() => progWrap.classList.add('hidden'), 1500);
   }
 };
 

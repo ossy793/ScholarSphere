@@ -194,6 +194,17 @@
             <span id="gen-status" class="text-sm text-muted"></span>
           </div>
 
+          <!-- Generation progress bar -->
+          <div id="gen-progress-wrap" class="hidden" style="margin-top:12px">
+            <div class="progress-track">
+              <div id="gen-progress-fill" class="progress-fill" style="width:0%"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px">
+              <span id="gen-progress-label" class="progress-pct"></span>
+              <span id="gen-progress-pct" class="progress-pct" style="font-weight:600;color:var(--primary)"></span>
+            </div>
+          </div>
+
           <!-- Preview generated questions -->
           <div id="preview-section" class="hidden mt-6">
             <div class="flex items-center justify-between mb-4">

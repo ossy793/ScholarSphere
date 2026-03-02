@@ -130,8 +130,15 @@
                     <button type="button" onclick="clearUploadedFile()"
                       style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1rem;line-height:1;padding:0">×</button>
                   </span>
-                  <span id="file-reading" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
-                    <span class="spinner spinner-dark"></span> Reading file…
+                  <span id="file-reading" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
+                    <span style="display:flex;align-items:center;gap:6px">
+                      <span class="spinner spinner-dark"></span>
+                      <span id="iq-file-label">Reading file…</span>
+                      <span id="iq-file-pct" style="font-weight:600;color:var(--primary)"></span>
+                    </span>
+                    <div class="progress-track" style="width:100%;margin:2px 0 0">
+                      <div id="iq-file-progress-fill" class="progress-fill" style="width:4%"></div>
+                    </div>
                   </span>
                 </div>
 
@@ -153,6 +160,16 @@
                 </span>
               </div>
               <div id="parse-alert" class="alert alert-error hidden" style="margin-top:14px;margin-bottom:0"></div>
+              <!-- Analyze progress bar -->
+              <div id="iq-analyze-progress-wrap" class="hidden" style="margin-top:12px">
+                <div class="progress-track">
+                  <div id="iq-analyze-progress-fill" class="progress-fill" style="width:0%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:3px">
+                  <span id="iq-analyze-progress-label" class="progress-pct"></span>
+                  <span id="iq-analyze-progress-pct" class="progress-pct" style="font-weight:600;color:var(--primary)"></span>
+                </div>
+              </div>
             </div>
           </div>
 

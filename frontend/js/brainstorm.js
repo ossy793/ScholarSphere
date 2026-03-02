@@ -480,10 +480,37 @@ async function handlePdf(file) {
       title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
   }
 
-  // Combined endpoint: extract text + create session + persist file bytes on backend
+  // Use XHR so we can track real upload progress (0→40%), then simulate
+  // server-side processing (40→85%) while waiting for the response.
   const formData = new FormData();
   formData.append('file', file);
-  const res = await api.postForm('/brainstorm/sessions/from-file', formData);
+
+  _bsProgress(4, 'Preparing upload…');
+  let simTimer = null;
+
+  const res = await api.postFormProgress(
+    '/brainstorm/sessions/from-file',
+    formData,
+    {
+      onProgress: (ratio) => {
+        if (simTimer) return;
+        const pct = Math.round(ratio * 40);
+        _bsProgress(pct, `Uploading… ${pct}%`);
+      },
+      onUploadComplete: () => {
+        simTimer = _simProgress(40, 85, 14000, (p) => {
+          const label = p < 55 ? `Extracting text… ${p}%`
+                      : p < 72 ? `Running OCR… ${p}%`
+                      : `Processing… ${p}%`;
+          _bsProgress(p, label);
+        });
+      },
+    }
+  );
+
+  if (simTimer) clearInterval(simTimer);
+  _bsProgress(100, 'Document ready! ✓');
+
   documentContext = res.text || '';
 
   // On mobile, replace loading state with extracted text view
@@ -520,12 +547,31 @@ async function handleDocx(file) {
   if (text.length > 12000) text = text.slice(0, 12000) + '\n... [content truncated]';
   documentContext = text;
 
-  // Combined endpoint: persist file bytes on backend and create session
+  // Upload with progress tracking (0→40% upload, 40→90% saving session)
   const formData = new FormData();
   formData.append('file', file);
-  const res = await api.postForm('/brainstorm/sessions/from-file', formData);
-  // Use mammoth's extraction for AI context (consistent with what's displayed)
-  // The session is now created — store its ID and cache bytes in IDB
+
+  _bsProgress(5, 'Preparing upload…');
+  let simTimer = null;
+
+  const res = await api.postFormProgress(
+    '/brainstorm/sessions/from-file',
+    formData,
+    {
+      onProgress: (ratio) => {
+        if (simTimer) return;
+        const pct = Math.round(5 + ratio * 60);
+        _bsProgress(pct, `Uploading… ${pct}%`);
+      },
+      onUploadComplete: () => {
+        simTimer = _simProgress(65, 90, 4000, (p) => _bsProgress(p, `Saving session… ${p}%`));
+      },
+    }
+  );
+
+  if (simTimer) clearInterval(simTimer);
+  _bsProgress(100, 'Document ready! ✓');
+
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
   await _IDB.save(currentSessionId, arrayBuffer).catch(() => {});
@@ -556,7 +602,28 @@ async function handleTxt(file) {
 async function handlePptx(file) {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await api.postForm('/brainstorm/sessions/from-file', formData);
+
+  _bsProgress(4, 'Preparing upload…');
+  let simTimer = null;
+
+  const res = await api.postFormProgress(
+    '/brainstorm/sessions/from-file',
+    formData,
+    {
+      onProgress: (ratio) => {
+        if (simTimer) return;
+        const pct = Math.round(ratio * 40);
+        _bsProgress(pct, `Uploading… ${pct}%`);
+      },
+      onUploadComplete: () => {
+        simTimer = _simProgress(40, 85, 8000, (p) => _bsProgress(p, `Extracting slides… ${p}%`));
+      },
+    }
+  );
+
+  if (simTimer) clearInterval(simTimer);
+  _bsProgress(100, 'Document ready! ✓');
+
   documentContext = res.text;
 
   const scroll = document.getElementById('doc-viewer-scroll');
@@ -568,13 +635,38 @@ async function handlePptx(file) {
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
 }
 
+// ── Progress helpers ──────────────────────────────────────────────────────────
+function _bsProgress(pct, label) {
+  const fill = document.getElementById('bs-progress-fill');
+  const lbl  = document.getElementById('bs-progress-label');
+  if (fill) fill.style.width = Math.max(4, Math.min(100, Math.round(pct))) + '%';
+  if (lbl && label) lbl.textContent = label;
+}
+
+// Smooth simulated progress from `from` to `to` over `durationMs`.
+// Returns a timer ID — call clearInterval(id) to stop it early.
+function _simProgress(from, to, durationMs, cb) {
+  const interval = 80;
+  const steps    = Math.ceil(durationMs / interval);
+  let   step     = 0;
+  const id = setInterval(() => {
+    step = Math.min(step + 1, steps);
+    const eased = 1 - Math.pow(1 - step / steps, 2.5); // ease-out cubic
+    cb(Math.round(from + (to - from) * eased));
+    if (step >= steps) clearInterval(id);
+  }, interval);
+  return id;
+}
+
 // ── UI helpers ────────────────────────────────────────────────────────────────
 function setLoadingState(filename) {
   document.getElementById('upload-zone').innerHTML = `
-    <div class="upload-icon">⏳</div>
-    <h3>Loading ${escHtml(filename)}…</h3>
-    <p>Please wait</p>
-    <div style="margin-top:12px"><span class="spinner spinner-dark"></span></div>`;
+    <div class="upload-icon">📄</div>
+    <p style="font-weight:600;font-size:0.9rem;margin-bottom:4px">${escHtml(filename)}</p>
+    <div class="progress-track" style="width:85%;margin:8px auto 4px">
+      <div id="bs-progress-fill" class="progress-fill" style="width:4%"></div>
+    </div>
+    <p id="bs-progress-label" class="progress-pct" style="text-align:center">Preparing…</p>`;
 }
 
 function resetUploadZone() {

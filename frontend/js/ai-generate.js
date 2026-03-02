@@ -133,13 +133,41 @@ window.generate = async function() {
     return;
   }
 
-  const btn = document.getElementById('generate-btn');
+  const btn     = document.getElementById('generate-btn');
   const spinner = document.getElementById('gen-spinner');
-  const status = document.getElementById('gen-status');
+  const status  = document.getElementById('gen-status');
+  const wrap    = document.getElementById('gen-progress-wrap');
+  const fill    = document.getElementById('gen-progress-fill');
+  const label   = document.getElementById('gen-progress-label');
+  const pctEl   = document.getElementById('gen-progress-pct');
+
+  // Show progress bar
+  const setProgress = (pct, msg) => {
+    fill.style.width  = Math.max(4, Math.min(100, Math.round(pct))) + '%';
+    label.textContent = msg;
+    pctEl.textContent = Math.round(pct) + '%';
+  };
+
+  const simProgress = (from, to, durationMs, cb) => {
+    const interval = 80;
+    const steps    = Math.ceil(durationMs / interval);
+    let   step     = 0;
+    const id = setInterval(() => {
+      step = Math.min(step + 1, steps);
+      const eased = 1 - Math.pow(1 - step / steps, 2.5);
+      cb(Math.round(from + (to - from) * eased));
+      if (step >= steps) clearInterval(id);
+    }, interval);
+    return id;
+  };
 
   btn.disabled = true;
   spinner.classList.remove('hidden');
-  status.textContent = 'Generating questions with AI…';
+  status.textContent = '';
+  wrap.classList.remove('hidden');
+  setProgress(2, 'Starting…');
+
+  let simTimer = null;
 
   try {
     let quiz;
@@ -147,6 +175,12 @@ window.generate = async function() {
     if (activeTab === 'text') {
       const content = document.getElementById('text-content').value.trim();
       if (!content) throw new Error('Please paste some content first.');
+      simTimer = simProgress(2, 85, 12000, (p) => {
+        const msg = p < 40 ? `Sending content… ${p}%`
+                  : p < 75 ? `Generating questions… ${p}%`
+                  : `Finalizing… ${p}%`;
+        setProgress(p, msg);
+      });
       quiz = await api.post('/generate/from-text', {
         course_id: courseId, quiz_title: title,
         content, num_questions: numQ,
@@ -162,7 +196,18 @@ window.generate = async function() {
       form.append('num_questions', String(numQ));
       form.append('question_types', questionTypes.join(','));
       form.append('file', file);
-      quiz = await api.postForm('/generate/from-pdf', form);
+      setProgress(4, 'Preparing upload…');
+      quiz = await api.postFormProgress('/generate/from-pdf', form, {
+        onProgress: (r) => { if (!simTimer) setProgress(r * 35, `Uploading… ${Math.round(r * 35)}%`); },
+        onUploadComplete: () => {
+          simTimer = simProgress(35, 88, 18000, (p) => {
+            const msg = p < 55 ? `Reading PDF… ${p}%`
+                      : p < 75 ? `Generating questions… ${p}%`
+                      : `Finalizing… ${p}%`;
+            setProgress(p, msg);
+          });
+        },
+      });
 
     } else if (activeTab === 'docx') {
       const file = document.getElementById('docx-file').files[0];
@@ -173,7 +218,18 @@ window.generate = async function() {
       form.append('num_questions', String(numQ));
       form.append('question_types', questionTypes.join(','));
       form.append('file', file);
-      quiz = await api.postForm('/generate/from-docx', form);
+      setProgress(4, 'Preparing upload…');
+      quiz = await api.postFormProgress('/generate/from-docx', form, {
+        onProgress: (r) => { if (!simTimer) setProgress(r * 35, `Uploading… ${Math.round(r * 35)}%`); },
+        onUploadComplete: () => {
+          simTimer = simProgress(35, 88, 14000, (p) => {
+            const msg = p < 55 ? `Reading document… ${p}%`
+                      : p < 75 ? `Generating questions… ${p}%`
+                      : `Finalizing… ${p}%`;
+            setProgress(p, msg);
+          });
+        },
+      });
 
     } else {
       const file = document.getElementById('pptx-file').files[0];
@@ -184,11 +240,26 @@ window.generate = async function() {
       form.append('num_questions', String(numQ));
       form.append('question_types', questionTypes.join(','));
       form.append('file', file);
-      quiz = await api.postForm('/generate/from-pptx', form);
+      setProgress(4, 'Preparing upload…');
+      quiz = await api.postFormProgress('/generate/from-pptx', form, {
+        onProgress: (r) => { if (!simTimer) setProgress(r * 35, `Uploading… ${Math.round(r * 35)}%`); },
+        onUploadComplete: () => {
+          simTimer = simProgress(35, 88, 12000, (p) => {
+            const msg = p < 55 ? `Reading slides… ${p}%`
+                      : p < 75 ? `Generating questions… ${p}%`
+                      : `Finalizing… ${p}%`;
+            setProgress(p, msg);
+          });
+        },
+      });
     }
+
+    if (simTimer) { clearInterval(simTimer); simTimer = null; }
+    setProgress(95, 'Saving quiz…');
 
     // Load questions for preview
     const questions = await api.get(`/quizzes/${quiz.id}/questions`);
+    setProgress(100, 'Done!');
     renderPreview(quiz, questions);
     successEl.textContent = `Quiz "${quiz.title}" created with ${questions.length} questions!`;
     successEl.classList.remove('hidden');
@@ -197,9 +268,12 @@ window.generate = async function() {
     alertEl.textContent = err.message;
     alertEl.classList.remove('hidden');
   } finally {
+    if (simTimer) clearInterval(simTimer);
     btn.disabled = false;
     spinner.classList.add('hidden');
     status.textContent = '';
+    // Hide progress bar after a short delay
+    setTimeout(() => wrap.classList.add('hidden'), 1500);
   }
 };
 

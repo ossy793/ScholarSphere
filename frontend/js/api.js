@@ -105,12 +105,61 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
+// ── XHR-based form upload with real upload-progress tracking ─────────────────
+// callbacks: { onProgress(ratio 0-1), onUploadComplete() }
+function apiFetchFormWithProgress(path, form, { onProgress, onUploadComplete } = {}) {
+  return new Promise((resolve, reject) => {
+    const token = getToken();
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE_URL}${path}`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) onProgress(e.loaded / e.total);
+      });
+    }
+    if (onUploadComplete) {
+      xhr.upload.addEventListener('load', onUploadComplete);
+    }
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 401) {
+        clearToken();
+        const onAuthPage = /\/(index\.html)?$/.test(window.location.pathname) ||
+                           window.location.pathname.endsWith('/frontend/');
+        if (onAuthPage) { reject(new Error('Incorrect email or password.')); return; }
+        const base = window.location.pathname.replace(/\/frontend\/.*$/, '/frontend/');
+        window.location.href = base + 'index.html';
+        resolve(undefined);
+        return;
+      }
+      if (xhr.status === 204) { resolve(null); return; }
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        const detail = data?.detail;
+        let msg;
+        if (typeof detail === 'string') msg = detail;
+        else if (Array.isArray(detail)) msg = detail.map(e => e.msg.replace(/^Value error,\s*/i, '')).join(' · ');
+        else msg = `Error ${xhr.status}`;
+        reject(new Error(msg));
+      }
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error. Please check your connection.')));
+    xhr.send(form);
+  });
+}
+
 export const api = {
-  get:      (path)         => apiFetch(path, { method: 'GET' }),
-  post:     (path, body)   => apiFetch(path, { method: 'POST',   body: JSON.stringify(body) }),
-  put:      (path, body)   => apiFetch(path, { method: 'PUT',    body: JSON.stringify(body) }),
-  patch:    (path, body)   => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body) }),
-  del:      (path)         => apiFetch(path, { method: 'DELETE' }),
-  postForm:  (path, form)  => apiFetch(path, { method: 'POST',   body: form }),
-  getBuffer: (path)        => apiFetchBuffer(path),
+  get:              (path)            => apiFetch(path, { method: 'GET' }),
+  post:             (path, body)      => apiFetch(path, { method: 'POST',   body: JSON.stringify(body) }),
+  put:              (path, body)      => apiFetch(path, { method: 'PUT',    body: JSON.stringify(body) }),
+  patch:            (path, body)      => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body) }),
+  del:              (path)            => apiFetch(path, { method: 'DELETE' }),
+  postForm:         (path, form)      => apiFetch(path, { method: 'POST',   body: form }),
+  postFormProgress: (path, form, cbs) => apiFetchFormWithProgress(path, form, cbs || {}),
+  getBuffer:        (path)            => apiFetchBuffer(path),
 };
