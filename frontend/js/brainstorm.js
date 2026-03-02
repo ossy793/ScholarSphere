@@ -295,18 +295,17 @@ async function handleFile(file) {
   setLoadingState(file.name);
   const sessionIdBefore = currentSessionId;
 
+  let ocrWarning = null;
   try {
-    if (ext === '.pdf')  await handlePdf(file);
+    if (ext === '.pdf')  ocrWarning = await handlePdf(file);
     if (ext === '.docx') await handleDocx(file);
     if (ext === '.pptx') await handlePptx(file);
     if (ext === '.txt')  await handleTxt(file);
 
     const extLabel = ext.slice(1).toUpperCase();
     showViewerArea(file.name, extLabel, file.size);
-    enableChat();
+    enableChat(ocrWarning);
     clearChat(false);
-    // PDF and DOCX already create the session inside their handlers via the
-    // combined endpoint. Only call createSession for TXT (no file bytes needed).
     if (currentSessionId === sessionIdBefore) {
       createSession(file.name, ext.slice(1), documentContext, file.size);
     }
@@ -485,7 +484,7 @@ async function handlePdf(file) {
   const formData = new FormData();
   formData.append('file', file);
   const res = await api.postForm('/brainstorm/sessions/from-file', formData);
-  documentContext = res.text;
+  documentContext = res.text || '';
 
   // On mobile, replace loading state with extracted text view
   if (_isMobile()) {
@@ -496,6 +495,12 @@ async function handlePdf(file) {
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
   await _IDB.save(currentSessionId, arrayBuffer).catch(() => {});
+
+  // Return OCR warning if text extraction failed — caller shows warning banner
+  if (res.ocr_failed) {
+    return 'Could not extract text from this scanned PDF. The document is shown for viewing only — AI analysis is unavailable.';
+  }
+  return null;
 }
 
 // ── DOCX ──────────────────────────────────────────────────────────────────────
@@ -611,6 +616,8 @@ window.changeDocument = function () {
   document.getElementById('upload-error').classList.add('hidden');
   document.getElementById('doc-viewer-scroll').innerHTML = '';
   document.getElementById('paste-textarea').value = '';
+  const banner = document.getElementById('ocr-warning-banner');
+  if (banner) banner.remove();
   resetUploadZone();
   switchInputTab('upload');
 
@@ -621,12 +628,37 @@ window.changeDocument = function () {
 };
 
 // ── Chat enable / disable ─────────────────────────────────────────────────────
-function enableChat() {
+function enableChat(ocrWarning) {
   const input = document.getElementById('chat-input');
-  input.disabled    = false;
-  input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
-  document.getElementById('send-btn').disabled = false;
-  input.focus();
+
+  // Remove any previous OCR warning banner
+  const prev = document.getElementById('ocr-warning-banner');
+  if (prev) prev.remove();
+
+  if (ocrWarning) {
+    // Show warning above the chat — keep chat disabled since there's no text context
+    input.disabled    = true;
+    input.placeholder = 'Text extraction failed — AI chat unavailable for this document.';
+    document.getElementById('send-btn').disabled = true;
+
+    const banner = document.createElement('div');
+    banner.id = 'ocr-warning-banner';
+    banner.style.cssText =
+      'background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;' +
+      'padding:10px 14px;font-size:0.82rem;line-height:1.5;margin-bottom:10px;';
+    banner.innerHTML =
+      '<strong>⚠️ Text extraction failed</strong><br>' +
+      'This appears to be a scanned image PDF. The document is displayed above for viewing. ' +
+      'AI analysis requires extractable text — try uploading a typed/digital PDF or DOCX instead.';
+
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.parentNode.insertBefore(banner, chatMessages);
+  } else {
+    input.disabled    = false;
+    input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
 }
 
 function disableChat() {

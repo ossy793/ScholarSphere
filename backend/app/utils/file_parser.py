@@ -7,13 +7,21 @@ logger = logging.getLogger(__name__)
 
 # Candidate Tesseract executable paths — checked in order when PATH lookup fails.
 _TESSERACT_CANDIDATES = [
+    # Linux (Render / Ubuntu)
+    "/usr/bin/tesseract",
+    "/usr/local/bin/tesseract",
+    # Windows (local dev)
     r"C:\Program Files\Tesseract-OCR\tesseract.exe",
     r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
     r"C:\Tesseract-OCR\tesseract.exe",
 ]
 
-# Groq vision model used for cloud OCR when Tesseract binary is unavailable.
-_GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
+# Groq vision models tried in order — first available wins.
+_GROQ_VISION_MODELS = [
+    "meta-llama/llama-4-scout-17b-16e-instruct",   # Llama 4 Scout — best, current
+    "meta-llama/llama-4-maverick-17b-128e-instruct", # Llama 4 Maverick — fallback
+    "llama-3.2-11b-vision-preview",                  # Llama 3.2 — legacy fallback
+]
 
 
 def _find_tesseract_cmd() -> str | None:
@@ -32,7 +40,7 @@ def _render_pdf_pages(file_bytes: bytes) -> list:
     import fitz  # pymupdf
 
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — good quality/speed balance
+    mat = fitz.Matrix(3, 3)  # 3× zoom ≈ 216 DPI — better OCR quality for scanned docs
     images = []
     for page_num in range(len(doc)):
         pix = doc[page_num].get_pixmap(matrix=mat)
@@ -72,8 +80,7 @@ def _ocr_with_tesseract(page_images: list) -> str:
 def _ocr_with_groq(page_images: list) -> str:
     """
     Cloud OCR fallback: send page images to a Groq vision model.
-    Works on any server with no Tesseract binary required.
-    Capped at 10 pages to stay within rate / token limits.
+    Tries models in order of preference; capped at 10 pages.
     """
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
@@ -87,37 +94,48 @@ def _ocr_with_groq(page_images: list) -> str:
         logger.warning("Groq client init failed: %s", exc)
         return ""
 
-    parts = []
-    for i, img_bytes in enumerate(page_images[:10]):  # cap at 10 pages
-        try:
-            img_b64 = base64.b64encode(img_bytes).decode()
-            response = client.chat.completions.create(
-                model=_GROQ_VISION_MODEL,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{img_b64}"},
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                "Extract all text from this document page exactly as it appears. "
-                                "Output only the extracted text, preserving structure where possible."
-                            ),
-                        },
-                    ],
-                }],
-                max_tokens=2048,
-            )
-            text = response.choices[0].message.content.strip()
-            if text:
-                parts.append(text)
-        except Exception as exc:
-            logger.warning("Groq vision OCR failed on page %d: %s", i + 1, exc)
+    def _try_model(model: str) -> str:
+        parts = []
+        for i, img_bytes in enumerate(page_images[:10]):  # cap at 10 pages
+            try:
+                img_b64 = base64.b64encode(img_bytes).decode()
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                            },
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Extract all text from this document page exactly as it appears. "
+                                    "Output only the extracted text, preserving structure where possible."
+                                ),
+                            },
+                        ],
+                    }],
+                    max_tokens=2048,
+                )
+                text = response.choices[0].message.content.strip()
+                if text:
+                    parts.append(text)
+            except Exception as exc:
+                logger.warning("Groq vision OCR failed on page %d with %s: %s", i + 1, model, exc)
+        return "\n\n".join(parts)
 
-    return "\n\n".join(parts)
+    for model in _GROQ_VISION_MODELS:
+        try:
+            result = _try_model(model)
+            if result:
+                logger.info("Groq vision OCR succeeded with model %s", model)
+                return result
+        except Exception as exc:
+            logger.warning("Groq vision model %s failed: %s", model, exc)
+
+    return ""
 
 
 def _ocr_pdf(file_bytes: bytes) -> str:

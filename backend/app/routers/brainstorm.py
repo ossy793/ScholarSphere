@@ -215,11 +215,17 @@ async def create_session_from_file(
     fname = file.filename.lower()
     file_bytes = await file.read()
 
+    ocr_failed = False
+    ocr_error  = None
+
     if fname.endswith(".pdf"):
         try:
             text = extract_text_from_pdf(file_bytes)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            # OCR failed — still allow viewing the PDF; AI chat will be limited
+            ocr_failed = True
+            ocr_error  = str(e)
+            text       = ""
         file_type = "pdf"
 
     elif fname.endswith(".docx"):
@@ -248,7 +254,7 @@ async def create_session_from_file(
             detail="Unsupported file type. Please upload a PDF, DOCX, PPTX, or TXT file.",
         )
 
-    text = truncate_text(text, max_chars=12000)
+    text = truncate_text(text, max_chars=12000) if text else ""
 
     session = BrainstormSession(
         user_id=current_user.id,
@@ -277,6 +283,8 @@ async def create_session_from_file(
         "char_count": len(text),
         "size_bytes": len(file_bytes),
         "file_type":  file_type,
+        "ocr_failed": ocr_failed,
+        "ocr_error":  ocr_error,
     }
 
 
