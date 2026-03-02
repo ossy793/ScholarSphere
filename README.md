@@ -1,4 +1,4 @@
-# OssyQuiz
+# Pistis
 
 AI-powered quiz generation and practice platform built with FastAPI + PostgreSQL + Vanilla JS.
 
@@ -16,7 +16,7 @@ AI-powered quiz generation and practice platform built with FastAPI + PostgreSQL
 ## Project Structure
 
 ```
-OssyQuiz/
+Pistis/
 ├── backend/          FastAPI application
 │   ├── app/
 │   │   ├── models/   SQLAlchemy ORM models

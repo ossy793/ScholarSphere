@@ -54,8 +54,8 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
 
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-logo">
-      <div class="logo-icon">S</div>
-      <span class="logo-text">ScholarSphere</span>
+      <div class="logo-icon">P</div>
+      <span class="logo-text">Pistis</span>
       <button class="sidebar-toggle-btn" id="sidebar-toggle-btn"
         onclick="toggleSidebar()" title="Toggle sidebar">
         ${svgChevron()}
@@ -115,7 +115,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   }
 
   // ── Apply saved sidebar state (desktop only) ──
-  if (window.innerWidth > 640 && localStorage.getItem('ossyquiz_nav_collapsed') === '1') {
+  if (window.innerWidth > 640 && localStorage.getItem('pistis_nav_collapsed') === '1') {
     document.body.classList.add('nav-collapsed');
   }
 
@@ -129,7 +129,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
       document.body.classList.toggle('sidebar-open');
     } else {
       const collapsed = document.body.classList.toggle('nav-collapsed');
-      localStorage.setItem('ossyquiz_nav_collapsed', collapsed ? '1' : '0');
+      localStorage.setItem('pistis_nav_collapsed', collapsed ? '1' : '0');
     }
   };
 }

@@ -24,8 +24,8 @@ def _html_body(code: str) -> str:
     <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);padding:32px;text-align:center">
       <div style="width:52px;height:52px;background:#fff;border-radius:12px;
                   display:inline-flex;align-items:center;justify-content:center;
-                  font-size:26px;font-weight:900;color:#4338ca;margin-bottom:12px">O</div>
-      <h1 style="color:#fff;margin:0;font-size:1.4rem;font-weight:800">OssyQuiz Premium</h1>
+                  font-size:26px;font-weight:900;color:#4338ca;margin-bottom:12px">P</div>
+      <h1 style="color:#fff;margin:0;font-size:1.4rem;font-weight:800">Pistis Premium</h1>
     </div>
     <div style="padding:32px 36px">
       <h2 style="margin:0 0 8px;font-size:1.1rem;color:#1e1b4b">Your Activation Code</h2>
@@ -38,7 +38,7 @@ def _html_body(code: str) -> str:
                      color:#4338ca;font-family:monospace">{code}</span>
       </div>
       <p style="color:#6b7280;font-size:.85rem;margin:0 0 4px">
-        Enter this code on the OssyQuiz upgrade page along with your email address.
+        Enter this code on the Pistis upgrade page along with your email address.
       </p>
       <p style="color:#ef4444;font-size:.85rem;margin:0">
         Do not share this code with anyone.
@@ -61,7 +61,7 @@ def _send_via_resend(to_email: str, code: str) -> None:
     resend.Emails.send({
         "from":    settings.RESEND_FROM,
         "to":      [to_email],
-        "subject": "Your OssyQuiz Premium Access Code",
+        "subject": "Your Pistis Premium Access Code",
         "html":    _html_body(code),
     })
 
@@ -69,7 +69,7 @@ def _send_via_resend(to_email: str, code: str) -> None:
 def _send_via_smtp(to_email: str, code: str) -> None:
     """Send via Gmail SMTP — local development fallback."""
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your OssyQuiz Premium Access Code"
+    msg["Subject"] = "Your Pistis Premium Access Code"
     msg["From"]    = settings.SMTP_FROM
     msg["To"]      = to_email
     msg.attach(MIMEText(_html_body(code), "html"))

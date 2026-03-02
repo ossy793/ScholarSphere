@@ -177,7 +177,7 @@ def verify_promo(
     token = create_access_token(str(user.id))
 
     return {
-        "message":       "Premium activated! Welcome to OssyQuiz Premium.",
+        "message":       "Premium activated! Welcome to Pistis Premium.",
         "access_token":  token,
         "whatsapp_link": settings.WHATSAPP_GROUP_LINK,
     }
