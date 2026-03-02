@@ -8,36 +8,36 @@ let currentQuizId = null;
 let reviewItems = []; // [{ question_text, question_type, options, correct_answer, explanation }]
 
 // ── State persistence ──────────────────────────────────────────────────────────
-const _IQ_KEYS = ['pistis_iq_quiz_id','pistis_iq_step','pistis_iq_course',
-                  'pistis_iq_title','pistis_iq_desc','pistis_iq_content','pistis_iq_items'];
+const _IQ_KEYS = ['pritis_iq_quiz_id','pritis_iq_step','pritis_iq_course',
+                  'pritis_iq_title','pritis_iq_desc','pritis_iq_content','pritis_iq_items'];
 
 function _iqSave() {
   try {
     const step = !document.getElementById('review-section').classList.contains('hidden') ? 3
                : !document.getElementById('bulk-input-section').classList.contains('hidden') ? 2 : 1;
-    localStorage.setItem('pistis_iq_quiz_id', currentQuizId || '');
-    localStorage.setItem('pistis_iq_step',    String(step));
-    localStorage.setItem('pistis_iq_course',  document.getElementById('course-select')?.value || '');
-    localStorage.setItem('pistis_iq_title',   document.getElementById('quiz-title')?.value || '');
-    localStorage.setItem('pistis_iq_desc',    document.getElementById('quiz-desc')?.value || '');
-    localStorage.setItem('pistis_iq_content', document.getElementById('content-textarea')?.value || '');
-    localStorage.setItem('pistis_iq_items',   JSON.stringify(reviewItems));
+    localStorage.setItem('pritis_iq_quiz_id', currentQuizId || '');
+    localStorage.setItem('pritis_iq_step',    String(step));
+    localStorage.setItem('pritis_iq_course',  document.getElementById('course-select')?.value || '');
+    localStorage.setItem('pritis_iq_title',   document.getElementById('quiz-title')?.value || '');
+    localStorage.setItem('pritis_iq_desc',    document.getElementById('quiz-desc')?.value || '');
+    localStorage.setItem('pritis_iq_content', document.getElementById('content-textarea')?.value || '');
+    localStorage.setItem('pritis_iq_items',   JSON.stringify(reviewItems));
   } catch (e) {}
 }
 
 function _iqClear() { _IQ_KEYS.forEach(k => localStorage.removeItem(k)); }
 
 function _iqRestore() {
-  const quizId = localStorage.getItem('pistis_iq_quiz_id');
+  const quizId = localStorage.getItem('pritis_iq_quiz_id');
   if (!quizId) return;
   currentQuizId = quizId;
 
-  const step    = parseInt(localStorage.getItem('pistis_iq_step') || '1');
-  const title   = localStorage.getItem('pistis_iq_title')   || '';
-  const desc    = localStorage.getItem('pistis_iq_desc')    || '';
-  const content = localStorage.getItem('pistis_iq_content') || '';
+  const step    = parseInt(localStorage.getItem('pritis_iq_step') || '1');
+  const title   = localStorage.getItem('pritis_iq_title')   || '';
+  const desc    = localStorage.getItem('pritis_iq_desc')    || '';
+  const content = localStorage.getItem('pritis_iq_content') || '';
   let   items   = [];
-  try { items = JSON.parse(localStorage.getItem('pistis_iq_items') || '[]'); } catch {}
+  try { items = JSON.parse(localStorage.getItem('pritis_iq_items') || '[]'); } catch {}
 
   if (title)   document.getElementById('quiz-title').value = title;
   if (desc)    document.getElementById('quiz-desc').value  = desc;
@@ -69,7 +69,7 @@ async function loadCourses() {
     courses.forEach(c => {
       select.innerHTML += `<option value="${c.id}">${escHtml(c.name)}</option>`;
     });
-    const saved = localStorage.getItem('pistis_iq_course');
+    const saved = localStorage.getItem('pritis_iq_course');
     if (saved) select.value = saved;
   } catch (err) {
     console.error('Failed to load courses:', err);

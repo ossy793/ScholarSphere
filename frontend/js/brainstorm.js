@@ -17,8 +17,8 @@ const _initials = (_user?.full_name || 'U')
 
 // ── Local-storage persistence (fast restore / fallback) ───────────────────────
 const _BS_KEYS = [
-  'pistis_bs_ctx', 'pistis_bs_tab', 'pistis_bs_paste',
-  'pistis_bs_meta', 'pistis_bs_session_id',
+  'pritis_bs_ctx', 'pritis_bs_tab', 'pritis_bs_paste',
+  'pritis_bs_meta', 'pritis_bs_session_id',
 ];
 
 // ── IndexedDB — stores raw PDF bytes so the viewer survives page navigation ────
@@ -27,7 +27,7 @@ const _IDB = {
   async db() {
     if (this._db) return this._db;
     this._db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open('pistis_brainstorm', 1);
+      const req = indexedDB.open('pritis_brainstorm', 1);
       req.onupgradeneeded = e => e.target.result.createObjectStore('pdfs');
       req.onsuccess = e => resolve(e.target.result);
       req.onerror   = e => reject(e.target.error);
@@ -68,19 +68,19 @@ const _IDB = {
 function _bsSave() {
   try {
     const tab = document.getElementById('tab-paste-btn')?.classList.contains('active') ? 'paste' : 'upload';
-    localStorage.setItem('pistis_bs_ctx',        documentContext);
-    localStorage.setItem('pistis_bs_tab',        tab);
-    localStorage.setItem('pistis_bs_paste',      document.getElementById('paste-textarea')?.value || '');
-    localStorage.setItem('pistis_bs_session_id', currentSessionId || '');
+    localStorage.setItem('pritis_bs_ctx',        documentContext);
+    localStorage.setItem('pritis_bs_tab',        tab);
+    localStorage.setItem('pritis_bs_paste',      document.getElementById('paste-textarea')?.value || '');
+    localStorage.setItem('pritis_bs_session_id', currentSessionId || '');
   } catch (e) {}
 }
 
 function _bsSaveMeta(name, extLabel, sizeLabel) {
-  try { localStorage.setItem('pistis_bs_meta', JSON.stringify({ name, extLabel, sizeLabel })); } catch (e) {}
+  try { localStorage.setItem('pritis_bs_meta', JSON.stringify({ name, extLabel, sizeLabel })); } catch (e) {}
 }
 
 function _bsClear() {
-  const sid = localStorage.getItem('pistis_bs_session_id');
+  const sid = localStorage.getItem('pritis_bs_session_id');
   if (sid) _IDB.del(sid);
   _IDB.del('current_pdf');
   _IDB.del('current_docx');
@@ -99,25 +99,25 @@ async function _fetchSessionFile(sessionId) {
 
 async function _bsRestore() {
   // Prefer DB restore when a session ID is saved
-  const savedSessionId = localStorage.getItem('pistis_bs_session_id');
+  const savedSessionId = localStorage.getItem('pritis_bs_session_id');
   if (savedSessionId) {
     try {
       await _loadSessionIntoView(savedSessionId, false);
       return;
     } catch {
-      localStorage.removeItem('pistis_bs_session_id');
+      localStorage.removeItem('pritis_bs_session_id');
     }
   }
 
   // Fallback: restore doc context from localStorage (no session)
-  const ctx = localStorage.getItem('pistis_bs_ctx');
+  const ctx = localStorage.getItem('pritis_bs_ctx');
   if (!ctx) return;
   documentContext = ctx;
 
-  const tab       = localStorage.getItem('pistis_bs_tab') || 'upload';
-  const pasteText = localStorage.getItem('pistis_bs_paste') || '';
+  const tab       = localStorage.getItem('pritis_bs_tab') || 'upload';
+  const pasteText = localStorage.getItem('pritis_bs_paste') || '';
   let   meta      = null;
-  try { meta = JSON.parse(localStorage.getItem('pistis_bs_meta') || 'null'); } catch {}
+  try { meta = JSON.parse(localStorage.getItem('pritis_bs_meta') || 'null'); } catch {}
 
   const scroll = document.getElementById('doc-viewer-scroll');
   scroll.style.padding = '0';
@@ -198,7 +198,7 @@ async function createSession(filename, fileType, text, fileSizeBytes) {
       file_size_bytes: fileSizeBytes || null,
     });
     currentSessionId = res.id;
-    localStorage.setItem('pistis_bs_session_id', currentSessionId);
+    localStorage.setItem('pritis_bs_session_id', currentSessionId);
     // Save PDF under session ID so history clicks can find it.
     // Keep 'current_pdf' as a fallback until the user explicitly changes document.
     if (fileType === 'pdf') {
@@ -494,7 +494,7 @@ async function handlePdf(file) {
 
   // Session is now created — store its ID and cache bytes under the session key too
   currentSessionId = res.id;
-  localStorage.setItem('pistis_bs_session_id', currentSessionId);
+  localStorage.setItem('pritis_bs_session_id', currentSessionId);
   await _IDB.save(currentSessionId, arrayBuffer).catch(() => {});
 }
 
@@ -522,7 +522,7 @@ async function handleDocx(file) {
   // Use mammoth's extraction for AI context (consistent with what's displayed)
   // The session is now created — store its ID and cache bytes in IDB
   currentSessionId = res.id;
-  localStorage.setItem('pistis_bs_session_id', currentSessionId);
+  localStorage.setItem('pritis_bs_session_id', currentSessionId);
   await _IDB.save(currentSessionId, arrayBuffer).catch(() => {});
   await _IDB.save('current_docx', arrayBuffer).catch(() => {});
 }
@@ -560,7 +560,7 @@ async function handlePptx(file) {
   scroll.innerHTML = `<pre class="txt-render">${escHtml(res.text)}</pre>`;
 
   currentSessionId = res.id;
-  localStorage.setItem('pistis_bs_session_id', currentSessionId);
+  localStorage.setItem('pritis_bs_session_id', currentSessionId);
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
@@ -864,7 +864,7 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
     if (isPdf) {
       let buf = await _IDB.get(sessionId).catch(() => null);
       // Fallback 1: race condition — bytes may still be under the temp key
-      if (!buf && sessionId === localStorage.getItem('pistis_bs_session_id')) {
+      if (!buf && sessionId === localStorage.getItem('pritis_bs_session_id')) {
         buf = await _IDB.get('current_pdf').catch(() => null);
         if (buf) await _IDB.save(sessionId, buf).catch(() => {});
       }
@@ -884,7 +884,7 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
     } else if (session.document.file_type === 'docx' && typeof mammoth !== 'undefined') {
       // Try to re-render DOCX from stored bytes
       let buf = await _IDB.get(sessionId).catch(() => null);
-      if (!buf && sessionId === localStorage.getItem('pistis_bs_session_id')) {
+      if (!buf && sessionId === localStorage.getItem('pritis_bs_session_id')) {
         buf = await _IDB.get('current_docx').catch(() => null);
         if (buf) await _IDB.save(sessionId, buf).catch(() => {});
       }
@@ -931,7 +931,7 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
   }
 
   currentSessionId = sessionId;
-  localStorage.setItem('pistis_bs_session_id', sessionId);
+  localStorage.setItem('pritis_bs_session_id', sessionId);
   _bsSave();
   enableChat();
 }
@@ -953,7 +953,7 @@ window.deleteSession = async function (sessionId, btn) {
     item.remove();
     if (currentSessionId === sessionId) {
       currentSessionId = null;
-      localStorage.removeItem('pistis_bs_session_id');
+      localStorage.removeItem('pritis_bs_session_id');
     }
     // Show empty state if list is now empty
     const list = document.getElementById('history-list');

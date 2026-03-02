@@ -19,7 +19,7 @@ from .models.notification import Notification, NotificationRead  # noqa: F401 â€
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
-    title="Pistis API",
+    title="Pritis API",
     description="AI-powered quiz generation and practice platform",
     version="1.0.0",
 )
@@ -68,7 +68,7 @@ app.include_router(notifications.router,  prefix="/api")
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "Pistis"}
+    return {"status": "ok", "app": "Pritis"}
 
 
 @app.get("/api/stats")

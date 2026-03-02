@@ -7,27 +7,27 @@ renderLayout('AI Generate Questions', 'AI Generate');
 let activeTab = 'text';
 
 // ── State persistence ──────────────────────────────────────────────────────────
-const _AIG_KEYS = ['pistis_aig_tab','pistis_aig_course','pistis_aig_title',
-                   'pistis_aig_num','pistis_aig_mcq','pistis_aig_short',
-                   'pistis_aig_essay','pistis_aig_text'];
+const _AIG_KEYS = ['pritis_aig_tab','pritis_aig_course','pritis_aig_title',
+                   'pritis_aig_num','pritis_aig_mcq','pritis_aig_short',
+                   'pritis_aig_essay','pritis_aig_text'];
 
 function _aigSave() {
   try {
-    localStorage.setItem('pistis_aig_tab',    activeTab);
-    localStorage.setItem('pistis_aig_course', document.getElementById('course-select')?.value || '');
-    localStorage.setItem('pistis_aig_title',  document.getElementById('quiz-title')?.value || '');
-    localStorage.setItem('pistis_aig_num',    document.getElementById('num-questions')?.value || '10');
-    localStorage.setItem('pistis_aig_mcq',    document.getElementById('type-mcq')?.checked ? '1' : '0');
-    localStorage.setItem('pistis_aig_short',  document.getElementById('type-short')?.checked ? '1' : '0');
-    localStorage.setItem('pistis_aig_essay',  document.getElementById('type-essay')?.checked ? '1' : '0');
-    localStorage.setItem('pistis_aig_text',   document.getElementById('text-content')?.value || '');
+    localStorage.setItem('pritis_aig_tab',    activeTab);
+    localStorage.setItem('pritis_aig_course', document.getElementById('course-select')?.value || '');
+    localStorage.setItem('pritis_aig_title',  document.getElementById('quiz-title')?.value || '');
+    localStorage.setItem('pritis_aig_num',    document.getElementById('num-questions')?.value || '10');
+    localStorage.setItem('pritis_aig_mcq',    document.getElementById('type-mcq')?.checked ? '1' : '0');
+    localStorage.setItem('pritis_aig_short',  document.getElementById('type-short')?.checked ? '1' : '0');
+    localStorage.setItem('pritis_aig_essay',  document.getElementById('type-essay')?.checked ? '1' : '0');
+    localStorage.setItem('pritis_aig_text',   document.getElementById('text-content')?.value || '');
   } catch (e) {}
 }
 
 function _aigClear() { _AIG_KEYS.forEach(k => localStorage.removeItem(k)); }
 
 function _aigRestore() {
-  const tab = localStorage.getItem('pistis_aig_tab');
+  const tab = localStorage.getItem('pritis_aig_tab');
   if (tab && tab !== 'text') {
     activeTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -38,17 +38,17 @@ function _aigRestore() {
     const panel = document.getElementById(`tab-${tab}`);
     if (panel) panel.classList.add('active');
   }
-  const title = localStorage.getItem('pistis_aig_title');
+  const title = localStorage.getItem('pritis_aig_title');
   if (title) document.getElementById('quiz-title').value = title;
-  const num = localStorage.getItem('pistis_aig_num');
+  const num = localStorage.getItem('pritis_aig_num');
   if (num) document.getElementById('num-questions').value = num;
-  const mcq = localStorage.getItem('pistis_aig_mcq');
+  const mcq = localStorage.getItem('pritis_aig_mcq');
   if (mcq !== null) document.getElementById('type-mcq').checked = mcq !== '0';
-  const short = localStorage.getItem('pistis_aig_short');
+  const short = localStorage.getItem('pritis_aig_short');
   if (short !== null) document.getElementById('type-short').checked = short !== '0';
-  const essay = localStorage.getItem('pistis_aig_essay');
+  const essay = localStorage.getItem('pritis_aig_essay');
   if (essay !== null) document.getElementById('type-essay').checked = essay !== '0';
-  const text = localStorage.getItem('pistis_aig_text');
+  const text = localStorage.getItem('pritis_aig_text');
   if (text) document.getElementById('text-content').value = text;
 }
 
@@ -63,7 +63,7 @@ async function loadCourses() {
       opt.textContent = c.name;
       select.appendChild(opt);
     });
-    const saved = localStorage.getItem('pistis_aig_course');
+    const saved = localStorage.getItem('pritis_aig_course');
     if (saved) select.value = saved;
   } catch (err) {
     console.error(err);

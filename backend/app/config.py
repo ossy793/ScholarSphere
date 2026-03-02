@@ -51,14 +51,14 @@ class Settings(BaseSettings):
 
     # Email — Resend API (production / Render) — requires verified domain
     RESEND_API_KEY: str = ""
-    RESEND_FROM:    str = "Pistis <onboarding@resend.dev>"
+    RESEND_FROM:    str = "Pritis <onboarding@resend.dev>"
 
     # Email — SMTP fallback (local development only)
     SMTP_HOST:     str = "smtp.gmail.com"
     SMTP_PORT:     int = 587
     SMTP_USER:     str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM:     str = "Pistis <noreply@ossyquiz.com>"
+    SMTP_FROM:     str = "Pritis <noreply@ossyquiz.com>"
 
     # Premium promo
     WHATSAPP_GROUP_LINK: str = ""

@@ -26,7 +26,7 @@ def _html_body(code: str) -> str:
       <div style="width:52px;height:52px;background:#fff;border-radius:12px;
                   display:inline-flex;align-items:center;justify-content:center;
                   font-size:26px;font-weight:900;color:#4338ca;margin-bottom:12px">P</div>
-      <h1 style="color:#fff;margin:0;font-size:1.4rem;font-weight:800">Pistis Premium</h1>
+      <h1 style="color:#fff;margin:0;font-size:1.4rem;font-weight:800">Pritis Premium</h1>
     </div>
     <div style="padding:32px 36px">
       <h2 style="margin:0 0 8px;font-size:1.1rem;color:#1e1b4b">Your Activation Code</h2>
@@ -39,7 +39,7 @@ def _html_body(code: str) -> str:
                      color:#4338ca;font-family:monospace">{code}</span>
       </div>
       <p style="color:#6b7280;font-size:.85rem;margin:0 0 4px">
-        Enter this code on the Pistis upgrade page along with your email address.
+        Enter this code on the Pritis upgrade page along with your email address.
       </p>
       <p style="color:#ef4444;font-size:.85rem;margin:0">
         Do not share this code with anyone.
@@ -63,9 +63,9 @@ def _send_via_mailjet(to_email: str, code: str) -> None:
         auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
         json={
             "Messages": [{
-                "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pistis"},
+                "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pritis"},
                 "To":   [{"Email": to_email}],
-                "Subject":  "Your Pistis Premium Access Code",
+                "Subject":  "Your Pritis Premium Access Code",
                 "HTMLPart": _html_body(code),
             }]
         },
@@ -85,9 +85,9 @@ def _send_via_brevo(to_email: str, code: str) -> None:
             "content-type": "application/json",
         },
         json={
-            "sender": {"name": "Pistis", "email": settings.BREVO_SENDER_EMAIL},
+            "sender": {"name": "Pritis", "email": settings.BREVO_SENDER_EMAIL},
             "to": [{"email": to_email}],
-            "subject": "Your Pistis Premium Access Code",
+            "subject": "Your Pritis Premium Access Code",
             "htmlContent": _html_body(code),
         },
         timeout=10,
@@ -102,7 +102,7 @@ def _send_via_resend(to_email: str, code: str) -> None:
     resend.Emails.send({
         "from":    settings.RESEND_FROM,
         "to":      [to_email],
-        "subject": "Your Pistis Premium Access Code",
+        "subject": "Your Pritis Premium Access Code",
         "html":    _html_body(code),
     })
 
@@ -110,7 +110,7 @@ def _send_via_resend(to_email: str, code: str) -> None:
 def _send_via_smtp(to_email: str, code: str) -> None:
     """Send via Gmail SMTP — local development fallback."""
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your Pistis Premium Access Code"
+    msg["Subject"] = "Your Pritis Premium Access Code"
     msg["From"]    = settings.SMTP_FROM
     msg["To"]      = to_email
     msg.attach(MIMEText(_html_body(code), "html"))

@@ -1,26 +1,26 @@
-/* ── Pistis API Client ── */
+/* ── Pritis API Client ── */
 const BASE_URL = "https://scholarsphere-n277.onrender.com/api";
 
 export function getToken() {
-  return localStorage.getItem('pistis_token');
+  return localStorage.getItem('pritis_token');
 }
 
 export function setToken(token) {
-  localStorage.setItem('pistis_token', token);
+  localStorage.setItem('pritis_token', token);
 }
 
 export function clearToken() {
-  localStorage.removeItem('pistis_token');
-  localStorage.removeItem('pistis_user');
+  localStorage.removeItem('pritis_token');
+  localStorage.removeItem('pritis_user');
 }
 
 export function getUser() {
-  const raw = localStorage.getItem('pistis_user');
+  const raw = localStorage.getItem('pritis_user');
   return raw ? JSON.parse(raw) : null;
 }
 
 export function setUser(user) {
-  localStorage.setItem('pistis_user', JSON.stringify(user));
+  localStorage.setItem('pritis_user', JSON.stringify(user));
 }
 
 export function requireAuth() {
