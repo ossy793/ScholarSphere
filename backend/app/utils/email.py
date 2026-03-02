@@ -1,8 +1,9 @@
 """
 Email Utility
 -------------
-Sends transactional emails via SMTP (STARTTLS on port 587, SSL on port 465).
-Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM in .env.
+Production:  Resend API  (HTTP — works on Render, no SMTP ports needed)
+             Set RESEND_API_KEY in Render environment variables.
+Local dev:   SMTP fallback via Gmail (set SMTP_USER + SMTP_PASSWORD in .env)
 """
 
 import smtplib
@@ -13,14 +14,8 @@ from email.mime.text import MIMEText
 from ..config import settings
 
 
-def send_promo_email(to_email: str, code: str) -> None:
-    """Send the promo activation code to the user's Gmail."""
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your OssyQuiz Premium Access Code"
-    msg["From"]    = settings.SMTP_FROM
-    msg["To"]      = to_email
-
-    html_body = f"""
+def _html_body(code: str) -> str:
+    return f"""
 <!DOCTYPE html>
 <html>
 <body style="font-family:Inter,Arial,sans-serif;background:#f3f4f6;padding:40px 0;margin:0">
@@ -58,7 +53,26 @@ def send_promo_email(to_email: str, code: str) -> None:
 </html>
 """
 
-    msg.attach(MIMEText(html_body, "html"))
+
+def _send_via_resend(to_email: str, code: str) -> None:
+    """Send via Resend HTTP API — works on Render (no SMTP port restrictions)."""
+    import resend
+    resend.api_key = settings.RESEND_API_KEY
+    resend.Emails.send({
+        "from":    settings.RESEND_FROM,
+        "to":      [to_email],
+        "subject": "Your OssyQuiz Premium Access Code",
+        "html":    _html_body(code),
+    })
+
+
+def _send_via_smtp(to_email: str, code: str) -> None:
+    """Send via Gmail SMTP — local development fallback."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Your OssyQuiz Premium Access Code"
+    msg["From"]    = settings.SMTP_FROM
+    msg["To"]      = to_email
+    msg.attach(MIMEText(_html_body(code), "html"))
 
     ctx = ssl.create_default_context()
     if settings.SMTP_PORT == 465:
@@ -71,3 +85,15 @@ def send_promo_email(to_email: str, code: str) -> None:
             server.starttls(context=ctx)
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
+
+
+def send_promo_email(to_email: str, code: str) -> None:
+    """
+    Send the promo activation code.
+    Uses Resend API when RESEND_API_KEY is set (production),
+    otherwise falls back to SMTP (local dev).
+    """
+    if settings.RESEND_API_KEY:
+        _send_via_resend(to_email, code)
+    else:
+        _send_via_smtp(to_email, code)
