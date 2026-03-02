@@ -74,7 +74,13 @@ async function apiFetch(path, options = {}) {
 
   if (res.status === 401) {
     clearToken();
-    // Works from any subfolder (e.g. frontend/admin/) by finding the frontend root
+    // Read the error detail before deciding what to do
+    let errMsg = 'Incorrect email or password.';
+    try { const e = await res.json(); if (e?.detail) errMsg = e.detail; } catch {}
+    // If already on the auth page, surface the error — don't redirect to itself
+    const onAuthPage = /\/(index\.html)?$/.test(window.location.pathname) ||
+                       window.location.pathname.endsWith('/frontend/');
+    if (onAuthPage) throw new Error(errMsg);
     const base = window.location.pathname.replace(/\/frontend\/.*$/, '/frontend/');
     window.location.href = base + 'index.html';
     return;
