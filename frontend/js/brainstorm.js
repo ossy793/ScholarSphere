@@ -347,55 +347,88 @@ function _renderPdfInScroll(scroll, blobUrl, extractedText) {
 }
 
 async function _renderPdfPages(scroll, blobUrl, extractedText) {
-  const PAGE_LIMIT = 30;
   try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-    const pdf       = await pdfjsLib.getDocument(blobUrl).promise;
-    const total     = pdf.numPages;
-    const toRender  = Math.min(total, PAGE_LIMIT);
-    const panelW    = scroll.clientWidth || 360;
+    const pdf        = await pdfjsLib.getDocument(blobUrl).promise;
+    const total      = pdf.numPages;
+    const panelW     = scroll.clientWidth || 360;
+    // Cap pixel ratio at 3 — beyond that gains are invisible but memory doubles
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
 
     scroll.innerHTML = '';
     scroll.style.background = '#888';
     scroll.style.overflowY  = 'auto';
     scroll.style.padding    = '8px 6px';
 
-    for (let i = 1; i <= toRender; i++) {
-      const page     = await pdf.getPage(i);
-      const baseVp   = page.getViewport({ scale: 1 });
-      const scale    = (panelW - 12) / baseVp.width;
-      const viewport = page.getViewport({ scale });
+    // Measure first page to set accurate placeholder heights for all pages
+    const firstPage = await pdf.getPage(1);
+    const firstVp   = firstPage.getViewport({ scale: 1 });
+    const baseScale = (panelW - 12) / firstVp.width;
+    const placeholderH = Math.floor(firstVp.height * baseScale);
 
+    // Build placeholder wrappers for EVERY page upfront so the scrollbar is accurate
+    const wrappers = [];
+    for (let i = 1; i <= total; i++) {
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'margin-bottom:8px;border-radius:4px;overflow:hidden;' +
-                              'box-shadow:0 1px 6px rgba(0,0,0,.25)';
-
-      const canvas = document.createElement('canvas');
-      canvas.width  = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.cssText = 'display:block;width:100%;background:#fff';
-
-      wrapper.appendChild(canvas);
+      wrapper.dataset.page = String(i);
+      wrapper.style.cssText =
+        `margin-bottom:8px;border-radius:4px;overflow:hidden;` +
+        `box-shadow:0 1px 6px rgba(0,0,0,.25);background:#e8e8e8;` +
+        `height:${placeholderH}px;display:flex;align-items:center;justify-content:center;`;
+      wrapper.innerHTML = `<span style="font-size:0.72rem;color:#aaa">Page ${i} of ${total}</span>`;
       scroll.appendChild(wrapper);
-
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      wrappers.push(wrapper);
     }
 
-    if (total > PAGE_LIMIT) {
-      const notice = document.createElement('div');
-      notice.style.cssText = 'text-align:center;padding:14px;font-size:.8rem;color:#f0f0f0';
-      notice.innerHTML = `Showing first ${PAGE_LIMIT} of ${total} pages &nbsp;·&nbsp; ` +
-        `<a href="${blobUrl}" target="_blank" rel="noopener" ` +
-        `style="color:#90caf9;font-weight:600">Open full PDF ↗</a>`;
-      scroll.appendChild(notice);
-    }
+    // Lazy-render each page only when it scrolls into view (+ 400 px pre-load margin)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          const w = entry.target;
+          if (w.dataset.rendered) return;
+          w.dataset.rendered = '1';
+          observer.unobserve(w);
+          _renderOnePage(pdf, parseInt(w.dataset.page), w, panelW, pixelRatio);
+        });
+      },
+      { root: scroll, rootMargin: '400px' }
+    );
+    wrappers.forEach(w => observer.observe(w));
+
   } catch {
     // PDF.js failed — fall back to extracted text
     scroll.style.background = '';
     scroll.style.padding    = '0';
     _renderPdfTextFallback(scroll, blobUrl, extractedText);
+  }
+}
+
+async function _renderOnePage(pdf, pageNum, wrapper, panelW, pixelRatio) {
+  try {
+    const page     = await pdf.getPage(pageNum);
+    const baseVp   = page.getViewport({ scale: 1 });
+    // Render at full device resolution for crisp text on retina/HD screens
+    const scale    = (panelW - 12) / baseVp.width;
+    const viewport = page.getViewport({ scale: scale * pixelRatio });
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    // CSS width stays at 100% — the extra pixels make text sharp on HiDPI screens
+    canvas.style.cssText = 'display:block;width:100%;height:auto;background:#fff';
+
+    wrapper.innerHTML = '';
+    wrapper.style.height = 'auto';
+    wrapper.appendChild(canvas);
+
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  } catch {
+    wrapper.innerHTML =
+      `<span style="font-size:0.72rem;color:#bbb;padding:8px">Page ${pageNum}</span>`;
+    wrapper.style.height = '80px';
   }
 }
 
