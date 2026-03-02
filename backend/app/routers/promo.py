@@ -106,12 +106,20 @@ def request_promo(
     db.add(promo)
     db.commit()
 
-    # Send email — if SMTP fails, log the code to the terminal so testing can continue
+    # Send email
     try:
         send_promo_email(email, raw_code)
     except Exception as exc:
-        logger.error("SMTP failed: %s", exc)
-        logger.warning("⚠️  PROMO CODE for %s (email not sent): %s", email, raw_code)
+        logger.error("SMTP failed for %s: %s", email, exc)
+        if settings.SMTP_USER:
+            # SMTP is configured but failed — surface the error to the client
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to send the activation email. Please try again in a moment.",
+            )
+        else:
+            # No SMTP configured (dev mode) — log code to terminal
+            logger.warning("⚠️  PROMO CODE for %s (email not sent, no SMTP configured): %s", email, raw_code)
 
     return {"message": f"A code has been sent to {email}. It expires in {_CODE_EXPIRY_MINUTES} minutes."}
 
@@ -169,7 +177,7 @@ def verify_promo(
     token = create_access_token(str(user.id))
 
     return {
-        "message":       "Premium activated! Welcome to ScholarSphere Premium.",
+        "message":       "Premium activated! Welcome to OssyQuiz Premium.",
         "access_token":  token,
         "whatsapp_link": settings.WHATSAPP_GROUP_LINK,
     }

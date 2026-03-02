@@ -6,6 +6,7 @@ Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM in .env.
 """
 
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -59,13 +60,14 @@ def send_promo_email(to_email: str, code: str) -> None:
 
     msg.attach(MIMEText(html_body, "html"))
 
+    ctx = ssl.create_default_context()
     if settings.SMTP_PORT == 465:
-        with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, context=ctx) as server:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
     else:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
             server.ehlo()
-            server.starttls()
+            server.starttls(context=ctx)
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.send_message(msg)
