@@ -1,17 +1,9 @@
+import base64
 import io
 import logging
 import os
 
 logger = logging.getLogger(__name__)
-
-# Candidate Poppler bin directories — checked in order when PATH lookup fails.
-_POPPLER_CANDIDATES = [
-    r"C:\poppler\Library\bin\poppler-25.12.0\Library\bin",
-    r"C:\poppler\Library\bin",
-    r"C:\poppler\bin",
-    r"C:\Program Files\poppler\Library\bin",
-    r"C:\Program Files\poppler\bin",
-]
 
 # Candidate Tesseract executable paths — checked in order when PATH lookup fails.
 _TESSERACT_CANDIDATES = [
@@ -20,13 +12,8 @@ _TESSERACT_CANDIDATES = [
     r"C:\Tesseract-OCR\tesseract.exe",
 ]
 
-
-def _find_poppler_path() -> str | None:
-    """Return the first candidate directory that contains pdfinfo.exe, or None."""
-    for candidate in _POPPLER_CANDIDATES:
-        if os.path.isfile(os.path.join(candidate, "pdfinfo.exe")):
-            return candidate
-    return None
+# Groq vision model used for cloud OCR when Tesseract binary is unavailable.
+_GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
 
 
 def _find_tesseract_cmd() -> str | None:
@@ -37,57 +24,141 @@ def _find_tesseract_cmd() -> str | None:
     return None
 
 
-def _ocr_pdf(file_bytes: bytes) -> str:
+def _render_pdf_pages(file_bytes: bytes) -> list:
     """
-    Fallback: convert each PDF page to an image and run Tesseract OCR on it.
-    Requires:  Poppler binaries  +  Tesseract installed.
-    Returns empty string if either library / binary is missing.
+    Render each PDF page as a PNG image using pymupdf (no Poppler required).
+    Returns a list of raw PNG bytes, one per page.
+    """
+    import fitz  # pymupdf
+
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — good quality/speed balance
+    images = []
+    for page_num in range(len(doc)):
+        pix = doc[page_num].get_pixmap(matrix=mat)
+        images.append(pix.tobytes("png"))
+    doc.close()
+    return images
+
+
+def _ocr_with_tesseract(page_images: list) -> str:
+    """
+    Try pytesseract OCR on pre-rendered page images.
+    Returns '' if Tesseract is not installed or pytesseract is missing.
     """
     try:
-        from pdf2image import convert_from_bytes
         import pytesseract
-    except Exception as import_err:
-        logger.warning("pdf2image or pytesseract import failed: %s", import_err)
+        from PIL import Image
+    except ImportError:
         return ""
-
-    poppler_path = _find_poppler_path()
-    if poppler_path:
-        logger.info("Using Poppler at: %s", poppler_path)
 
     tesseract_cmd = _find_tesseract_cmd()
     if tesseract_cmd:
         pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-        logger.info("Using Tesseract at: %s", tesseract_cmd)
-
-    try:
-        # dpi=200 gives a good balance between quality and speed
-        kwargs = {"dpi": 200}
-        if poppler_path:
-            kwargs["poppler_path"] = poppler_path
-        images = convert_from_bytes(file_bytes, **kwargs)
-    except Exception as exc:
-        # Poppler not found or other conversion error
-        logger.warning("pdf2image conversion failed: %s", exc)
-        return ""
 
     parts = []
-    for i, img in enumerate(images):
+    for i, img_bytes in enumerate(page_images):
         try:
+            img = Image.open(io.BytesIO(img_bytes))
             text = pytesseract.image_to_string(img)
             if text.strip():
                 parts.append(text.strip())
         except Exception as exc:
             logger.warning("Tesseract OCR failed on page %d: %s", i + 1, exc)
-            continue
 
     return "\n\n".join(parts)
+
+
+def _ocr_with_groq(page_images: list) -> str:
+    """
+    Cloud OCR fallback: send page images to a Groq vision model.
+    Works on any server with no Tesseract binary required.
+    Capped at 10 pages to stay within rate / token limits.
+    """
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        logger.warning("GROQ_API_KEY not set — Groq vision OCR unavailable")
+        return ""
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+    except Exception as exc:
+        logger.warning("Groq client init failed: %s", exc)
+        return ""
+
+    parts = []
+    for i, img_bytes in enumerate(page_images[:10]):  # cap at 10 pages
+        try:
+            img_b64 = base64.b64encode(img_bytes).decode()
+            response = client.chat.completions.create(
+                model=_GROQ_VISION_MODEL,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "Extract all text from this document page exactly as it appears. "
+                                "Output only the extracted text, preserving structure where possible."
+                            ),
+                        },
+                    ],
+                }],
+                max_tokens=2048,
+            )
+            text = response.choices[0].message.content.strip()
+            if text:
+                parts.append(text)
+        except Exception as exc:
+            logger.warning("Groq vision OCR failed on page %d: %s", i + 1, exc)
+
+    return "\n\n".join(parts)
+
+
+def _ocr_pdf(file_bytes: bytes) -> str:
+    """
+    OCR fallback for scanned / image-only PDFs.
+
+    Pipeline:
+    1. Render pages to images via pymupdf  (no Poppler system package needed)
+    2. Try pytesseract                     (fast, local — requires Tesseract binary)
+    3. Fall back to Groq vision API        (cloud — zero system dependencies)
+
+    Returns empty string if all strategies fail.
+    """
+    try:
+        page_images = _render_pdf_pages(file_bytes)
+    except Exception as exc:
+        logger.warning("PDF page rendering failed: %s", exc)
+        return ""
+
+    if not page_images:
+        return ""
+
+    # Strategy 1: local Tesseract
+    text = _ocr_with_tesseract(page_images)
+    if text:
+        logger.info("Tesseract OCR succeeded — %d chars extracted.", len(text))
+        return text
+
+    # Strategy 2: Groq vision API
+    logger.info("Tesseract unavailable — trying Groq vision OCR.")
+    text = _ocr_with_groq(page_images)
+    if text:
+        logger.info("Groq vision OCR succeeded — %d chars extracted.", len(text))
+    return text
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     """
     Extract text from a PDF.
     Strategy 1: pdfplumber  (fast, works for PDFs with a text layer)
-    Strategy 2: OCR via pdf2image + pytesseract  (for scanned / image PDFs)
+    Strategy 2: OCR         (for scanned / image-only PDFs — pymupdf + Tesseract or Groq)
     """
     # --- Strategy 1: pdfplumber ---
     try:
@@ -114,9 +185,9 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
         return text
 
     raise ValueError(
-        "This PDF appears to be a scanned image — it contains no selectable text. "
-        "Please use a PDF with embedded/selectable text, or switch to the "
-        "'Paste Text' tab and paste the content manually."
+        "Could not extract text from this PDF. "
+        "If it is a scanned document, please ensure your internet connection is active "
+        "so the AI-powered OCR can process it, then try again."
     )
 
 
