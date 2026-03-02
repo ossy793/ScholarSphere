@@ -31,8 +31,8 @@ let attemptId    = null;
 async function loadQuiz() {
   try {
     if (isShared) {
-      const data = await fetch(`http://localhost:8000/api/quizzes/shared/${shareToken}`).then(r => r.json());
-      quiz = data;
+      const data = await api.get(`/quizzes/shared/${shareToken}`);
+      quiz      = data;
       questions = data.questions;
       // Shared quizzes only get practice mode, no score submission
       mode = 'practice';
