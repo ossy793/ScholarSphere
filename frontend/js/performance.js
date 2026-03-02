@@ -6,6 +6,7 @@ renderLayout('Performance Analysis', 'Performance');
 
 let trendChart  = null;
 let courseChart = null;
+let allRecommendations = [];
 
 async function init() {
   await Promise.all([
@@ -166,6 +167,107 @@ window.loadAttempts = async function() {
     console.error(err);
   }
 };
+
+// ── AI Recommendations ────────────────────────────────────────────────────────
+
+window.loadRecommendations = async function() {
+  const btn         = document.getElementById('rec-btn');
+  const spinner     = document.getElementById('rec-spinner');
+  const placeholder = document.getElementById('rec-placeholder');
+  const empty       = document.getElementById('rec-empty');
+  const errEl       = document.getElementById('rec-error');
+  const tableWrap   = document.getElementById('rec-table-wrap');
+
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  spinner.classList.remove('hidden');
+  placeholder.classList.add('hidden');
+  empty.classList.add('hidden');
+  errEl.classList.add('hidden');
+  tableWrap.classList.add('hidden');
+
+  try {
+    allRecommendations = await api.get('/analytics/recommendations');
+
+    if (allRecommendations.length === 0) {
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    _populateRecCourseFilter();
+    _renderRecommendations(allRecommendations);
+    tableWrap.classList.remove('hidden');
+
+  } catch (err) {
+    errEl.textContent = err.message || 'Failed to generate recommendations. Please try again.';
+    errEl.classList.remove('hidden');
+    placeholder.classList.remove('hidden');
+  } finally {
+    spinner.classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = '🤖 Refresh Recommendations';
+  }
+};
+
+function _populateRecCourseFilter() {
+  const select  = document.getElementById('rec-filter-course');
+  const courses = [...new Set(allRecommendations.map(r => r.course_name).filter(Boolean))];
+  select.innerHTML = '<option value="">All Courses</option>';
+  courses.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    select.appendChild(opt);
+  });
+}
+
+window.filterRecommendations = function() {
+  if (!allRecommendations.length) return;
+  const course   = document.getElementById('rec-filter-course').value;
+  const filtered = course
+    ? allRecommendations.filter(r => r.course_name === course)
+    : allRecommendations;
+  _renderRecommendations(filtered);
+  document.getElementById('rec-table-wrap').classList.toggle('hidden', filtered.length === 0);
+  document.getElementById('rec-empty').classList.toggle('hidden', filtered.length > 0);
+  if (filtered.length === 0) {
+    document.getElementById('rec-empty').textContent = 'No recommendations for the selected course.';
+  }
+};
+
+function _renderRecommendations(recs) {
+  const tbody = document.getElementById('rec-tbody');
+
+  const PRIORITY = {
+    'High Priority':   { bg: 'var(--danger)',  fg: '#fff' },
+    'Medium Priority': { bg: 'var(--warning)', fg: '#fff' },
+    'Low Priority':    { bg: 'var(--success)', fg: '#fff' },
+  };
+
+  tbody.innerHTML = recs.map(r => {
+    const p          = PRIORITY[r.priority] || { bg: 'var(--muted)', fg: '#fff' };
+    const score      = r.performance_score ?? null;
+    const scoreColor = score === null ? '' : score < 50 ? 'var(--danger)' : score < 70 ? 'var(--warning)' : 'var(--success)';
+    const weakList   = (r.weak_concepts         || []).map(c => `<li>${escHtml(c)}</li>`).join('');
+    const recList    = (r.recommended_concepts  || []).map(c => `<li>${escHtml(c)}</li>`).join('');
+
+    return `
+      <tr>
+        <td>${escHtml(r.course_name  || '')}</td>
+        <td><strong>${escHtml(r.topic_name || '')}</strong></td>
+        <td><strong style="color:${scoreColor}">${score !== null ? score + '%' : '–'}</strong></td>
+        <td>
+          <span class="badge" style="background:${p.bg};color:${p.fg};white-space:nowrap">
+            ${escHtml(r.priority || '')}
+          </span>
+        </td>
+        <td><ul class="rec-list">${weakList}</ul></td>
+        <td><ul class="rec-list">${recList}</ul></td>
+        <td class="text-sm">${escHtml(r.study_focus || '')}</td>
+        <td><strong style="white-space:nowrap">${escHtml(r.study_time || '')}</strong></td>
+      </tr>`;
+  }).join('');
+}
 
 function escHtml(str) {
   return String(str)

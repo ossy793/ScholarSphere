@@ -9,6 +9,17 @@
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/dashboard.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    .rec-list { margin: 0; padding: 0 0 0 14px; }
+    .rec-list li { font-size: 0.8rem; margin-bottom: 3px; line-height: 1.4; }
+    .rec-table td { vertical-align: top; }
+    .rec-placeholder {
+      text-align: center; padding: 48px 20px;
+      color: var(--text-muted); border: 2px dashed var(--border);
+      border-radius: 10px; margin-top: 4px;
+    }
+    .rec-placeholder .rec-placeholder-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  </style>
 </head>
 <body>
   <div class="app-layout">
@@ -91,6 +102,58 @@
             <div id="attempt-empty" class="empty-state hidden" style="padding:30px 0">
               <p>No attempts yet.</p>
             </div>
+          </div>
+        </div>
+
+        <!-- AI Recommendations -->
+        <div class="card" style="margin-top:24px">
+          <div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:12px">
+            <div>
+              <h2 class="card-title" style="margin-bottom:4px">AI Study Recommendations</h2>
+              <p class="text-sm text-muted">Personalised insights based on your quiz performance</p>
+            </div>
+            <div class="flex items-center gap-3" style="flex-wrap:wrap">
+              <select id="rec-filter-course" class="form-control" style="max-width:180px" onchange="filterRecommendations()">
+                <option value="">All Courses</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="rec-btn" onclick="loadRecommendations()">
+                🤖 Generate Recommendations
+              </button>
+              <div class="spinner spinner-dark hidden" id="rec-spinner"></div>
+            </div>
+          </div>
+
+          <div id="rec-error" class="alert alert-error hidden" style="margin-bottom:14px"></div>
+
+          <!-- Placeholder shown before first generation -->
+          <div id="rec-placeholder" class="rec-placeholder">
+            <div class="rec-placeholder-icon">🎯</div>
+            <p class="font-semibold" style="margin-bottom:6px">Get personalised study recommendations</p>
+            <p class="text-sm">Click <strong>Generate Recommendations</strong> and the AI will analyse your quiz performance to identify weak areas and suggest what to study next.</p>
+          </div>
+
+          <!-- Empty state after generation -->
+          <div id="rec-empty" class="empty-state hidden" style="padding:30px 0">
+            <p>No performance data found. Complete some quizzes first.</p>
+          </div>
+
+          <!-- Table -->
+          <div id="rec-table-wrap" class="table-wrap hidden">
+            <table class="rec-table">
+              <thead>
+                <tr>
+                  <th>Course</th>
+                  <th>Topic</th>
+                  <th>Score</th>
+                  <th>Priority</th>
+                  <th>Weak Concepts</th>
+                  <th>Recommended Concepts</th>
+                  <th>Study Focus</th>
+                  <th>Study Time</th>
+                </tr>
+              </thead>
+              <tbody id="rec-tbody"></tbody>
+            </table>
           </div>
         </div>
 

@@ -16,9 +16,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..models.attempt import Attempt
+from ..models.attempt import Attempt, AttemptAnswer
 from ..models.course import Course
 from ..models.quiz import Quiz
+from ..models.question import Question
 
 
 def get_overview(user_id, db: Session) -> Dict[str, Any]:
@@ -163,4 +164,88 @@ def get_courses_summary(user_id, db: Session) -> List[Dict[str, Any]]:
             "average_score": round(float(row.avg_score), 1) if row.avg_score is not None else None,
         }
         for row in rows
+    ]
+
+
+def get_performance_for_recommendations(user_id, db: Session) -> List[Dict[str, Any]]:
+    """
+    Build a rich, course-grouped performance summary for AI recommendation generation.
+    Uses the most recent completed attempt per quiz, including up to 5 wrong answers
+    with question text so the AI can generate concept-specific suggestions.
+    """
+    # All completed, scored attempts — newest-first so we can dedupe by quiz
+    attempts = (
+        db.query(Attempt)
+        .filter(
+            Attempt.user_id == user_id,
+            Attempt.score.isnot(None),
+            Attempt.completed_at.isnot(None),
+        )
+        .order_by(Attempt.completed_at.desc())
+        .all()
+    )
+    if not attempts:
+        return []
+
+    # Keep only the most recent attempt per quiz
+    seen: set = set()
+    latest_attempts = []
+    for a in attempts:
+        if a.quiz_id not in seen:
+            seen.add(a.quiz_id)
+            latest_attempts.append(a)
+
+    # Batch-load quizzes and courses in two queries
+    quiz_ids   = [a.quiz_id for a in latest_attempts]
+    quizzes    = {q.id: q for q in db.query(Quiz).filter(Quiz.id.in_(quiz_ids)).all()}
+    course_ids = list({q.course_id for q in quizzes.values()})
+    courses    = {c.id: c for c in db.query(Course).filter(Course.id.in_(course_ids)).all()}
+
+    # Batch-load wrong answers with question text in one JOIN query
+    attempt_ids = [a.id for a in latest_attempts]
+    wrong_rows = (
+        db.query(
+            AttemptAnswer.attempt_id,
+            Question.question_text,
+            AttemptAnswer.user_answer,
+            Question.correct_answer,
+        )
+        .join(Question, Question.id == AttemptAnswer.question_id)
+        .filter(
+            AttemptAnswer.attempt_id.in_(attempt_ids),
+            AttemptAnswer.is_correct == False,  # noqa: E712
+        )
+        .all()
+    )
+
+    # Group wrong answers by attempt_id (cap at 5 per attempt to keep tokens manageable)
+    wrong_by_attempt: Dict[str, list] = defaultdict(list)
+    for row in wrong_rows:
+        aid = str(row.attempt_id)
+        if len(wrong_by_attempt[aid]) < 5:
+            wrong_by_attempt[aid].append({
+                "question":       row.question_text,
+                "user_answer":    row.user_answer or "(no answer)",
+                "correct_answer": row.correct_answer,
+            })
+
+    # Organise by course name
+    by_course: Dict[str, list] = defaultdict(list)
+    for attempt in latest_attempts:
+        quiz = quizzes.get(attempt.quiz_id)
+        if not quiz:
+            continue
+        course = courses.get(quiz.course_id)
+        course_name = course.name if course else "Unknown Course"
+        by_course[course_name].append({
+            "quiz_title":      quiz.title,
+            "score":           round(attempt.score, 1),
+            "correct":         attempt.correct_answers,
+            "total":           attempt.total_questions,
+            "wrong_questions": wrong_by_attempt.get(str(attempt.id), []),
+        })
+
+    return [
+        {"course_name": name, "quizzes": quiz_list}
+        for name, quiz_list in by_course.items()
     ]

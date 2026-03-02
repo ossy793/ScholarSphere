@@ -322,6 +322,88 @@ def parse_and_generate_from_content(content: str) -> List[Dict[str, Any]]:
     return validated
 
 
+RECOMMENDATIONS_SYSTEM_PROMPT = """You are an expert educational analyst specialising in personalised study plans.
+You will receive a student's quiz performance data grouped by course and topic, including their actual wrong answers.
+
+Output ONLY a JSON array (no prose, no markdown fences). Each element represents one quiz topic and must have these exact keys:
+- "course_name": string
+- "topic_name": string (the quiz topic/title)
+- "performance_score": number (score percentage 0-100, one decimal place)
+- "priority": exactly one of "High Priority", "Medium Priority", "Low Priority"
+- "weak_concepts": array of 2-4 specific concept strings inferred from the wrong answers
+- "recommended_concepts": array of 2-4 closely related concepts the student should study next
+- "study_focus": string (1-2 sentences of specific, actionable advice based on the actual errors — NOT generic)
+- "study_time": string — exactly "2 hours" for High Priority, "1 hour" for Medium Priority, "30 mins" for Low Priority
+
+Priority rules (strictly enforced):
+- score < 50  → "High Priority"
+- score 50-70 → "Medium Priority"
+- score > 70  → "Low Priority"
+
+Critical requirements:
+- weak_concepts must reflect the actual questions the student got wrong — be specific, not generic
+- recommended_concepts must directly address the identified weak areas
+- study_focus must be tailored to the student's specific errors — avoid boilerplate advice
+- Output ONLY the raw JSON array. Start with [ and end with ]."""
+
+
+def generate_recommendations(performance_data: list) -> List[Dict[str, Any]]:
+    """
+    Given course-grouped performance data (including wrong answers with question text),
+    call Groq to produce a structured recommendation table.
+    Returns a list of recommendation dicts ready to send to the frontend.
+    """
+    if not performance_data:
+        return []
+
+    # Format performance data as readable text for the prompt
+    lines = []
+    for course in performance_data:
+        lines.append(f"\nCourse: {course['course_name']}")
+        for quiz in course["quizzes"]:
+            lines.append(
+                f"  Topic: {quiz['quiz_title']} | "
+                f"Score: {quiz['score']}% ({quiz['correct']}/{quiz['total']} correct)"
+            )
+            wrong = quiz.get("wrong_questions", [])
+            if wrong:
+                lines.append("  Wrong answers:")
+                for i, w in enumerate(wrong, 1):
+                    lines.append(
+                        f"    {i}. Q: {w['question']} | "
+                        f"Student answered: {w['user_answer']} | "
+                        f"Correct: {w['correct_answer']}"
+                    )
+            else:
+                lines.append("  (No wrong answers recorded — high scorer)")
+
+    performance_text = "\n".join(lines)
+    client = get_groq_client()
+    user_prompt = (
+        "Generate personalised study recommendations for the following student performance data. "
+        "Return one recommendation entry per quiz topic listed. "
+        "Output ONLY the JSON array.\n\n"
+        f"Performance Data:\n{performance_text}"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": RECOMMENDATIONS_SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=4096,
+        )
+        raw = response.choices[0].message.content.strip()
+        logger.debug("Recommendations raw (first 300): %s", raw[:300])
+        return _extract_json_array(raw)
+    except Exception as exc:
+        logger.error("Recommendation generation failed: %s", exc)
+        raise ValueError(f"AI recommendation generation failed: {exc}")
+
+
 def _validate_questions(questions: list) -> List[Dict[str, Any]]:
     """Filter and normalise question objects."""
     valid = []

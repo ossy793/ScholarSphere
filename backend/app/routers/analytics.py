@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from uuid import UUID
@@ -6,6 +6,7 @@ from uuid import UUID
 from ..database import get_db
 from ..models.user import User
 from ..services import analytics_service
+from ..services.ai_service import generate_recommendations
 from ..utils.security import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -42,3 +43,18 @@ def get_courses_summary(
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
     return analytics_service.get_courses_summary(current_user.id, db)
+
+
+@router.get("/recommendations")
+def get_recommendations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    """Generate AI-powered study recommendations from the user's quiz performance."""
+    perf_data = analytics_service.get_performance_for_recommendations(current_user.id, db)
+    if not perf_data:
+        return []
+    try:
+        return generate_recommendations(perf_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
