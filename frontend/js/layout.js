@@ -262,8 +262,8 @@ function _injectNotifBell(basePath) {
   // Home button
   const homeBtn = document.createElement('a');
   homeBtn.id        = 'header-home-btn';
-  homeBtn.href      = basePath + 'landing.html';
-  homeBtn.title     = 'Go to Homepage';
+  homeBtn.href      = basePath + 'dashboard.html';
+  homeBtn.title     = 'Go to Dashboard';
   homeBtn.innerHTML = svgHomeOutline();
   homeBtn.style.cssText = `
     background:none; border:none; cursor:pointer;
