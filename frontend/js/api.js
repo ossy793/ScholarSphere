@@ -47,7 +47,17 @@ async function apiFetchBuffer(path) {
   const token = getToken();
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status === 401) {
     clearToken();
     const base = window.location.pathname.replace(/\/frontend\/.*$/, '/frontend/');
@@ -70,7 +80,19 @@ async function apiFetch(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('The server took too long to respond. It may be starting up — please wait a moment and try again.');
+    }
+    throw new Error('Network error. Please check your connection.');
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (res.status === 401) {
     clearToken();
