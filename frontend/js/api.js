@@ -110,6 +110,10 @@ async function apiFetch(path, options = {}) {
 
   if (res.status === 204) return null;
 
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new Error('The server is starting up. Please wait a moment and try again.');
+  }
+
   const data = await res.json();
   if (!res.ok) {
     const detail = data?.detail;
@@ -117,7 +121,6 @@ async function apiFetch(path, options = {}) {
     if (typeof detail === 'string') {
       msg = detail;
     } else if (Array.isArray(detail)) {
-      // Pydantic validation errors — extract the human-readable msg from each
       msg = detail.map(e => e.msg.replace(/^Value error,\s*/i, '')).join(' · ');
     } else {
       msg = `Error ${res.status}`;
@@ -166,11 +169,13 @@ function apiFetchFormWithProgress(path, form, { onProgress, onUploadComplete } =
         let msg;
         if (typeof detail === 'string') msg = detail;
         else if (Array.isArray(detail)) msg = detail.map(e => e.msg.replace(/^Value error,\s*/i, '')).join(' · ');
+        else if (xhr.status === 502 || xhr.status === 503 || xhr.status === 504)
+          msg = 'The server is starting up. Please wait a moment and try again.';
         else msg = `Error ${xhr.status}`;
         reject(new Error(msg));
       }
     });
-    xhr.addEventListener('error', () => reject(new Error('Network error. Please check your connection.')));
+    xhr.addEventListener('error', () => reject(new Error('Unable to reach the server. It may be starting up — please wait a moment and try again.')));
     xhr.send(form);
   });
 }
