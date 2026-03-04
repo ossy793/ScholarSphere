@@ -9,11 +9,16 @@
   <link rel="stylesheet" href="css/main.css">
   <style>
     /* ── Layout ── */
+    /* Slim the top-header on this page so more space goes to the document */
+    :root { --header-h: 50px; }
+    .top-header { height: 50px; min-height: 50px; }
+    .top-header h1 { font-size: 1.05rem; }
+
     .page-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
 
     .bs-layout {
       display: flex;
-      height: calc(100vh - var(--header-h));
+      height: calc(100vh - 50px);
       overflow: hidden;
     }
 
@@ -37,7 +42,7 @@
     .bs-layout.chat-collapsed .resize-bar { display: none; }
 
     .panel-head {
-      padding: 10px 16px;
+      padding: 6px 14px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-card);
       display: flex;
@@ -125,7 +130,7 @@
 
     /* File meta strip */
     .doc-meta-bar {
-      padding: 7px 16px;
+      padding: 4px 14px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-card);
       display: flex;
