@@ -60,6 +60,16 @@ async function loadStats() {
         <div class="stat-label">Attempts</div>
         <div class="stat-value">${s.total_attempts}</div>
       </div>
+      <div class="admin-stat-card teal">
+        <div class="stat-label">Brainstorm Sessions</div>
+        <div class="stat-value">${s.total_brainstorm_sessions}</div>
+        <div class="stat-sub">Total: ${s.total_brainstorm_time}</div>
+      </div>
+      <div class="admin-stat-card indigo">
+        <div class="stat-label">Avg Session Duration</div>
+        <div class="stat-value" style="font-size:1.4rem">${s.avg_brainstorm_duration}</div>
+        <div class="stat-sub">time reading per session</div>
+      </div>
     `;
   } catch (err) {
     document.getElementById('stats-row').innerHTML =
@@ -282,11 +292,29 @@ window.openDetailModal = async function (userId) {
         </div>
         <div class="detail-stat">
           <div class="detail-stat-val">${u.brainstorm_messages}</div>
-          <div class="detail-stat-lbl">Brainstorm Messages</div>
+          <div class="detail-stat-lbl">Messages with UrPadi</div>
         </div>
-        <div class="detail-stat" style="grid-column:3">
+        <div class="detail-stat">
+          <div class="detail-stat-val" style="font-size:1.1rem">${u.brainstorm_total_time}</div>
+          <div class="detail-stat-lbl">Total Brainstorm Time</div>
         </div>
       </div>
+
+      ${u.brainstorm_session_list?.length ? `
+      <div class="detail-section-title" style="margin-top:16px">Recent Brainstorm Sessions</div>
+      <div class="bs-session-list">
+        ${u.brainstorm_session_list.map(s => `
+          <div class="bs-session-row">
+            <div class="bs-session-title">${escHtml(s.title)}</div>
+            <div class="bs-session-meta">
+              <span class="bs-duration-badge">${escHtml(s.duration)}</span>
+              <span style="color:var(--text-muted);font-size:0.78rem">${s.messages} msg${s.messages !== 1 ? 's' : ''}</span>
+              <span style="color:var(--text-muted);font-size:0.75rem;margin-left:auto">${fmtDate(s.created_at)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
 
       ${!u.is_admin ? `
       <div class="detail-actions">

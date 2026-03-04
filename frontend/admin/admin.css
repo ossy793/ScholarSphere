@@ -30,6 +30,8 @@
 .admin-stat-card.purple::before { background: #8b5cf6; }
 .admin-stat-card.orange::before { background: #f59e0b; }
 .admin-stat-card.blue::before   { background: #3b82f6; }
+.admin-stat-card.teal::before   { background: #0d9488; }
+.admin-stat-card.indigo::before { background: #6366f1; }
 
 .stat-label {
   font-size: 0.75rem;
@@ -296,3 +298,45 @@
 
 .admin-toast.success { background: var(--success); }
 .admin-toast.error   { background: var(--danger); }
+
+/* Brainstorm session list in user detail modal */
+.bs-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.bs-session-row {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.bs-session-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.bs-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bs-duration-badge {
+  display: inline-block;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+}

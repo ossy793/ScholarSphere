@@ -37,6 +37,49 @@ class SendNotificationRequest(BaseModel):
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+def _fmt_duration(seconds: float | None) -> str:
+    """Format seconds into a human-readable string like '2h 15m' or '< 1 min'."""
+    if not seconds or seconds < 60:
+        return "< 1 min"
+    minutes = int(seconds // 60)
+    hours   = minutes // 60
+    mins    = minutes % 60
+    if hours:
+        return f"{hours}h {mins}m" if mins else f"{hours}h"
+    return f"{mins}m"
+
+
+def _bs_duration_subquery(db: Session):
+    """
+    Returns a subquery with columns (session_id, user_id, duration_seconds).
+    Duration = seconds from session created_at to the last message created_at.
+    Sessions with no messages get duration = 0.
+    """
+    last_msg = (
+        db.query(
+            BrainstormMessage.session_id,
+            func.max(BrainstormMessage.created_at).label("last_msg_at"),
+        )
+        .group_by(BrainstormMessage.session_id)
+        .subquery()
+    )
+    return (
+        db.query(
+            BrainstormSession.id.label("session_id"),
+            BrainstormSession.user_id,
+            func.coalesce(
+                func.extract(
+                    "epoch",
+                    last_msg.c.last_msg_at - BrainstormSession.created_at,
+                ),
+                0,
+            ).label("duration_seconds"),
+        )
+        .outerjoin(last_msg, BrainstormSession.id == last_msg.c.session_id)
+        .subquery()
+    )
+
+
 # ── Stats ─────────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
@@ -58,16 +101,27 @@ def admin_stats(
     total_questions = db.query(func.count(Question.id)).scalar() or 0
     total_attempts  = db.query(func.count(Attempt.id)).scalar() or 0
 
+    # Brainstorm duration stats
+    dur_sub = _bs_duration_subquery(db)
+    bs_agg  = db.query(
+        func.count(dur_sub.c.session_id).label("total_sessions"),
+        func.coalesce(func.sum(dur_sub.c.duration_seconds), 0).label("total_seconds"),
+        func.coalesce(func.avg(dur_sub.c.duration_seconds), 0).label("avg_seconds"),
+    ).first()
+
     return {
-        "total_users":      total_users,
-        "active_users":     active_users,
-        "inactive_users":   total_users - active_users,
-        "premium_users":    premium_users,
-        "free_users":       total_users - premium_users,
-        "new_users_today":  new_today,
-        "total_quizzes":    total_quizzes,
-        "total_questions":  total_questions,
-        "total_attempts":   total_attempts,
+        "total_users":              total_users,
+        "active_users":             active_users,
+        "inactive_users":           total_users - active_users,
+        "premium_users":            premium_users,
+        "free_users":               total_users - premium_users,
+        "new_users_today":          new_today,
+        "total_quizzes":            total_quizzes,
+        "total_questions":          total_questions,
+        "total_attempts":           total_attempts,
+        "total_brainstorm_sessions": int(bs_agg.total_sessions or 0),
+        "total_brainstorm_time":    _fmt_duration(float(bs_agg.total_seconds or 0)),
+        "avg_brainstorm_duration":  _fmt_duration(float(bs_agg.avg_seconds or 0)),
     }
 
 
@@ -223,14 +277,58 @@ def user_detail(
         round(sum(a.score for a in attempts) / total_attempts, 1) if total_attempts else None
     )
 
-    # Brainstorm stats
-    bs_sessions  = db.query(func.count(BrainstormSession.id)).filter(BrainstormSession.user_id == user_id).scalar() or 0
-    bs_messages  = (
+    # Brainstorm stats — sessions, messages, and total time spent
+    dur_sub = _bs_duration_subquery(db)
+    bs_agg = db.query(
+        func.count(dur_sub.c.session_id).label("sessions"),
+        func.coalesce(func.sum(dur_sub.c.duration_seconds), 0).label("total_seconds"),
+    ).filter(dur_sub.c.user_id == user_id).first()
+
+    bs_sessions       = int(bs_agg.sessions or 0)
+    bs_total_seconds  = float(bs_agg.total_seconds or 0)
+
+    bs_messages = (
         db.query(func.count(BrainstormMessage.id))
         .join(BrainstormSession, BrainstormMessage.session_id == BrainstormSession.id)
         .filter(BrainstormSession.user_id == user_id)
         .scalar() or 0
     )
+
+    # Last 5 brainstorm sessions with individual durations
+    last_msg = (
+        db.query(
+            BrainstormMessage.session_id,
+            func.max(BrainstormMessage.created_at).label("last_msg_at"),
+            func.count(BrainstormMessage.id).label("msg_count"),
+        )
+        .group_by(BrainstormMessage.session_id)
+        .subquery()
+    )
+    recent_sessions = (
+        db.query(
+            BrainstormSession,
+            func.coalesce(
+                func.extract("epoch", last_msg.c.last_msg_at - BrainstormSession.created_at), 0
+            ).label("duration_seconds"),
+            func.coalesce(last_msg.c.msg_count, 0).label("msg_count"),
+        )
+        .outerjoin(last_msg, BrainstormSession.id == last_msg.c.session_id)
+        .filter(BrainstormSession.user_id == user_id)
+        .order_by(BrainstormSession.updated_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    session_list = [
+        {
+            "title":            s.BrainstormSession.title,
+            "created_at":       s.BrainstormSession.created_at.isoformat(),
+            "duration":         _fmt_duration(float(s.duration_seconds or 0)),
+            "duration_seconds": int(s.duration_seconds or 0),
+            "messages":         int(s.msg_count or 0),
+        }
+        for s in recent_sessions
+    ]
 
     return {
         "id":                   str(user.id),
@@ -250,6 +348,9 @@ def user_detail(
         "average_score":        avg_score,
         "brainstorm_sessions":  bs_sessions,
         "brainstorm_messages":  bs_messages,
+        "brainstorm_total_time": _fmt_duration(bs_total_seconds),
+        "brainstorm_total_seconds": int(bs_total_seconds),
+        "brainstorm_session_list":  session_list,
     }
 
 
