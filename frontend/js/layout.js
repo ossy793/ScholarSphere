@@ -103,6 +103,42 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     headerEl.insertBefore(menuBtn, headerEl.firstChild);
   }
 
+  // ── Inject mobile sign-out button into top-header ──
+  if (headerEl && !document.getElementById('mobile-signout-btn')) {
+    const signOutBtn = document.createElement('button');
+    signOutBtn.id        = 'mobile-signout-btn';
+    signOutBtn.title     = 'Sign Out';
+    signOutBtn.setAttribute('onclick', 'handleLogout()');
+    signOutBtn.innerHTML = svgLogout();
+    signOutBtn.style.cssText = `
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ef4444;
+      padding: 6px;
+      border-radius: 6px;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    `;
+    signOutBtn.innerHTML = svgLogout();
+    // Insert before user-badge (at the right side)
+    const userBadge = headerEl.querySelector('.user-badge');
+    if (userBadge) {
+      userBadge.parentNode.insertBefore(signOutBtn, userBadge.nextSibling);
+    } else {
+      headerEl.appendChild(signOutBtn);
+    }
+
+    // Show only on mobile via resize observer
+    const applyVisibility = () => {
+      signOutBtn.style.display = window.innerWidth <= 640 ? 'flex' : 'none';
+    };
+    applyVisibility();
+    window.addEventListener('resize', applyVisibility);
+  }
+
   // ── Inject sidebar overlay (mobile) ──
   if (!document.getElementById('sidebar-overlay')) {
     const overlay = document.createElement('div');
