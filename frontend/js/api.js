@@ -169,13 +169,17 @@ function apiFetchFormWithProgress(path, form, { onProgress, onUploadComplete } =
         let msg;
         if (typeof detail === 'string') msg = detail;
         else if (Array.isArray(detail)) msg = detail.map(e => e.msg.replace(/^Value error,\s*/i, '')).join(' · ');
-        else if (xhr.status === 502 || xhr.status === 503 || xhr.status === 504)
-          msg = 'The server is starting up. Please wait a moment and try again.';
+        else if (xhr.status === 504)
+          msg = 'The file took too long to process. Try a shorter document or try again.';
+        else if (xhr.status === 502 || xhr.status === 503)
+          msg = 'The server is temporarily unavailable. Please try again shortly.';
         else msg = `Error ${xhr.status}`;
         reject(new Error(msg));
       }
     });
-    xhr.addEventListener('error', () => reject(new Error('Unable to reach the server. It may be starting up — please wait a moment and try again.')));
+    xhr.addEventListener('error', () => reject(new Error('Unable to reach the server. Please check your connection and try again.')));
+    xhr.addEventListener('timeout', () => reject(new Error('The file took too long to process. Please try a smaller file or try again.')));
+    xhr.timeout = 300000; // 5-minute timeout for large file uploads + AI processing
     xhr.send(form);
   });
 }
