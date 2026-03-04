@@ -32,21 +32,18 @@ def _find_tesseract_cmd() -> str | None:
     return None
 
 
-_MAX_OCR_PAGES = 5   # cap to keep memory under 512 MB on Render free tier
-
 def _render_pdf_pages(file_bytes: bytes) -> list:
     """
-    Render each PDF page as a JPEG image using pymupdf (no Poppler required).
-    Returns a list of raw JPEG bytes, one per page (capped at _MAX_OCR_PAGES).
-    Uses 2× zoom (144 DPI) — good OCR quality while keeping memory low.
+    Render every PDF page as a JPEG image using pymupdf (no Poppler required).
+    Returns a list of raw JPEG bytes, one per page — all pages are processed.
+    Uses 2× zoom (144 DPI) with JPEG compression for efficient memory use.
     """
     import fitz  # pymupdf
 
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — adequate OCR quality, half the RAM of 3×
+    mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — good OCR quality
     images = []
-    page_count = min(len(doc), _MAX_OCR_PAGES)
-    for page_num in range(page_count):
+    for page_num in range(len(doc)):
         pix = doc[page_num].get_pixmap(matrix=mat)
         images.append(pix.tobytes("jpeg", jpg_quality=85))
         del pix  # free pixmap memory immediately
