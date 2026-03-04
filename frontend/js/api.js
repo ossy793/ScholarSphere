@@ -1,5 +1,5 @@
 /* ── Pritis API Client ── */
-const BASE_URL = "https://scholarsphere-n277.onrender.com/api";
+const BASE_URL = "https://pritis.name.ng/api";
 
 export function getToken() {
   return localStorage.getItem('pritis_token');

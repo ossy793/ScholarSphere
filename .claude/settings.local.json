@@ -9,7 +9,21 @@
       "Bash(python migrate.py)",
       "Bash(source ossyquizenv/Scripts/activate)",
       "Bash(source \"../ossyquizenv/Scripts/activate\")",
-      "Bash(python -m pip install psycopg2-binary)"
+      "Bash(python -m pip install psycopg2-binary)",
+      "Bash(git add backend/app/config.py .gitignore backend/.env.example)",
+      "Bash(git commit -m \"Add EXTRA_ORIGINS env support + gitignore\")",
+      "Bash(git push origin main)",
+      "Bash(git add backend/runtime.txt)",
+      "Bash(git commit -m \"Pin Python to 3.11 for Render compatibility\")",
+      "Bash(git add backend/requirements.txt)",
+      "Bash(git commit -m \"Upgrade deps to support Python 3.14\")",
+      "Bash(git commit -m \"Add email-validator dependency\")",
+      "Bash(git add frontend/js/api.js)",
+      "Bash(git commit -m \"Point frontend API to Render backend\")",
+      "Bash(git add frontend/vercel.json)",
+      "Bash(git commit -m \"Redirect Vercel root to landing page\")",
+      "Bash(git add backend/app/config.py)",
+      "Bash(git commit:*)"
     ]
   }
 }
