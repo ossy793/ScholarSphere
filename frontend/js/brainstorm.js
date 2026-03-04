@@ -11,6 +11,45 @@ let isWaiting        = false;
 let currentBlobUrl   = null; // revoke on next upload
 let currentSessionId = null; // DB session ID (null = unsaved)
 
+// ── Proactive reading engagement timers ───────────────────────────────────────
+// Fires at 15 min, 45 min, and 90 min of uninterrupted reading (no chat sent).
+const _READING_CHECKPOINTS = [
+  { ms: 15 * 60 * 1000, msg: "Well done — you've been reading for 15 minutes. If you need any help or have a question, just ask!" },
+  { ms: 45 * 60 * 1000, msg: "You've been at it for 45 minutes — great focus! Feel free to ask me anything about what you've read so far." },
+  { ms: 90 * 60 * 1000, msg: "An hour and a half of reading — impressive! Consider doing a quick review or asking me a question to test your understanding." },
+];
+let _readingTimers       = [];  // active setTimeout IDs
+let _readingStartedAt    = null; // Date when timers were last set
+
+function _startReadingTimers() {
+  _clearReadingTimers();
+  _readingStartedAt = Date.now();
+  _READING_CHECKPOINTS.forEach(({ ms, msg }) => {
+    const id = setTimeout(() => _injectProactiveMessage(msg), ms);
+    _readingTimers.push(id);
+  });
+}
+
+function _clearReadingTimers() {
+  _readingTimers.forEach(clearTimeout);
+  _readingTimers = [];
+  _readingStartedAt = null;
+}
+
+function _resetReadingTimers() {
+  // Restart timers after user sends a message (activity resets the clock)
+  if (documentContext) _startReadingTimers();
+}
+
+function _injectProactiveMessage(msg) {
+  // Only show if the chat panel is open and there's a document loaded
+  if (!documentContext) return;
+  const layout = document.getElementById('bs-layout');
+  if (layout?.classList.contains('chat-collapsed')) return;
+  appendBubble('assistant', msg);
+  chatHistory.push({ role: 'assistant', content: msg });
+}
+
 const _user     = getUser();
 const _initials = (_user?.full_name || 'U')
   .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -763,6 +802,7 @@ function enableChat(ocrWarning) {
     input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
     document.getElementById('send-btn').disabled = false;
     input.focus();
+    _startReadingTimers(); // begin proactive engagement countdown
   }
 }
 
@@ -771,6 +811,7 @@ function disableChat() {
   input.disabled    = true;
   input.placeholder = 'Upload a document to start chatting with UrPadi…';
   document.getElementById('send-btn').disabled = true;
+  _clearReadingTimers(); // stop timers when no document is active
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
@@ -820,6 +861,7 @@ window.sendMessage = async function () {
     removeTyping(typingId);
     appendBubble('assistant', res.reply);
     chatHistory.push({ role: 'assistant', content: res.reply });
+    _resetReadingTimers(); // user interacted — restart the inactivity clock
     _bsSave();
   } catch (err) {
     removeTyping(typingId);
