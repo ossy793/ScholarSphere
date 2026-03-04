@@ -119,6 +119,8 @@ async def generate_from_pdf(
         text = extract_text_from_pdf(file_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not read PDF: {exc}")
 
     raw_questions = _run_ai(text, num_questions, _parse_types(question_types))
     return quiz_service.save_generated_quiz(
@@ -145,6 +147,8 @@ async def generate_from_docx(
         text = extract_text_from_docx(file_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not read DOCX: {exc}")
 
     raw_questions = _run_ai(text, num_questions, _parse_types(question_types))
     return quiz_service.save_generated_quiz(
@@ -171,6 +175,8 @@ async def generate_from_pptx(
         text = extract_text_from_pptx(file_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not read PPTX: {exc}")
 
     raw_questions = _run_ai(text, num_questions, _parse_types(question_types))
     return quiz_service.save_generated_quiz(

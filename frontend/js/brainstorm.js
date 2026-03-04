@@ -629,7 +629,20 @@ async function handlePptx(file) {
   const scroll = document.getElementById('doc-viewer-scroll');
   scroll.style.padding = '0';
   scroll.style.height  = '';
-  scroll.innerHTML = `<pre class="txt-render">${escHtml(res.text)}</pre>`;
+
+  // Render each slide as a styled card
+  const slides = res.text.split(/\n\n+/).filter(s => s.trim());
+  const slidesHtml = slides.map((slide, i) => {
+    const lines = slide.split('\n').filter(l => l.trim());
+    const title = lines[0] || '';
+    const body  = lines.slice(1);
+    return `<div class="pptx-slide">
+      <div class="pptx-slide-num">Slide ${i + 1}</div>
+      ${title ? `<div class="pptx-slide-title">${escHtml(title)}</div>` : ''}
+      ${body.map(l => `<div class="pptx-slide-line">${escHtml(l)}</div>`).join('')}
+    </div>`;
+  }).join('');
+  scroll.innerHTML = `<div class="pptx-slides">${slidesHtml}</div>`;
 
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
@@ -882,10 +895,14 @@ window.startResize = function (e) {
 
 // ── Chat panel collapse / restore ────────────────────────────────────────────
 window.toggleChatPanel = function () {
-  const layout     = document.getElementById('bs-layout');
-  const restoreBtn = document.getElementById('chat-restore-btn');
+  const layout      = document.getElementById('bs-layout');
+  const restoreBtn  = document.getElementById('chat-restore-btn');
   const isCollapsed = layout.classList.toggle('chat-collapsed');
   restoreBtn.classList.toggle('visible', isCollapsed);
+  if (!isCollapsed) {
+    // Focus chat input when panel opens
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 350);
+  }
 };
 
 // ── History panel ─────────────────────────────────────────────────────────────
@@ -1135,7 +1152,7 @@ window.finishRenameSession = async function (sessionId) {
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function fileTypeIcon(type) {
-  const icons = { pdf: '📕', docx: '📘', txt: '📄', paste: '📝' };
+  const icons = { pdf: '📕', docx: '📘', pptx: '📊', txt: '📄', paste: '📝' };
   return icons[type] || '📄';
 }
 

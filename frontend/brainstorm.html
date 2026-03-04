@@ -577,7 +577,7 @@
       }
       .chat-restore-btn.visible { animation: fadeInUp 0.3s ease; }
       .chat-restore-btn-label { display: none; }
-      .chat-restore-btn svg { width: 22px; height: 22px; }
+      .chat-restore-btn span:first-child { font-size: 1rem; font-weight: 900; }
       @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(12px); }
         to   { opacity: 1; transform: translateY(0); }
@@ -586,6 +586,26 @@
       .chat-input-bar { padding: 10px 12px; }
       .chat-messages { padding: 14px 14px; }
       .doc-upload-area { padding: 14px; }
+    }
+    /* ── PPTX slide cards ── */
+    .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+    .pptx-slide {
+      background: #fff; border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 20px 22px; position: relative;
+    }
+    .pptx-slide-num {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--primary); margin-bottom: 8px;
+      opacity: 0.75;
+    }
+    .pptx-slide-title {
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      margin-bottom: 8px; line-height: 1.35;
+    }
+    .pptx-slide-line {
+      font-size: 0.87rem; color: var(--text-muted); line-height: 1.65;
+      padding-left: 10px; border-left: 2px solid var(--border);
+      margin-bottom: 4px;
     }
   </style>
 </head>
@@ -603,7 +623,7 @@
       </header>
 
       <main class="page-body">
-        <div class="bs-layout" id="bs-layout">
+        <div class="bs-layout chat-collapsed" id="bs-layout">
 
           <!-- ── Left: Document Panel ── -->
           <div class="doc-panel" id="doc-panel">
@@ -751,13 +771,10 @@
           </div>
         </div>
 
-        <!-- Floating UrPadi restore button (shown when chat panel is collapsed) -->
-        <button class="chat-restore-btn" id="chat-restore-btn"
+        <!-- Floating UrPadi restore button (visible by default — users open chat manually) -->
+        <button class="chat-restore-btn visible" id="chat-restore-btn"
           onclick="toggleChatPanel()" title="Open UrPadi">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-          </svg>
+          <span style="font-size:1rem;font-weight:900;letter-spacing:-0.02em;line-height:1">UP</span>
           <span class="chat-restore-btn-label">UrPadi</span>
         </button>
       </main>
