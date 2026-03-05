@@ -122,7 +122,6 @@ function _bsClear() {
   const sid = localStorage.getItem('pritis_bs_session_id');
   if (sid) _IDB.del(sid);
   _IDB.del('current_pdf');
-  _IDB.del('current_docx');
   _BS_KEYS.forEach(k => localStorage.removeItem(k));
   currentSessionId = null;
 }
@@ -172,10 +171,9 @@ async function _bsRestore() {
       <span style="margin-left:auto">${pasteText.length.toLocaleString()} chars</span>`;
   } else {
     const isPdf  = meta?.extLabel === 'PDF';
-    const isDocx = meta?.extLabel === 'DOCX';
     if (isPdf) {
       let buf = await _IDB.get('current_pdf').catch(() => null);
-      if (!buf) {
+      if (!buf && savedSessionId) {
         buf = await _fetchSessionFile(savedSessionId).catch(() => null);
         if (buf) await _IDB.save('current_pdf', buf).catch(() => {});
       }
@@ -183,24 +181,15 @@ async function _bsRestore() {
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
         _renderPdfInScroll(scroll, currentBlobUrl, ctx);
+      } else if (savedSessionId) {
+        _renderWithPdfPolling(savedSessionId, scroll, ctx);
       } else {
         scroll.style.height = '';
         scroll.innerHTML = `${pdfRestoredNotice()}<pre class="txt-render">${escHtml(ctx)}</pre>`;
       }
-    } else if (isDocx && typeof mammoth !== 'undefined') {
-      let buf = await _IDB.get('current_docx').catch(() => null);
-      if (!buf) {
-        buf = await _fetchSessionFile(savedSessionId).catch(() => null);
-        if (buf) await _IDB.save('current_docx', buf).catch(() => {});
-      }
-      if (buf) {
-        const htmlResult = await mammoth.convertToHtml({ arrayBuffer: buf });
-        scroll.style.height = '';
-        scroll.innerHTML = `<div class="docx-render">${htmlResult.value}</div>`;
-      } else {
-        scroll.style.height = '';
-        scroll.innerHTML = `<pre class="txt-render">${escHtml(ctx)}</pre>`;
-      }
+    } else if (savedSessionId && meta?.extLabel && !['TXT', 'TEXT', 'PASTE'].includes(meta.extLabel)) {
+      // DOCX, PPTX, image — use unified PDF viewer via polling
+      _renderWithPdfPolling(savedSessionId, scroll, ctx);
     } else {
       scroll.style.height = '';
       scroll.innerHTML = `<pre class="txt-render">${escHtml(ctx)}</pre>`;
@@ -330,9 +319,10 @@ async function handleFile(file) {
     return;
   }
 
+  const _IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif'];
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-  if (!['.pdf', '.docx', '.pptx', '.txt'].includes(ext)) {
-    errEl.textContent = 'Unsupported file. Please upload a PDF, DOCX, PPTX, or TXT file.';
+  if (!['.pdf', '.docx', '.pptx', '.txt', ..._IMAGE_EXTS].includes(ext)) {
+    errEl.textContent = 'Unsupported file. Please upload a PDF, DOCX, PPTX, TXT, or image file (PNG, JPG, JPEG, WEBP, GIF).';
     errEl.classList.remove('hidden');
     return;
   }
@@ -342,10 +332,11 @@ async function handleFile(file) {
 
   let ocrWarning = null;
   try {
-    if (ext === '.pdf')  ocrWarning = await handlePdf(file);
-    if (ext === '.docx') await handleDocx(file);
-    if (ext === '.pptx') await handlePptx(file);
-    if (ext === '.txt')  await handleTxt(file);
+    if (ext === '.pdf')              ocrWarning = await handlePdf(file);
+    else if (ext === '.docx')        await handleDocx(file);
+    else if (ext === '.pptx')        await handlePptx(file);
+    else if (ext === '.txt')         await handleTxt(file);
+    else if (_IMAGE_EXTS.includes(ext)) ocrWarning = await handleImage(file);
 
     const extLabel = ext.slice(1).toUpperCase();
     showViewerArea(file.name, extLabel, file.size);
@@ -498,6 +489,43 @@ function _renderPdfTextFallback(scroll, blobUrl, extractedText) {
     <pre class="txt-render">${escHtml(extractedText)}</pre>`;
 }
 
+// ── Unified PDF viewer with polling (Pipeline B) ──────────────────────────────
+// Polls /pdf-status until the backend finishes converting, then renders the PDF.
+async function _renderWithPdfPolling(sessionId, scroll, extractedText = '') {
+  scroll.style.padding = '0';
+  scroll.style.height  = '';
+  scroll.innerHTML = `
+    <div style="padding:40px;text-align:center;color:var(--text-muted)">
+      <div class="spinner spinner-dark" style="margin:0 auto 14px"></div>
+      <p style="font-size:0.85rem">Preparing document viewer…</p>
+      <p style="font-size:0.75rem;margin-top:6px;opacity:.6">
+        You can already start chatting below while the viewer loads.</p>
+    </div>`;
+
+  for (let attempt = 0; attempt < 30; attempt++) { // max ~60 s
+    try {
+      const status = await api.get(`/brainstorm/sessions/${sessionId}/pdf-status`);
+      if (status.ready) {
+        const pdfBuf = await api.getBuffer(`/brainstorm/sessions/${sessionId}/document.pdf`);
+        if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+        currentBlobUrl = URL.createObjectURL(new Blob([pdfBuf], { type: 'application/pdf' }));
+        _renderPdfInScroll(scroll, currentBlobUrl, extractedText);
+        return;
+      }
+    } catch { /* ignore transient errors — keep polling */ }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  // Timeout fallback — show extracted text with a note
+  scroll.style.height = '';
+  scroll.innerHTML = `
+    <div style="background:#fff3cd;color:#856404;border-bottom:1px solid #ffc107;
+                padding:10px 16px;font-size:.82rem;line-height:1.5;flex-shrink:0;">
+      ⚠️ Document viewer could not be prepared. You can still chat with UrPadi about the content.
+    </div>
+    <pre class="txt-render">${escHtml(extractedText)}</pre>`;
+}
+
 // ── PDF ───────────────────────────────────────────────────────────────────────
 async function handlePdf(file) {
   if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
@@ -577,26 +605,10 @@ async function handlePdf(file) {
 
 // ── DOCX ──────────────────────────────────────────────────────────────────────
 async function handleDocx(file) {
-  if (typeof mammoth === 'undefined') throw new Error('mammoth.js failed to load.');
-  const arrayBuffer = await file.arrayBuffer();
-  const htmlResult  = await mammoth.convertToHtml({ arrayBuffer });
-  const textResult  = await mammoth.extractRawText({ arrayBuffer });
-
-  const scroll = document.getElementById('doc-viewer-scroll');
-  scroll.style.padding = '0';
-  scroll.style.height  = '';
-  scroll.innerHTML = `<div class="docx-render">${htmlResult.value}</div>`;
-
-  let text = textResult.value.trim();
-  if (!text) throw new Error('This DOCX file contains no extractable text.');
-  if (text.length > 12000) text = text.slice(0, 12000) + '\n... [content truncated]';
-  documentContext = text;
-
-  // Upload with progress tracking (0→40% upload, 40→90% saving session)
   const formData = new FormData();
   formData.append('file', file);
 
-  _bsProgress(5, 'Preparing upload…');
+  _bsProgress(4, 'Preparing upload…');
   let simTimer = null;
 
   const res = await api.postFormProgress(
@@ -605,11 +617,11 @@ async function handleDocx(file) {
     {
       onProgress: (ratio) => {
         if (simTimer) return;
-        const pct = Math.round(5 + ratio * 60);
+        const pct = Math.round(ratio * 40);
         _bsProgress(pct, `Uploading… ${pct}%`);
       },
       onUploadComplete: () => {
-        simTimer = _simProgress(65, 90, 4000, (p) => _bsProgress(p, `Saving session… ${p}%`));
+        simTimer = _simProgress(40, 85, 6000, (p) => _bsProgress(p, `Extracting text… ${p}%`));
       },
     }
   );
@@ -617,10 +629,13 @@ async function handleDocx(file) {
   if (simTimer) clearInterval(simTimer);
   _bsProgress(100, 'Document ready! ✓');
 
+  documentContext = res.text || '';
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
-  await _IDB.save(currentSessionId, arrayBuffer).catch(() => {});
-  await _IDB.save('current_docx', arrayBuffer).catch(() => {});
+
+  // Kick off viewer polling in background — do not await so chat is usable immediately
+  const scroll = document.getElementById('doc-viewer-scroll');
+  _renderWithPdfPolling(currentSessionId, scroll, documentContext);
 }
 
 // ── TXT ───────────────────────────────────────────────────────────────────────
@@ -669,33 +684,52 @@ async function handlePptx(file) {
   if (simTimer) clearInterval(simTimer);
   _bsProgress(100, 'Document ready! ✓');
 
-  documentContext = res.text;
-
-  const scroll = document.getElementById('doc-viewer-scroll');
-  scroll.style.padding = '0';
-  scroll.style.height  = '';
-
-  if (res.slide_html) {
-    // Visual slide rendering — shows actual layout, colours and positions
-    scroll.innerHTML = `<div class="pptx-visual-viewer">${res.slide_html}</div>`;
-  } else {
-    // Fallback: plain text cards
-    const slides = res.text.split(/\n\n+/).filter(s => s.trim());
-    const slidesHtml = slides.map((slide, i) => {
-      const lines = slide.split('\n').filter(l => l.trim());
-      const title = lines[0] || '';
-      const body  = lines.slice(1);
-      return `<div class="pptx-slide">
-        <div class="pptx-slide-num">Slide ${i + 1}</div>
-        ${title ? `<div class="pptx-slide-title">${escHtml(title)}</div>` : ''}
-        ${body.map(l => `<div class="pptx-slide-line">${escHtml(l)}</div>`).join('')}
-      </div>`;
-    }).join('');
-    scroll.innerHTML = `<div class="pptx-slides">${slidesHtml}</div>`;
-  }
-
+  documentContext = res.text || '';
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);
+
+  const scroll = document.getElementById('doc-viewer-scroll');
+  _renderWithPdfPolling(currentSessionId, scroll, documentContext);
+}
+
+// ── Image ─────────────────────────────────────────────────────────────────────
+async function handleImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  _bsProgress(4, 'Preparing upload…');
+  let simTimer = null;
+
+  const res = await api.postFormProgress(
+    '/brainstorm/sessions/from-file',
+    formData,
+    {
+      onProgress: (ratio) => {
+        if (simTimer) return;
+        const pct = Math.round(ratio * 40);
+        _bsProgress(pct, `Uploading… ${pct}%`);
+      },
+      onUploadComplete: () => {
+        simTimer = _simProgress(40, 85, 8000, (p) => _bsProgress(p, `Running OCR… ${p}%`));
+      },
+    }
+  );
+
+  if (simTimer) clearInterval(simTimer);
+  _bsProgress(100, 'Image ready! ✓');
+
+  documentContext = res.text || '';
+  currentSessionId = res.id;
+  localStorage.setItem('pritis_bs_session_id', currentSessionId);
+
+  // Show OCR warning if no text was extracted
+  if (res.ocr_failed) {
+    return 'No text could be extracted from this image. The image is shown for viewing only — AI analysis is unavailable.';
+  }
+
+  const scroll = document.getElementById('doc-viewer-scroll');
+  _renderWithPdfPolling(currentSessionId, scroll, documentContext);
+  return null;
 }
 
 // ── Progress helpers ──────────────────────────────────────────────────────────
@@ -737,7 +771,7 @@ function resetUploadZone() {
     <div class="upload-icon">📄</div>
     <h3>Upload your material</h3>
     <p>Drop a file here or click to browse</p>
-    <p class="text-xs" style="margin-bottom:16px">PDF · DOCX · PPTX · TXT</p>
+    <p class="text-xs" style="margin-bottom:16px">PDF · DOCX · PPTX · TXT · PNG · JPG · WEBP</p>
     <button class="btn btn-primary btn-sm"
       onclick="event.stopPropagation();document.getElementById('file-input').click()">
       Choose File
@@ -1051,20 +1085,21 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
   if (session.document) {
     documentContext = session.document.extracted_text;
 
-    const scroll = document.getElementById('doc-viewer-scroll');
-    const isPdf  = session.document.file_type === 'pdf';
+    const scroll   = document.getElementById('doc-viewer-scroll');
+    const fileType = session.document.file_type;
+    const isTxt    = fileType === 'txt' || fileType === 'paste';
+
     scroll.style.padding = '0';
 
-    if (isPdf) {
+    if (isTxt) {
+      // Plain text — no PDF viewer, just render the extracted text
+      scroll.style.height = '';
+      scroll.innerHTML = `<pre class="txt-render">${escHtml(documentContext)}</pre>`;
+    } else if (fileType === 'pdf') {
+      // PDF: try IDB first (fast local cache), then fall back to backend PDF endpoint
       let buf = await _IDB.get(sessionId).catch(() => null);
-      // Fallback 1: race condition — bytes may still be under the temp key
       if (!buf && sessionId === localStorage.getItem('pritis_bs_session_id')) {
         buf = await _IDB.get('current_pdf').catch(() => null);
-        if (buf) await _IDB.save(sessionId, buf).catch(() => {});
-      }
-      // Fallback 2: fetch from backend (persistent, works for all sessions)
-      if (!buf) {
-        buf = await _fetchSessionFile(sessionId);
         if (buf) await _IDB.save(sessionId, buf).catch(() => {});
       }
       if (buf) {
@@ -1072,31 +1107,12 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
         currentBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
         _renderPdfInScroll(scroll, currentBlobUrl, documentContext);
       } else {
-        scroll.style.height = '';
-        scroll.innerHTML = `${pdfRestoredNotice()}<pre class="txt-render">${escHtml(documentContext)}</pre>`;
-      }
-    } else if (session.document.file_type === 'docx' && typeof mammoth !== 'undefined') {
-      // Try to re-render DOCX from stored bytes
-      let buf = await _IDB.get(sessionId).catch(() => null);
-      if (!buf && sessionId === localStorage.getItem('pritis_bs_session_id')) {
-        buf = await _IDB.get('current_docx').catch(() => null);
-        if (buf) await _IDB.save(sessionId, buf).catch(() => {});
-      }
-      if (!buf) {
-        buf = await _fetchSessionFile(sessionId);
-        if (buf) await _IDB.save(sessionId, buf).catch(() => {});
-      }
-      if (buf) {
-        const htmlResult = await mammoth.convertToHtml({ arrayBuffer: buf });
-        scroll.style.height = '';
-        scroll.innerHTML = `<div class="docx-render">${htmlResult.value}</div>`;
-      } else {
-        scroll.style.height = '';
-        scroll.innerHTML = `<pre class="txt-render">${escHtml(documentContext)}</pre>`;
+        // No IDB cache — use the unified PDF polling path (pdf_ready=true for PDFs, will succeed fast)
+        _renderWithPdfPolling(sessionId, scroll, documentContext);
       }
     } else {
-      scroll.style.height = '';
-      scroll.innerHTML = `<pre class="txt-render">${escHtml(documentContext)}</pre>`;
+      // DOCX, PPTX, images — all converted to PDF by the backend
+      _renderWithPdfPolling(sessionId, scroll, documentContext);
     }
 
     const sizeLabel = session.document.file_size_bytes
@@ -1205,7 +1221,8 @@ window.finishRenameSession = async function (sessionId) {
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function fileTypeIcon(type) {
-  const icons = { pdf: '📕', docx: '📘', pptx: '📊', txt: '📄', paste: '📝' };
+  const icons = { pdf: '📕', docx: '📘', pptx: '📊', txt: '📄', paste: '📝',
+                  png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️', gif: '🖼️' };
   return icons[type] || '📄';
 }
 

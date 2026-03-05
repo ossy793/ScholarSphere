@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, Integer, LargeBinary, ForeignKey
+from sqlalchemy import Column, String, Text, DateTime, Integer, LargeBinary, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -67,7 +67,9 @@ class BrainstormDocument(Base):
     file_type       = Column(String(20),  nullable=False)   # "pdf"|"docx"|"txt"|"paste"
     extracted_text  = Column(Text, nullable=False)
     file_size_bytes = Column(Integer, nullable=True)
-    file_content    = Column(LargeBinary, nullable=True)    # raw file bytes for PDF/DOCX viewer
+    file_content    = Column(LargeBinary, nullable=True)    # raw original file bytes
+    viewer_pdf      = Column(LargeBinary, nullable=True)    # converted PDF for the viewer (Pipeline B)
+    pdf_ready       = Column(Boolean, nullable=False, default=False)  # True once viewer_pdf is stored
     created_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     session = relationship("BrainstormSession", back_populates="document")

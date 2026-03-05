@@ -1,20 +1,34 @@
+import logging
 import uuid as uuid_module
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from fastapi.responses import Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models.user import User
 from ..models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument
 from ..utils.security import get_current_user
-from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, render_pptx_visual_html, truncate_text
+from ..utils.file_parser import (
+    extract_text_from_pdf,
+    extract_text_from_docx,
+    extract_text_from_pptx,
+    extract_text_from_image,
+    truncate_text,
+)
+from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
 from ..services.ai_service import get_groq_client
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
+
+_MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
+
+# All image extensions the system accepts
+_IMAGE_EXTS = {f".{t}" for t in IMAGE_TYPES}
 
 BRAINSTORM_SYSTEM = """\
 You are UrPadi, a study assistant helping a student understand their uploaded document.
@@ -106,6 +120,56 @@ def _session_list_item(s: BrainstormSession) -> dict:
     }
 
 
+def _detect_file_type(filename: str) -> str | None:
+    """Return a normalised file_type string, or None if unsupported."""
+    fname = filename.lower()
+    if fname.endswith(".pdf"):
+        return "pdf"
+    if fname.endswith(".docx"):
+        return "docx"
+    if fname.endswith(".pptx"):
+        return "pptx"
+    if fname.endswith(".txt"):
+        return "txt"
+    for ext in _IMAGE_EXTS:
+        if fname.endswith(ext):
+            return ext.lstrip(".")   # e.g. "png", "jpg"
+    return None
+
+
+# ── Background task: PDF conversion (Pipeline B) ──────────────────────────────
+
+def _convert_and_store_pdf(session_id_str: str, file_bytes: bytes,
+                            file_type: str, filename: str) -> None:
+    """
+    Run in a FastAPI BackgroundTask after the upload response is sent.
+    Converts the uploaded file to PDF and stores it in brainstorm_documents.
+    Uses its own DB session so the request session is already closed.
+    """
+    db = SessionLocal()
+    try:
+        pdf_bytes = convert_to_pdf(file_bytes, file_type, filename)
+        if pdf_bytes is None:
+            logger.info("No PDF conversion needed/available for %s (type=%s).", filename, file_type)
+            return
+
+        session_id = uuid_module.UUID(session_id_str)
+        doc = db.query(BrainstormDocument).filter(
+            BrainstormDocument.session_id == session_id
+        ).first()
+        if doc:
+            doc.viewer_pdf = pdf_bytes
+            doc.pdf_ready  = True
+            db.commit()
+            logger.info("PDF conversion stored for session %s (%d bytes).", session_id_str, len(pdf_bytes))
+        else:
+            logger.warning("Background PDF task: document not found for session %s.", session_id_str)
+    except Exception as exc:
+        logger.warning("Background PDF conversion failed for session %s: %s", session_id_str, exc)
+    finally:
+        db.close()
+
+
 # ── Session CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/sessions")
@@ -181,6 +245,7 @@ def get_session(
             "file_type": s.document.file_type,
             "extracted_text": s.document.extracted_text,
             "file_size_bytes": s.document.file_size_bytes,
+            "pdf_ready": s.document.pdf_ready,
             "created_at": s.document.created_at.isoformat(),
         } if s.document else None,
     }
@@ -215,66 +280,82 @@ def delete_session(
     db.commit()
 
 
-# ── Combined upload + session creation (stores file bytes) ────────────────────
+# ── Combined upload + session creation ────────────────────────────────────────
 
 @router.post("/sessions/from-file", status_code=201)
 async def create_session_from_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upload a file, extract text, create a session and persist the raw file bytes
-    all in one request so the PDF/DOCX viewer works in history."""
-    fname = file.filename.lower()
+    """
+    Upload a document, extract text (Pipeline A), create a session,
+    then kick off PDF conversion in the background (Pipeline B).
+
+    The response is returned immediately so the user can start chatting
+    while the viewer PDF is being prepared asynchronously.
+    """
     file_bytes = await file.read()
 
-    _MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
     if len(file_bytes) > _MAX_UPLOAD:
         raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
 
+    file_type = _detect_file_type(file.filename)
+    if file_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Unsupported file type. Please upload a PDF, DOCX, PPTX, TXT, "
+                "or image file (PNG, JPG, JPEG, WEBP, GIF)."
+            ),
+        )
+
+    # ── Pipeline A: text extraction ───────────────────────────────────────────
     ocr_failed = False
     ocr_error  = None
-    slide_html = None
 
-    if fname.endswith(".pdf"):
+    if file_type == "pdf":
         try:
             text = extract_text_from_pdf(file_bytes)
         except ValueError as e:
-            # OCR failed — still allow viewing the PDF; AI chat will be limited
+            # OCR failed — still create session; AI chat will work if text is partial
             ocr_failed = True
             ocr_error  = str(e)
             text       = ""
-        file_type = "pdf"
 
-    elif fname.endswith(".docx"):
+    elif file_type == "docx":
         try:
             text = extract_text_from_docx(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
-        file_type = "docx"
 
-    elif fname.endswith(".pptx"):
+    elif file_type == "pptx":
         try:
             text = extract_text_from_pptx(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
-        slide_html = render_pptx_visual_html(file_bytes)
-        file_type = "pptx"
 
-    elif fname.endswith(".txt"):
+    elif file_type == "txt":
         text = file_bytes.decode("utf-8", errors="replace")
         if not text.strip():
             raise HTTPException(status_code=422, detail="The text file appears to be empty.")
-        file_type = "txt"
+
+    elif file_type in IMAGE_TYPES:
+        text = extract_text_from_image(file_bytes)
+        if not text:
+            ocr_failed = True
+            ocr_error  = "No text could be extracted from this image."
 
     else:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Please upload a PDF, DOCX, PPTX, or TXT file.",
-        )
+        text = ""
 
     text = truncate_text(text, max_chars=12000) if text else ""
 
+    # ── PDFs are immediately ready (no conversion needed) ─────────────────────
+    pdf_ready = file_type == "pdf"
+
+    # ── Persist session + document ────────────────────────────────────────────
     session = BrainstormSession(
         user_id=current_user.id,
         title=file.filename[:255],
@@ -289,10 +370,23 @@ async def create_session_from_file(
         extracted_text=text,
         file_size_bytes=len(file_bytes),
         file_content=file_bytes,
+        # For PDFs store them directly as viewer_pdf too (same bytes, no conversion)
+        viewer_pdf=file_bytes if pdf_ready else None,
+        pdf_ready=pdf_ready,
     )
     db.add(doc)
     db.commit()
     db.refresh(session)
+
+    # ── Pipeline B: async PDF conversion for non-PDF types ───────────────────
+    if not pdf_ready and file_type != "txt":
+        background_tasks.add_task(
+            _convert_and_store_pdf,
+            str(session.id),
+            file_bytes,
+            file_type,
+            file.filename,
+        )
 
     return {
         "id":         str(session.id),
@@ -302,13 +396,63 @@ async def create_session_from_file(
         "char_count": len(text),
         "size_bytes": len(file_bytes),
         "file_type":  file_type,
+        "pdf_ready":  pdf_ready,
         "ocr_failed": ocr_failed,
         "ocr_error":  ocr_error,
-        "slide_html": slide_html,
     }
 
 
-# ── Retrieve stored file bytes ─────────────────────────────────────────────────
+# ── PDF viewer endpoints ───────────────────────────────────────────────────────
+
+@router.get("/sessions/{session_id}/pdf-status")
+def get_pdf_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check whether the viewer PDF is ready for a session."""
+    s = _get_session_or_404(session_id, current_user.id, db)
+    if not s.document:
+        return {"ready": False}
+    return {"ready": s.document.pdf_ready}
+
+
+@router.get("/sessions/{session_id}/document.pdf")
+def get_session_pdf(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Return the viewer PDF for a session.
+
+    - 200: PDF bytes ready — serve to the iframe viewer.
+    - 202: Conversion still in progress — frontend should retry.
+    - 404: No PDF available (e.g. TXT file, or conversion failed).
+    """
+    s = _get_session_or_404(session_id, current_user.id, db)
+    if not s.document:
+        raise HTTPException(status_code=404, detail="No document for this session.")
+
+    if s.document.pdf_ready and s.document.viewer_pdf:
+        return Response(
+            content=s.document.viewer_pdf,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{s.document.filename}.pdf"',
+                "Cache-Control": "private, max-age=3600",
+            },
+        )
+
+    # TXT files never get a PDF viewer
+    if s.document.file_type in ("txt", "paste"):
+        raise HTTPException(status_code=404, detail="No PDF viewer for text files.")
+
+    # Still converting
+    return JSONResponse(status_code=202, content={"status": "converting"})
+
+
+# ── Retrieve raw original file bytes ──────────────────────────────────────────
 
 @router.get("/sessions/{session_id}/file")
 def get_session_file(
@@ -316,7 +460,7 @@ def get_session_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return the raw file bytes stored for a session's document."""
+    """Return the original raw file bytes stored for a session's document."""
     s = _get_session_or_404(session_id, current_user.id, db)
     if not s.document or not s.document.file_content:
         raise HTTPException(status_code=404, detail="No file stored for this session.")
@@ -327,6 +471,7 @@ def get_session_file(
         "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "txt":  "text/plain; charset=utf-8",
     }
+    # images and other types get a generic binary content-type
     media_type = content_types.get(s.document.file_type, "application/octet-stream")
 
     return Response(
@@ -336,49 +481,62 @@ def get_session_file(
     )
 
 
-# ── File upload ───────────────────────────────────────────────────────────────
+# ── Text-only upload (no session creation) ────────────────────────────────────
 
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    """Extract text from an uploaded PDF, DOCX, or TXT file."""
-    fname = file.filename.lower()
+    """Extract text from an uploaded file (Pipeline A only, no session created)."""
     file_bytes = await file.read()
 
-    _MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
     if len(file_bytes) > _MAX_UPLOAD:
         raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
 
-    if fname.endswith(".pdf"):
+    file_type = _detect_file_type(file.filename)
+    if file_type is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Unsupported file type. Please upload a PDF, DOCX, PPTX, TXT, "
+                "or image file (PNG, JPG, JPEG, WEBP, GIF)."
+            ),
+        )
+
+    if file_type == "pdf":
         try:
             text = extract_text_from_pdf(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    elif fname.endswith(".docx"):
+    elif file_type == "docx":
         try:
             text = extract_text_from_docx(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    elif fname.endswith(".pptx"):
+    elif file_type == "pptx":
         try:
             text = extract_text_from_pptx(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    elif fname.endswith(".txt"):
+    elif file_type == "txt":
         text = file_bytes.decode("utf-8", errors="replace")
         if not text.strip():
             raise HTTPException(status_code=422, detail="The text file appears to be empty.")
 
+    elif file_type in IMAGE_TYPES:
+        text = extract_text_from_image(file_bytes)
+        if not text:
+            raise HTTPException(
+                status_code=422,
+                detail="No text could be extracted from this image.",
+            )
+
     else:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Please upload a PDF, DOCX, PPTX, or TXT file.",
-        )
+        text = ""
 
     text = truncate_text(text, max_chars=12000)
     return {
@@ -417,7 +575,6 @@ def brainstorm_chat(
             active_session = None   # silently ignore invalid IDs
 
     # Build prompt
-    client = get_groq_client()
     system_prompt = BRAINSTORM_SYSTEM.format(context=payload.context)
     messages_to_send = [{"role": "system", "content": system_prompt}]
     for item in payload.history[-20:]:

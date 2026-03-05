@@ -420,6 +420,40 @@ def extract_text_from_pptx(file_bytes: bytes) -> str:
         raise ValueError(f"Failed to parse PPTX: {str(e)}")
 
 
+def extract_text_from_image(file_bytes: bytes) -> str:
+    """
+    Extract text from an image file (PNG, JPG, JPEG, WEBP, GIF) via OCR.
+
+    Pipeline:
+    1. Convert image to JPEG bytes using Pillow (normalise format for OCR engines).
+    2. Try Tesseract (local, fast).
+    3. Fall back to Groq vision API (cloud).
+
+    Returns empty string if no text is found or OCR is unavailable.
+    """
+    try:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(file_bytes))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "JPEG", quality=90)
+        page_images = [buf.getvalue()]
+    except Exception as exc:
+        logger.warning("Image open/convert failed: %s", exc)
+        return ""
+
+    text = _ocr_with_tesseract(page_images)
+    if text:
+        logger.info("Tesseract OCR succeeded on image — %d chars.", len(text))
+        return text
+
+    logger.info("Tesseract unavailable for image — trying Groq vision OCR.")
+    text = _ocr_with_groq(page_images)
+    if text:
+        logger.info("Groq vision OCR succeeded on image — %d chars.", len(text))
+    return text
+
+
 def truncate_text(text: str, max_chars: int = 8000) -> str:
     """Truncate text to avoid exceeding LLM context limits."""
     if len(text) <= max_chars:
