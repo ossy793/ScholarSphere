@@ -107,21 +107,10 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   if (headerEl && !document.getElementById('mobile-signout-btn')) {
     const signOutBtn = document.createElement('button');
     signOutBtn.id        = 'mobile-signout-btn';
+    signOutBtn.className = 'mobile-signout-btn';
     signOutBtn.title     = 'Sign Out';
     signOutBtn.setAttribute('onclick', 'handleLogout()');
     signOutBtn.innerHTML = svgLogout();
-    signOutBtn.style.cssText = `
-      display: none;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: #ef4444;
-      padding: 6px;
-      border-radius: 6px;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    `;
 
     // Insert after the bell wrap (beside notification button)
     const bellWrap = headerEl.querySelector('.notif-bell-wrap');
@@ -129,19 +118,9 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
       bellWrap.parentNode.insertBefore(signOutBtn, bellWrap.nextSibling);
     } else {
       const userBadge = headerEl.querySelector('.user-badge');
-      if (userBadge) {
-        userBadge.parentNode.insertBefore(signOutBtn, userBadge);
-      } else {
-        headerEl.appendChild(signOutBtn);
-      }
+      userBadge ? userBadge.parentNode.insertBefore(signOutBtn, userBadge)
+                : headerEl.appendChild(signOutBtn);
     }
-
-    // Show only on mobile
-    const applyVisibility = () => {
-      signOutBtn.style.display = window.innerWidth <= 640 ? 'flex' : 'none';
-    };
-    applyVisibility();
-    window.addEventListener('resize', applyVisibility);
   }
 
   // ── Inject sidebar overlay (mobile) ──
