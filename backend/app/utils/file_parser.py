@@ -32,18 +32,22 @@ def _find_tesseract_cmd() -> str | None:
     return None
 
 
-def _render_pdf_pages(file_bytes: bytes) -> list:
+_OCR_PAGE_LIMIT = 10  # max pages sent for OCR — keeps response time bounded
+
+
+def _render_pdf_pages(file_bytes: bytes, max_pages: int = _OCR_PAGE_LIMIT) -> list:
     """
-    Render every PDF page as a JPEG image using pymupdf (no Poppler required).
-    Returns a list of raw JPEG bytes, one per page — all pages are processed.
+    Render up to max_pages PDF pages as JPEG images using pymupdf.
+    Capped to avoid timeouts on large scanned documents.
     Uses 2× zoom (144 DPI) with JPEG compression for efficient memory use.
     """
     import fitz  # pymupdf
 
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — good OCR quality
+    pages_to_render = min(len(doc), max_pages)
     images = []
-    for page_num in range(len(doc)):
+    for page_num in range(pages_to_render):
         pix = doc[page_num].get_pixmap(matrix=mat)
         images.append(pix.tobytes("jpeg", jpg_quality=85))
         del pix  # free pixmap memory immediately
@@ -199,10 +203,23 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
     # --- Strategy 2: OCR fallback ---
     logger.info("pdfplumber returned no text — attempting OCR fallback.")
+
+    # Check total page count so we can warn when truncation occurs
+    try:
+        import fitz
+        total_pages = fitz.open(stream=file_bytes, filetype="pdf").page_count
+    except Exception:
+        total_pages = 0
+
     text = _ocr_pdf(file_bytes).strip()
 
     if text:
         logger.info("OCR succeeded — extracted %d characters.", len(text))
+        if total_pages > _OCR_PAGE_LIMIT:
+            text += (
+                f"\n\n[Note: This document has {total_pages} pages. "
+                f"OCR was applied to the first {_OCR_PAGE_LIMIT} pages only.]"
+            )
         return text
 
     raise ValueError(
