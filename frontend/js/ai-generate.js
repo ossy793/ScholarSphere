@@ -85,22 +85,40 @@ window.onDragOver = function(e) {
   e.currentTarget.classList.add('drag-over');
 };
 
+const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
+function _checkFileSize(file) {
+  if (file.size > _MAX_FILE_SIZE) {
+    const alertEl = document.getElementById('gen-alert');
+    alertEl.textContent = 'Cannot upload file, it exceeds the 50MB limit.';
+    alertEl.classList.remove('hidden');
+    return false;
+  }
+  return true;
+}
+
 window.onDrop = function(e, type) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
   if (!file) return;
+  if (!_checkFileSize(file)) return;
   const input = document.getElementById(`${type}-file`);
   const dt = new DataTransfer();
   dt.items.add(file);
   input.files = dt.files;
   document.getElementById(`${type}-filename`).textContent = file.name;
+  document.getElementById('gen-alert').classList.add('hidden');
 };
 
 window.onFileSelect = function(type) {
   const input = document.getElementById(`${type}-file`);
   const label = document.getElementById(`${type}-filename`);
-  label.textContent = input.files[0]?.name || '';
+  const file = input.files[0];
+  if (!file) return;
+  if (!_checkFileSize(file)) { input.value = ''; label.textContent = ''; return; }
+  label.textContent = file.name;
+  document.getElementById('gen-alert').classList.add('hidden');
 };
 
 function getSelectedTypes() {
@@ -190,6 +208,7 @@ window.generate = async function() {
     } else if (activeTab === 'pdf') {
       const file = document.getElementById('pdf-file').files[0];
       if (!file) throw new Error('Please select a PDF file.');
+      if (file.size > _MAX_FILE_SIZE) throw new Error('Cannot upload file, it exceeds the 50MB limit.');
       const form = new FormData();
       form.append('course_id', courseId);
       form.append('quiz_title', title);
@@ -212,6 +231,7 @@ window.generate = async function() {
     } else if (activeTab === 'docx') {
       const file = document.getElementById('docx-file').files[0];
       if (!file) throw new Error('Please select a DOCX file.');
+      if (file.size > _MAX_FILE_SIZE) throw new Error('Cannot upload file, it exceeds the 50MB limit.');
       const form = new FormData();
       form.append('course_id', courseId);
       form.append('quiz_title', title);
@@ -234,6 +254,7 @@ window.generate = async function() {
     } else {
       const file = document.getElementById('pptx-file').files[0];
       if (!file) throw new Error('Please select a PowerPoint file.');
+      if (file.size > _MAX_FILE_SIZE) throw new Error('Cannot upload file, it exceeds the 50MB limit.');
       const form = new FormData();
       form.append('course_id', courseId);
       form.append('quiz_title', title);

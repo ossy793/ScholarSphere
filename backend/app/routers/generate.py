@@ -115,6 +115,8 @@ async def generate_from_pdf(
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
     file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
     try:
         text = extract_text_from_pdf(file_bytes)
     except ValueError as exc:
@@ -143,6 +145,8 @@ async def generate_from_docx(
         raise HTTPException(status_code=400, detail="Only DOCX files are accepted")
 
     file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
     try:
         text = extract_text_from_docx(file_bytes)
     except ValueError as exc:
@@ -171,6 +175,8 @@ async def generate_from_pptx(
         raise HTTPException(status_code=400, detail="Only PPTX files are accepted")
 
     file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
     try:
         text = extract_text_from_pptx(file_bytes)
     except ValueError as exc:

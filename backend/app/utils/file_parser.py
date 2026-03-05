@@ -248,6 +248,149 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
         raise ValueError(f"Failed to parse DOCX: {str(e)}")
 
 
+def render_pptx_visual_html(file_bytes: bytes) -> str:
+    """
+    Convert a PPTX into visual HTML slides preserving layout, positions,
+    background colours, font sizes and font colours from the original file.
+    Each slide is rendered as a positioned container using cqw units so text
+    scales correctly when the panel is resized.
+    """
+    import html as _html
+    try:
+        from pptx import Presentation
+        from pptx.enum.dml import PP_ALIGN
+    except ImportError:
+        return ""
+
+    try:
+        prs = Presentation(io.BytesIO(file_bytes))
+    except Exception:
+        return ""
+
+    sw = prs.slide_width  or 9144000   # EMUs
+    sh = prs.slide_height or 6858000   # EMUs
+    # aspect ratio expressed as padding-bottom % so the container is always 16:9 (or 4:3)
+    ar_pct = round((sh / sw) * 100, 3)
+
+    # 1 pt at 96 dpi on a 10"-wide slide = (pt / (sw/914400 * 96)) * 100 cqw
+    # Simplified: cqw_per_pt = 914400 * 100 / (sw * 96 / 72)
+    # At 9144000 EMU wide: 914400*100 / (9144000*96/72) ≈ 0.1042 cqw/pt
+    emu_to_pct_w = 100.0 / sw
+    emu_to_pct_h = 100.0 / sh
+    pt_to_cqw    = (914400 * 100.0) / (sw * (96.0 / 72.0))
+
+    def _rgb(color_obj):
+        try:
+            return f"#{color_obj.rgb}"
+        except Exception:
+            return None
+
+    def _slide_bg(slide):
+        """Try to get background colour from slide → layout → master."""
+        for src in (slide, slide.slide_layout, slide.slide_layout.slide_master):
+            try:
+                fill = src.background.fill
+                if fill.type is not None:
+                    c = _rgb(fill.fore_color)
+                    if c:
+                        return c
+            except Exception:
+                pass
+        return "#ffffff"
+
+    slides_html = []
+    for s_idx, slide in enumerate(prs.slides):
+        bg = _slide_bg(slide)
+        shapes_html = []
+
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            try:
+                lp = shape.left  / sw * 100
+                tp = shape.top   / sh * 100
+                wp = shape.width / sw * 100
+                hp = shape.height/ sh * 100
+            except Exception:
+                continue
+
+            paras = []
+            for para in shape.text_frame.paragraphs:
+                runs_text = "".join(r.text for r in para.runs).strip()
+                if not runs_text:
+                    continue
+
+                # Font properties — read from first run, fall back to para/shape defaults
+                fsize_cqw = round(18 * pt_to_cqw, 2)   # 18 pt default
+                fcolor    = "#000000"
+                fbold     = False
+                fitalic   = False
+                falign    = "left"
+
+                try:
+                    if para.alignment == PP_ALIGN.CENTER:
+                        falign = "center"
+                    elif para.alignment == PP_ALIGN.RIGHT:
+                        falign = "right"
+                except Exception:
+                    pass
+
+                for run in para.runs:
+                    try:
+                        if run.font.size:
+                            fsize_cqw = round(run.font.size.pt * pt_to_cqw, 2)
+                    except Exception:
+                        pass
+                    try:
+                        if run.font.bold:
+                            fbold = True
+                    except Exception:
+                        pass
+                    try:
+                        if run.font.italic:
+                            fitalic = True
+                    except Exception:
+                        pass
+                    try:
+                        c = _rgb(run.font.color)
+                        if c:
+                            fcolor = c
+                    except Exception:
+                        pass
+                    break  # properties from first run apply to whole para
+
+                style = (
+                    f"margin:0 0 0.4em;"
+                    f"font-size:{fsize_cqw}cqw;"
+                    f"color:{fcolor};"
+                    f"font-weight:{'700' if fbold else '400'};"
+                    f"font-style:{'italic' if fitalic else 'normal'};"
+                    f"text-align:{falign};"
+                    f"line-height:1.25;word-break:break-word;"
+                )
+                paras.append(f'<p style="{style}">{_html.escape(runs_text)}</p>')
+
+            if paras:
+                shapes_html.append(
+                    f'<div style="position:absolute;left:{lp:.2f}%;top:{tp:.2f}%;'
+                    f'width:{wp:.2f}%;height:{hp:.2f}%;overflow:hidden;padding:0.4%;">'
+                    + "".join(paras)
+                    + "</div>"
+                )
+
+        slide_num = s_idx + 1
+        slides_html.append(
+            f'<div class="pptx-vs-outer">'
+            f'<div class="pptx-vs-sizer" style="padding-bottom:{ar_pct}%;">'
+            f'<div class="pptx-vs-inner" style="background:{bg};">'
+            f'<span class="pptx-vs-num">SLIDE {slide_num}</span>'
+            + "".join(shapes_html)
+            + "</div></div></div>"
+        )
+
+    return "\n".join(slides_html)
+
+
 def extract_text_from_pptx(file_bytes: bytes) -> str:
     """Extract text content from a PPTX (PowerPoint) file."""
     try:

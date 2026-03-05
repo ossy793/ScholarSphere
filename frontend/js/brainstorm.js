@@ -324,6 +324,12 @@ async function handleFile(file) {
   const errEl = document.getElementById('upload-error');
   errEl.classList.add('hidden');
 
+  if (file.size > 50 * 1024 * 1024) {
+    errEl.textContent = 'Cannot upload file, it exceeds the 50MB limit.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
   if (!['.pdf', '.docx', '.pptx', '.txt'].includes(ext)) {
     errEl.textContent = 'Unsupported file. Please upload a PDF, DOCX, PPTX, or TXT file.';
@@ -669,19 +675,24 @@ async function handlePptx(file) {
   scroll.style.padding = '0';
   scroll.style.height  = '';
 
-  // Render each slide as a styled card
-  const slides = res.text.split(/\n\n+/).filter(s => s.trim());
-  const slidesHtml = slides.map((slide, i) => {
-    const lines = slide.split('\n').filter(l => l.trim());
-    const title = lines[0] || '';
-    const body  = lines.slice(1);
-    return `<div class="pptx-slide">
-      <div class="pptx-slide-num">Slide ${i + 1}</div>
-      ${title ? `<div class="pptx-slide-title">${escHtml(title)}</div>` : ''}
-      ${body.map(l => `<div class="pptx-slide-line">${escHtml(l)}</div>`).join('')}
-    </div>`;
-  }).join('');
-  scroll.innerHTML = `<div class="pptx-slides">${slidesHtml}</div>`;
+  if (res.slide_html) {
+    // Visual slide rendering — shows actual layout, colours and positions
+    scroll.innerHTML = `<div class="pptx-visual-viewer">${res.slide_html}</div>`;
+  } else {
+    // Fallback: plain text cards
+    const slides = res.text.split(/\n\n+/).filter(s => s.trim());
+    const slidesHtml = slides.map((slide, i) => {
+      const lines = slide.split('\n').filter(l => l.trim());
+      const title = lines[0] || '';
+      const body  = lines.slice(1);
+      return `<div class="pptx-slide">
+        <div class="pptx-slide-num">Slide ${i + 1}</div>
+        ${title ? `<div class="pptx-slide-title">${escHtml(title)}</div>` : ''}
+        ${body.map(l => `<div class="pptx-slide-line">${escHtml(l)}</div>`).join('')}
+      </div>`;
+    }).join('');
+    scroll.innerHTML = `<div class="pptx-slides">${slidesHtml}</div>`;
+  }
 
   currentSessionId = res.id;
   localStorage.setItem('pritis_bs_session_id', currentSessionId);

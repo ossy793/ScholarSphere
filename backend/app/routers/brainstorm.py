@@ -11,7 +11,7 @@ from ..database import get_db
 from ..models.user import User
 from ..models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument
 from ..utils.security import get_current_user
-from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, truncate_text
+from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, render_pptx_visual_html, truncate_text
 from ..services.ai_service import get_groq_client
 
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
@@ -228,8 +228,13 @@ async def create_session_from_file(
     fname = file.filename.lower()
     file_bytes = await file.read()
 
+    _MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
+    if len(file_bytes) > _MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
+
     ocr_failed = False
     ocr_error  = None
+    slide_html = None
 
     if fname.endswith(".pdf"):
         try:
@@ -253,6 +258,7 @@ async def create_session_from_file(
             text = extract_text_from_pptx(file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
+        slide_html = render_pptx_visual_html(file_bytes)
         file_type = "pptx"
 
     elif fname.endswith(".txt"):
@@ -298,6 +304,7 @@ async def create_session_from_file(
         "file_type":  file_type,
         "ocr_failed": ocr_failed,
         "ocr_error":  ocr_error,
+        "slide_html": slide_html,
     }
 
 
@@ -339,6 +346,10 @@ async def upload_document(
     """Extract text from an uploaded PDF, DOCX, or TXT file."""
     fname = file.filename.lower()
     file_bytes = await file.read()
+
+    _MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
+    if len(file_bytes) > _MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
 
     if fname.endswith(".pdf"):
         try:
