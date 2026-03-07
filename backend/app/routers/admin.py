@@ -274,7 +274,7 @@ def user_detail(
     attempts = db.query(Attempt).filter(Attempt.user_id == user_id).all()
     total_attempts = len(attempts)
     avg_score = (
-        round(sum(a.score for a in attempts) / total_attempts, 1) if total_attempts else None
+        round(sum(a.score for a in attempts if a.score is not None) / len([a for a in attempts if a.score is not None]), 1) if any(a.score is not None for a in attempts) else None
     )
 
     # Brainstorm stats — sessions, messages, and total time spent
