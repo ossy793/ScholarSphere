@@ -6,6 +6,37 @@ from sqlalchemy.orm import relationship
 from ..database import Base
 
 
+class BrainstormChunk(Base):
+    """
+    One semantic chunk of a brainstorm document, with its embedding vector.
+
+    The 'embedding' column is declared as Text here so SQLAlchemy can
+    create/reflect the table without needing the pgvector extension type.
+    All vector operations (storage and cosine search) are done via raw SQL
+    with the ::vector cast so PostgreSQL handles the type natively.
+    """
+    __tablename__ = "brainstorm_chunks"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("brainstorm_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    session_id  = Column(
+        UUID(as_uuid=True),
+        ForeignKey("brainstorm_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    chunk_index = Column(Integer, nullable=False)
+    chunk_text  = Column(Text, nullable=False)
+    # Stored as text; raw SQL casts to ::vector for pgvector operations
+    embedding   = Column(Text, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class BrainstormSession(Base):
     __tablename__ = "brainstorm_sessions"
 

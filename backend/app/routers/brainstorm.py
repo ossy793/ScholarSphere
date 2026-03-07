@@ -20,44 +20,52 @@ from ..utils.file_parser import (
     truncate_text,
 )
 from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
+from ..utils.chunker import chunk_text
+from ..utils.rag import store_chunks, retrieve_chunks, chunks_exist
 from ..services.ai_service import get_groq_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
 
-_MAX_UPLOAD = 50 * 1024 * 1024  # 50 MB
+_MAX_UPLOAD     = 50 * 1024 * 1024  # 50 MB
+_MAX_STORED_CHARS = 200_000          # ~50 000 tokens — full document stored for RAG
 
 # All image extensions the system accepts
 _IMAGE_EXTS = {f".{t}" for t in IMAGE_TYPES}
 
+# ── System prompt (RAG-aware) ──────────────────────────────────────────────────
+
 BRAINSTORM_SYSTEM = """\
-You are UrPadi, a study assistant helping a student understand their uploaded document.
+You are UrPadi, a friendly study assistant helping a student understand their uploaded document.
 
---- DOCUMENT START ---
+--- RELEVANT DOCUMENT SECTIONS ---
 {context}
---- DOCUMENT END ---
+--- END ---
 
-Your job is to help the student when they are confused or stuck — not to lecture them.
+The sections above were retrieved from the document as most relevant to the student's question.
 
 Rules:
 
-1. ACCURACY: Search the document carefully before saying something is missing. \
-Never claim a concept is absent if it is present in the text.
+1. ACCURACY: Base your answer on the retrieved sections above. \
+If the answer is clearly present, explain it thoroughly. \
+Never say information is missing if it appears in the retrieved sections.
 
-2. NO COPYING: Do not copy sentences directly from the document. \
-Rephrase and explain ideas in your own words.
+2. PARTIAL INFO: If the retrieved sections do not fully answer the question, say \
+"The document may cover this elsewhere. Based on what I can see:" and provide \
+your best answer using the sections plus general knowledge.
 
-3. SIMPLIFY: Break down complex ideas into plain, easy-to-understand language. \
+3. NO COPYING: Rephrase and explain ideas in your own words — do not copy sentences verbatim.
+
+4. SIMPLIFY: Break down complex ideas into plain, easy-to-understand language. \
 Explain as if talking to a smart friend, not writing an essay.
 
-4. BE CONCISE: Give short, focused answers. No long paragraphs. \
-Use a bullet list only if it genuinely helps — otherwise keep it brief prose.
+5. BE CONCISE: Give short, focused answers. No long paragraphs. \
+Use bullet points only if they genuinely help.
 
-5. OFF-TOPIC: If the question is unrelated to the document, answer it using general \
-knowledge and add a short note: "(From general knowledge, not the document.)"
+6. OFF-TOPIC: If the question is clearly unrelated to the document, answer from \
+general knowledge and note "(From general knowledge, not the document.)"
 
-6. TONE: Supportive and clear. Not robotic, not overly academic, not verbose. \
-You are a helpful study companion, not a textbook.\
+7. TONE: Supportive and clear. You are a helpful study companion, not a textbook.\
 """
 
 
@@ -137,7 +145,7 @@ def _detect_file_type(filename: str) -> str | None:
     return None
 
 
-# ── Background task: PDF conversion (Pipeline B) ──────────────────────────────
+# ── Background tasks ──────────────────────────────────────────────────────────
 
 def _convert_and_store_pdf(session_id_str: str, file_bytes: bytes,
                             file_type: str, filename: str) -> None:
@@ -170,6 +178,34 @@ def _convert_and_store_pdf(session_id_str: str, file_bytes: bytes,
         db.close()
 
 
+def _chunk_and_embed(session_id_str: str, document_id_str: str, text: str) -> None:
+    """
+    Background task: chunk the document text and store embeddings via RAG pipeline.
+    Runs after the upload response is sent so the user can start chatting immediately.
+    Falls back gracefully — if embedding fails, keyword search still works.
+    """
+    if not text or not text.strip():
+        return
+    db = SessionLocal()
+    try:
+        chunks = chunk_text(text)
+        if not chunks:
+            return
+        store_chunks(
+            db,
+            uuid_module.UUID(document_id_str),
+            uuid_module.UUID(session_id_str),
+            chunks,
+        )
+        logger.info(
+            "RAG: %d chunks embedded for session %s.", len(chunks), session_id_str
+        )
+    except Exception as exc:
+        logger.warning("RAG chunking/embedding failed for session %s: %s", session_id_str, exc)
+    finally:
+        db.close()
+
+
 # ── Session CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/sessions")
@@ -190,6 +226,7 @@ def list_sessions(
 @router.post("/sessions", status_code=201)
 def create_session(
     payload: CreateSessionRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -214,6 +251,16 @@ def create_session(
     db.add(doc)
     db.commit()
     db.refresh(session)
+    db.refresh(doc)
+
+    # Kick off RAG chunking in the background
+    background_tasks.add_task(
+        _chunk_and_embed,
+        str(session.id),
+        str(doc.id),
+        payload.extracted_text,
+    )
+
     return {"id": str(session.id), "title": session.title}
 
 
@@ -291,10 +338,10 @@ async def create_session_from_file(
 ):
     """
     Upload a document, extract text (Pipeline A), create a session,
-    then kick off PDF conversion in the background (Pipeline B).
+    then kick off PDF conversion + RAG chunking in the background.
 
     The response is returned immediately so the user can start chatting
-    while the viewer PDF is being prepared asynchronously.
+    while the viewer PDF and embeddings are being prepared asynchronously.
     """
     file_bytes = await file.read()
 
@@ -319,7 +366,6 @@ async def create_session_from_file(
         try:
             text = extract_text_from_pdf(file_bytes)
         except ValueError as e:
-            # OCR failed — still create session; AI chat will work if text is partial
             ocr_failed = True
             ocr_error  = str(e)
             text       = ""
@@ -350,7 +396,10 @@ async def create_session_from_file(
     else:
         text = ""
 
-    text = truncate_text(text, max_chars=12000) if text else ""
+    # Store the full text for RAG (up to _MAX_STORED_CHARS), but return a
+    # shorter preview to the frontend to keep the response fast.
+    stored_text   = truncate_text(text, max_chars=_MAX_STORED_CHARS) if text else ""
+    response_text = truncate_text(text, max_chars=12000)             if text else ""
 
     # ── PDFs are immediately ready (no conversion needed) ─────────────────────
     pdf_ready = file_type == "pdf"
@@ -367,16 +416,16 @@ async def create_session_from_file(
         session_id=session.id,
         filename=file.filename[:255],
         file_type=file_type,
-        extracted_text=text,
+        extracted_text=stored_text,
         file_size_bytes=len(file_bytes),
         file_content=file_bytes,
-        # For PDFs store them directly as viewer_pdf too (same bytes, no conversion)
         viewer_pdf=file_bytes if pdf_ready else None,
         pdf_ready=pdf_ready,
     )
     db.add(doc)
     db.commit()
     db.refresh(session)
+    db.refresh(doc)
 
     # ── Pipeline B: async PDF conversion for non-PDF types ───────────────────
     if not pdf_ready and file_type != "txt":
@@ -388,12 +437,21 @@ async def create_session_from_file(
             file.filename,
         )
 
+    # ── Pipeline C: async RAG chunking + embedding ────────────────────────────
+    if stored_text:
+        background_tasks.add_task(
+            _chunk_and_embed,
+            str(session.id),
+            str(doc.id),
+            stored_text,
+        )
+
     return {
         "id":         str(session.id),
         "title":      session.title,
-        "text":       text,
+        "text":       response_text,
         "filename":   file.filename,
-        "char_count": len(text),
+        "char_count": len(stored_text),
         "size_bytes": len(file_bytes),
         "file_type":  file_type,
         "pdf_ready":  pdf_ready,
@@ -471,7 +529,6 @@ def get_session_file(
         "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "txt":  "text/plain; charset=utf-8",
     }
-    # images and other types get a generic binary content-type
     media_type = content_types.get(s.document.file_type, "application/octet-stream")
 
     return Response(
@@ -555,33 +612,69 @@ def brainstorm_chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Send a message and receive an AI reply grounded in the document.
-    If session_id is provided, messages are persisted to the database."""
+    """
+    Send a message and receive an AI reply grounded in the document.
+
+    RAG pipeline:
+      1. If session_id is provided and chunks exist → retrieve top-7 relevant
+         chunks via vector similarity and use them as context.
+      2. If chunks are not ready yet (still being embedded in background) →
+         fall back to payload.context (the truncated text from upload).
+      3. If no context at all → reject with 400.
+
+    Messages are persisted when session_id is valid.
+    """
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    if not payload.context.strip():
-        raise HTTPException(status_code=400, detail="No document loaded.")
 
-    # Resolve and authorise session (if provided)
+    # ── Resolve session ───────────────────────────────────────────────────────
     active_session = None
+    session_uuid   = None
     if payload.session_id:
         try:
-            sid = uuid_module.UUID(payload.session_id)
+            session_uuid = uuid_module.UUID(payload.session_id)
             active_session = db.query(BrainstormSession).filter(
-                BrainstormSession.id == sid,
+                BrainstormSession.id == session_uuid,
                 BrainstormSession.user_id == current_user.id,
             ).first()
         except (ValueError, Exception):
-            active_session = None   # silently ignore invalid IDs
+            active_session = None
 
-    # Build prompt
-    system_prompt = BRAINSTORM_SYSTEM.format(context=payload.context)
+    # ── RAG retrieval ─────────────────────────────────────────────────────────
+    context = ""
+    rag_used = False
+
+    if session_uuid and chunks_exist(db, session_uuid):
+        try:
+            retrieved = retrieve_chunks(db, session_uuid, payload.message, top_k=7)
+            if retrieved:
+                context  = "\n\n---\n\n".join(retrieved)
+                rag_used = True
+        except Exception as exc:
+            logger.warning("RAG retrieval error for session %s: %s", session_uuid, exc)
+
+    # ── Fallback to full context from frontend ────────────────────────────────
+    if not context:
+        context = payload.context.strip()
+
+    if not context:
+        raise HTTPException(status_code=400, detail="No document loaded.")
+
+    if not rag_used:
+        logger.info(
+            "RAG not available for session %s — using full context fallback.",
+            payload.session_id,
+        )
+
+    # ── Build prompt ──────────────────────────────────────────────────────────
+    system_prompt    = BRAINSTORM_SYSTEM.format(context=context)
     messages_to_send = [{"role": "system", "content": system_prompt}]
     for item in payload.history[-20:]:
         if item.role in ("user", "assistant"):
             messages_to_send.append({"role": item.role, "content": item.content})
     messages_to_send.append({"role": "user", "content": payload.message})
 
+    # ── Call Groq ─────────────────────────────────────────────────────────────
     try:
         response = get_groq_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -596,7 +689,7 @@ def brainstorm_chat(
             detail=f"AI error: {str(e)}",
         )
 
-    # Persist messages if session is active
+    # ── Persist messages ──────────────────────────────────────────────────────
     if active_session:
         db.add(BrainstormMessage(
             session_id=active_session.id,
