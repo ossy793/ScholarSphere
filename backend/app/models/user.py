@@ -20,6 +20,7 @@ class User(Base):
     is_active            = Column(Boolean, default=True,  nullable=False, index=True)
     is_admin             = Column(Boolean, default=False, nullable=False, index=True)
     premium_activated_at = Column(DateTime, nullable=True)
+    promo_expires_at     = Column(DateTime, nullable=True)   # set on promo activation; NULL = not a promo user
     last_login_at        = Column(DateTime, nullable=True)
     created_at           = Column(DateTime, default=datetime.utcnow, nullable=False)
 

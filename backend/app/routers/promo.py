@@ -1,9 +1,10 @@
 """
-Promo Code Router
+Promo Router
 -----------------
 Implements the freemium upgrade flow:
+  GET  /promo/status   — public; returns available promotional slots
   POST /promo/request  — validate Gmail, generate & email a one-time code
-  POST /promo/verify   — verify code, activate premium, return JWT + WhatsApp link
+  POST /promo/verify   — verify code, activate 5-week promo premium, return JWT
 """
 
 import hmac
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -33,20 +35,45 @@ limiter = Limiter(key_func=get_remote_address)
 
 _CODE_EXPIRY_MINUTES = 15
 _CODE_ALPHABET       = string.ascii_uppercase + string.digits
+_PROMO_MAX_SLOTS     = 200
+_PROMO_DURATION_DAYS = 35           # 5 weeks
 
 
 def _generate_code() -> str:
-    """Generate a random 8-character alphanumeric code."""
     return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(8))
 
 
 def _hash_code(raw_code: str) -> str:
-    """HMAC-SHA256 the code keyed with SECRET_KEY. Constant-time safe."""
     return hmac.new(
         settings.SECRET_KEY.encode("utf-8"),
         raw_code.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def _count_promo_activations(db: Session) -> int:
+    """Count users who have ever activated the promotional Pro plan."""
+    return (
+        db.query(func.count(User.id))
+        .filter(User.promo_expires_at.isnot(None))
+        .scalar() or 0
+    )
+
+
+# ── Public status ─────────────────────────────────────────────────────────────
+
+@router.get("/status")
+def promo_status(db: Session = Depends(get_db)):
+    """Return current promotional slot availability (used by landing page)."""
+    used  = _count_promo_activations(db)
+    slots = max(0, _PROMO_MAX_SLOTS - used)
+    return {
+        "slots_total":     _PROMO_MAX_SLOTS,
+        "slots_used":      used,
+        "slots_remaining": slots,
+        "promo_active":    slots > 0,
+        "duration_weeks":  5,
+    }
 
 
 # ── Request ───────────────────────────────────────────────────────────────────
@@ -58,10 +85,6 @@ def request_promo(
     payload: PromoRequestSchema,
     db: Session = Depends(get_db),
 ):
-    """
-    Validate the Gmail, find-or-create the user, generate a one-time promo code,
-    invalidate any previous unused codes, and send the code via email.
-    """
     email = str(payload.email).lower().strip()
 
     if not email.endswith("@gmail.com"):
@@ -70,7 +93,13 @@ def request_promo(
             detail="Only Gmail addresses (@gmail.com) are supported.",
         )
 
-    # Find or create user
+    # Check slot availability first
+    if _count_promo_activations(db) >= _PROMO_MAX_SLOTS:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="The promotional offer has ended — all 200 slots have been claimed.",
+        )
+
     user = db.query(User).filter(User.email == email).first()
     if not user:
         placeholder_pw = hash_password(secrets.token_hex(32))
@@ -80,7 +109,7 @@ def request_promo(
             full_name=email.split("@")[0],
         )
         db.add(user)
-        db.flush()   # populate user.id
+        db.flush()
 
     if user.is_premium:
         raise HTTPException(
@@ -88,13 +117,11 @@ def request_promo(
             detail="This account already has premium access.",
         )
 
-    # Invalidate all previous unused codes for this user
     db.query(PromoCode).filter(
         PromoCode.user_id == user.id,
         PromoCode.is_used == False,          # noqa: E712
     ).delete(synchronize_session=False)
 
-    # Generate, hash, and store the new code
     raw_code  = _generate_code()
     code_hash = _hash_code(raw_code)
 
@@ -106,20 +133,17 @@ def request_promo(
     db.add(promo)
     db.commit()
 
-    # Send email
     try:
         send_promo_email(email, raw_code)
     except Exception as exc:
         logger.error("SMTP failed for %s: %s", email, exc)
         if settings.SMTP_USER:
-            # SMTP is configured but failed — surface the error to the client
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Failed to send the activation email. Please try again in a moment.",
             )
         else:
-            # No SMTP configured (dev mode) — log code to terminal
-            logger.warning("⚠️  PROMO CODE for %s (email not sent, no SMTP configured): %s", email, raw_code)
+            logger.warning("PROMO CODE for %s (no SMTP): %s", email, raw_code)
 
     return {"message": f"A code has been sent to {email}. It expires in {_CODE_EXPIRY_MINUTES} minutes."}
 
@@ -133,15 +157,10 @@ def verify_promo(
     payload: PromoVerifySchema,
     db: Session = Depends(get_db),
 ):
-    """
-    Verify the code, activate premium on the user, and return a fresh JWT
-    plus the WhatsApp group link.
-    """
     email     = str(payload.email).lower().strip()
-    raw_code  = payload.code.strip().upper().replace("-", "")   # tolerate dashes/lowercase
+    raw_code  = payload.code.strip().upper().replace("-", "")
     code_hash = _hash_code(raw_code)
 
-    # Use a generic error to prevent oracle attacks
     _BAD = HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Invalid email or code. Codes expire after 15 minutes.",
@@ -157,6 +176,13 @@ def verify_promo(
             detail="This account already has premium access.",
         )
 
+    # Final slot check (race-condition guard)
+    if _count_promo_activations(db) >= _PROMO_MAX_SLOTS:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Sorry — all 200 promotional slots were just claimed. The offer has ended.",
+        )
+
     promo = db.query(PromoCode).filter(
         PromoCode.user_id   == user.id,
         PromoCode.code_hash == code_hash,
@@ -167,17 +193,18 @@ def verify_promo(
     if not promo:
         raise _BAD
 
-    # Activate premium
+    now = datetime.utcnow()
     user.is_premium           = True
-    user.premium_activated_at = datetime.utcnow()
+    user.premium_activated_at = now
+    user.promo_expires_at     = now + timedelta(days=_PROMO_DURATION_DAYS)
     promo.is_used             = True
     db.commit()
 
-    # Issue a fresh JWT so the frontend can update localStorage immediately
     token = create_access_token(str(user.id))
 
     return {
-        "message":       "Premium activated! Welcome to Pritis Premium.",
+        "message":       "Premium activated! Your free Pro access is valid for 5 weeks.",
         "access_token":  token,
         "whatsapp_link": settings.WHATSAPP_GROUP_LINK,
+        "expires_at":    user.promo_expires_at.isoformat(),
     }

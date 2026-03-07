@@ -267,6 +267,40 @@
     .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; color: var(--text); }
     .feature-card p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; }
 
+    /* ── Promo ── */
+    .promo-section {
+      padding: 96px 5%; background: linear-gradient(180deg, #0a0f1e 0%, #0d1529 100%);
+      text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .promo-badge {
+      display: inline-block; background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: #fff; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 4px 14px; border-radius: 999px; margin-bottom: 20px;
+    }
+    .promo-section h2 { font-size: clamp(1.6rem,3.5vw,2.4rem); font-weight: 900; color: #fff; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .promo-section > p { font-size: 1rem; color: #94a3b8; max-width: 540px; margin: 0 auto 48px; line-height: 1.7; }
+    .promo-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; max-width: 720px; margin: 0 auto 48px; text-align: left; }
+    .promo-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 28px 24px;
+    }
+    .promo-card-icon { font-size: 2rem; margin-bottom: 12px; }
+    .promo-card h3 { font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .promo-card p { font-size: 0.875rem; color: #94a3b8; line-height: 1.6; }
+    .promo-progress-wrap { max-width: 480px; margin: 0 auto 32px; }
+    .promo-progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; }
+    .promo-progress-label strong { color: #f59e0b; }
+    .promo-progress-bar { height: 10px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+    .promo-progress-fill { height: 100%; background: linear-gradient(90deg, #f59e0b, #ef4444); border-radius: 999px; transition: width 0.8s ease; width: 0%; }
+    .btn-promo {
+      display: inline-block; background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: #fff; font-weight: 700; font-size: 1rem; padding: 14px 36px;
+      border-radius: 12px; border: none; cursor: pointer; text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .btn-promo:hover { opacity: 0.9; transform: translateY(-2px); }
+    .promo-note { margin-top: 16px; font-size: 0.8rem; color: #64748b; }
+
     /* ── CTA ── */
     .cta-section {
       background: linear-gradient(135deg, #0044AA 0%, #0077FF 50%, #00AAFF 100%);
@@ -648,6 +682,41 @@
     </div>
   </section>
 
+  <!-- ── Promo ── -->
+  <section id="promo-offer" class="promo-section">
+    <div class="promo-badge">Limited Time Offer</div>
+    <h2>Get 5 Weeks of Pro — Completely Free</h2>
+    <p>We're opening Pro access to the first 200 students. No credit card. No catch. Just activate and enjoy every premium feature for 5 full weeks.</p>
+    <div class="promo-cards">
+      <div class="promo-card">
+        <div class="promo-card-icon">&#9200;</div>
+        <h3>5 Weeks</h3>
+        <p>Full Pro access for 35 days from the moment you activate your promo code.</p>
+      </div>
+      <div class="promo-card">
+        <div class="promo-card-icon">&#127775;</div>
+        <h3>200 Spots</h3>
+        <p>Strictly limited to the first 200 students. Once they're gone, the offer closes.</p>
+      </div>
+      <div class="promo-card">
+        <div class="promo-card-icon">&#9889;</div>
+        <h3>Instant</h3>
+        <p>Activate in seconds after signing up. Your Pro features unlock immediately.</p>
+      </div>
+    </div>
+    <div class="promo-progress-wrap">
+      <div class="promo-progress-label">
+        <span>Spots claimed</span>
+        <strong id="promo-slots-text">Loading...</strong>
+      </div>
+      <div class="promo-progress-bar">
+        <div class="promo-progress-fill" id="promo-progress-fill"></div>
+      </div>
+    </div>
+    <button class="btn-promo" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">Claim Your Free Pro Spot</button>
+    <p class="promo-note">No payment required. Offer ends when 200 spots are filled.</p>
+  </section>
+
   <!-- ── CTA ── -->
   <section class="cta-section">
     <h2>Start learning the smarter way today</h2>
@@ -742,6 +811,27 @@
     }
     loadStats();
     setInterval(loadStats, 60_000);
+
+    // Promo slot counter
+    async function loadPromoStatus() {
+      const fillEl = document.getElementById('promo-progress-fill');
+      const textEl = document.getElementById('promo-slots-text');
+      if (!fillEl || !textEl) return;
+      try {
+        const res = await fetch('https://pritis.name.ng/api/promo/status');
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const used = data.slots_used || 0;
+        const total = data.slots_total || 200;
+        const remaining = data.slots_remaining || (total - used);
+        const pct = Math.min((used / total) * 100, 100);
+        fillEl.style.width = pct + '%';
+        textEl.textContent = remaining + ' of ' + total + ' spots left';
+      } catch {
+        if (textEl) textEl.textContent = 'Check back soon';
+      }
+    }
+    loadPromoStatus();
   </script>
   <script type="module" src="js/auth.js"></script>
 </body>
