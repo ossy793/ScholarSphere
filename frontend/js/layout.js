@@ -112,10 +112,10 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     signOutBtn.setAttribute('onclick', 'handleLogout()');
     signOutBtn.innerHTML = svgLogout();
 
-    // Insert after the bell wrap (beside notification button)
+    // Insert before the bell wrap (sign-out appears left of notification button)
     const bellWrap = headerEl.querySelector('.notif-bell-wrap');
     if (bellWrap) {
-      bellWrap.parentNode.insertBefore(signOutBtn, bellWrap.nextSibling);
+      bellWrap.parentNode.insertBefore(signOutBtn, bellWrap);
     } else {
       const userBadge = headerEl.querySelector('.user-badge');
       userBadge ? userBadge.parentNode.insertBefore(signOutBtn, userBadge)
