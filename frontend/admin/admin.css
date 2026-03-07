@@ -299,6 +299,148 @@
 .admin-toast.success { background: var(--success); }
 .admin-toast.error   { background: var(--danger); }
 
+/* ── Leaderboard ── */
+.lb-section { margin-top: 36px; }
+
+.lb-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.lb-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all .15s;
+  white-space: nowrap;
+}
+
+.lb-tab:hover  { border-color: var(--primary); color: var(--primary); }
+.lb-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.lb-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lb-reset-btn {
+  padding: 4px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.lb-reset-btn:hover { background: #fee2e2; }
+
+.lb-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.lb-rank-1 { background: #fef3c7; color: #92400e; }
+.lb-rank-2 { background: #f1f5f9; color: #475569; }
+.lb-rank-3 { background: #fce7f3; color: #9d174d; }
+.lb-rank-n { background: var(--bg); color: var(--text-muted); }
+
+.lb-value { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+
+/* ── Universities ── */
+.uni-section { margin-top: 36px; }
+
+.uni-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.uni-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.uni-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.uni-card-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.uni-card-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.uni-levels {
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.uni-level-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.uni-level-name { color: var(--text-muted); }
+.uni-level-cnt  { font-weight: 700; color: var(--text); }
+
+.uni-unspecified .uni-card-header { background: #fef9c3; }
+.uni-unspecified .uni-card-name   { color: #92400e; }
+
+@media (max-width: 640px) {
+  .lb-tabs { gap: 4px; }
+  .lb-tab  { padding: 5px 10px; font-size: 0.75rem; }
+  .uni-grid { grid-template-columns: 1fr; }
+  .lb-meta  { flex-direction: column; align-items: flex-start; }
+}
+
 /* Brainstorm session list in user detail modal */
 .bs-session-list {
   display: flex;

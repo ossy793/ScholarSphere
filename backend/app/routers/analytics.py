@@ -45,6 +45,15 @@ def get_courses_summary(
     return analytics_service.get_courses_summary(current_user.id, db)
 
 
+@router.get("/brainstorm-streak")
+def get_brainstorm_streak(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    streak = analytics_service.get_brainstorm_streak(current_user.id, db)
+    return {"streak": streak}
+
+
 @router.get("/recommendations")
 def get_recommendations(
     current_user: User = Depends(get_current_user),

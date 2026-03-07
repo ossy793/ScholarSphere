@@ -8,6 +8,9 @@ renderLayout('Dashboard', 'Dashboard');
 const user = getUser();
 
 // ── Free-user view ────────────────────────────────────────────────────────────
+// Load streak for all users (Brainstorm is available to everyone)
+loadStreak();
+
 if (!user?.is_premium) {
   document.querySelector('.page-body').innerHTML = `
     <div style="max-width:540px;margin:0 auto;text-align:center;padding:40px 0">
@@ -30,7 +33,17 @@ if (!user?.is_premium) {
         Go to Brainstorm
       </a>
 
-      <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:left">
+      <div style="margin-top:20px;display:inline-flex;align-items:center;gap:10px;
+                  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+                  padding:10px 18px">
+        <span id="streak-icon" style="font-size:1.3rem">🔥</span>
+        <div style="text-align:left">
+          <div style="font-weight:800;font-size:1rem;color:var(--text)" id="stat-streak">– days</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">Brainstorm Streak</div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:left">
         ${[
           ['🤖', 'AI Generate',    'Generate quizzes from your notes, PDFs or Word documents.'],
           ['✏️', 'Input Questions', 'Create custom quizzes with MCQs, short answers and more.'],
@@ -54,6 +67,19 @@ if (!user?.is_premium) {
 } else {
   // ── Premium-user view ─────────────────────────────────────────────────────
   loadDashboard();
+}
+
+async function loadStreak() {
+  try {
+    const data = await api.get('/analytics/brainstorm-streak');
+    const streak = data.streak || 0;
+    const el = document.getElementById('stat-streak');
+    const iconEl = document.getElementById('streak-icon');
+    if (el) el.textContent = streak > 0 ? `${streak} day${streak !== 1 ? 's' : ''}` : '0 days';
+    if (iconEl) iconEl.textContent = streak >= 7 ? '🔥' : streak >= 3 ? '✨' : streak > 0 ? '🌱' : '💤';
+  } catch {
+    // streak is non-critical; fail silently
+  }
 }
 
 async function loadDashboard() {

@@ -14,6 +14,7 @@ from .models.question import Question
 from .models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument  # noqa: F401 – registers tables
 from .models.promo import PromoCode  # noqa: F401 – registers table
 from .models.notification import Notification, NotificationRead  # noqa: F401 – registers tables
+from .models.leaderboard import LeaderboardReset  # noqa: F401 – registers table
 
 # ── Rate limiter (shared across routers via app.state) ────────────────────────
 limiter = Limiter(key_func=get_remote_address)

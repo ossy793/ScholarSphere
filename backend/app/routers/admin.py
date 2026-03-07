@@ -26,7 +26,10 @@ from ..models.question import Question
 from ..models.attempt import Attempt
 from ..models.brainstorm import BrainstormSession, BrainstormMessage
 from ..models.notification import Notification
+from ..models.leaderboard import LeaderboardReset
 from ..utils.security import get_current_admin
+
+_VALID_METRICS = {"brainstorm_time", "brainstorm_messages", "quizzes_generated", "avg_score"}
 
 
 class SendNotificationRequest(BaseModel):
@@ -382,6 +385,225 @@ def send_notification(
     scope = f"user {target.full_name}" if target_id else "all users"
     return {"message": f"Notification sent to {scope}.", "id": str(notif.id)}
 
+
+# ── Leaderboards ──────────────────────────────────────────────────────────────
+
+def _get_reset_at(db: Session, metric: str) -> datetime:
+    """Return the reset timestamp for a metric, or datetime.min if never reset."""
+    row = db.query(LeaderboardReset).filter(LeaderboardReset.metric == metric).first()
+    return row.reset_at if row else datetime.min
+
+
+@router.get("/leaderboard")
+def get_leaderboards(
+    limit: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Return top-N user rankings for all four leaderboard metrics."""
+    resets = {
+        m: _get_reset_at(db, m) for m in _VALID_METRICS
+    }
+    reset_iso = {m: (v.isoformat() if v != datetime.min else None) for m, v in resets.items()}
+
+    # ── 1. Brainstorm time ────────────────────────────────────────────────────
+    last_msg_sq = (
+        db.query(
+            BrainstormMessage.session_id,
+            func.max(BrainstormMessage.created_at).label("last_msg_at"),
+        )
+        .group_by(BrainstormMessage.session_id)
+        .subquery()
+    )
+    dur_sq = (
+        db.query(
+            BrainstormSession.user_id,
+            func.coalesce(
+                func.extract("epoch", last_msg_sq.c.last_msg_at - BrainstormSession.created_at),
+                0,
+            ).label("dur"),
+        )
+        .outerjoin(last_msg_sq, BrainstormSession.id == last_msg_sq.c.session_id)
+        .filter(BrainstormSession.created_at >= resets["brainstorm_time"])
+        .subquery()
+    )
+    bt_rows = (
+        db.query(
+            User.id,
+            User.full_name,
+            User.email,
+            func.coalesce(func.sum(dur_sq.c.dur), 0).label("total_sec"),
+        )
+        .join(dur_sq, User.id == dur_sq.c.user_id)
+        .filter(User.is_admin == False)  # noqa: E712
+        .group_by(User.id, User.full_name, User.email)
+        .order_by(func.sum(dur_sq.c.dur).desc())
+        .limit(limit)
+        .all()
+    )
+    brainstorm_time = [
+        {
+            "rank": i + 1,
+            "user_id": str(r.id),
+            "full_name": r.full_name,
+            "email": r.email,
+            "value": int(r.total_sec),
+            "display": _fmt_duration(float(r.total_sec)),
+        }
+        for i, r in enumerate(bt_rows)
+    ]
+
+    # ── 2. Brainstorm messages ────────────────────────────────────────────────
+    bm_rows = (
+        db.query(
+            User.id,
+            User.full_name,
+            User.email,
+            func.count(BrainstormMessage.id).label("msg_count"),
+        )
+        .join(BrainstormSession, BrainstormSession.user_id == User.id)
+        .join(BrainstormMessage, BrainstormMessage.session_id == BrainstormSession.id)
+        .filter(
+            User.is_admin == False,  # noqa: E712
+            BrainstormSession.created_at >= resets["brainstorm_messages"],
+        )
+        .group_by(User.id, User.full_name, User.email)
+        .order_by(func.count(BrainstormMessage.id).desc())
+        .limit(limit)
+        .all()
+    )
+    brainstorm_messages = [
+        {
+            "rank": i + 1,
+            "user_id": str(r.id),
+            "full_name": r.full_name,
+            "email": r.email,
+            "value": int(r.msg_count),
+            "display": f"{r.msg_count:,}",
+        }
+        for i, r in enumerate(bm_rows)
+    ]
+
+    # ── 3. Quizzes generated ──────────────────────────────────────────────────
+    qg_rows = (
+        db.query(
+            User.id,
+            User.full_name,
+            User.email,
+            func.count(Quiz.id).label("quiz_count"),
+        )
+        .join(Quiz, Quiz.user_id == User.id)
+        .filter(
+            User.is_admin == False,  # noqa: E712
+            Quiz.created_at >= resets["quizzes_generated"],
+        )
+        .group_by(User.id, User.full_name, User.email)
+        .order_by(func.count(Quiz.id).desc())
+        .limit(limit)
+        .all()
+    )
+    quizzes_generated = [
+        {
+            "rank": i + 1,
+            "user_id": str(r.id),
+            "full_name": r.full_name,
+            "email": r.email,
+            "value": int(r.quiz_count),
+            "display": str(r.quiz_count),
+        }
+        for i, r in enumerate(qg_rows)
+    ]
+
+    # ── 4. Average score ──────────────────────────────────────────────────────
+    as_rows = (
+        db.query(
+            User.id,
+            User.full_name,
+            User.email,
+            func.round(func.avg(Attempt.score), 1).label("avg_sc"),
+            func.count(Attempt.id).label("attempts"),
+        )
+        .join(Attempt, Attempt.user_id == User.id)
+        .filter(
+            User.is_admin == False,  # noqa: E712
+            Attempt.score.isnot(None),
+            Attempt.started_at >= resets["avg_score"],
+        )
+        .group_by(User.id, User.full_name, User.email)
+        .having(func.count(Attempt.id) >= 1)
+        .order_by(func.avg(Attempt.score).desc())
+        .limit(limit)
+        .all()
+    )
+    avg_score = [
+        {
+            "rank": i + 1,
+            "user_id": str(r.id),
+            "full_name": r.full_name,
+            "email": r.email,
+            "value": float(r.avg_sc),
+            "display": f"{r.avg_sc}%",
+            "attempts": int(r.attempts),
+        }
+        for i, r in enumerate(as_rows)
+    ]
+
+    return {
+        "brainstorm_time":     brainstorm_time,
+        "brainstorm_messages": brainstorm_messages,
+        "quizzes_generated":   quizzes_generated,
+        "avg_score":           avg_score,
+        "reset_timestamps":    reset_iso,
+    }
+
+
+@router.post("/leaderboard/{metric}/reset", status_code=status.HTTP_200_OK)
+def reset_leaderboard(
+    metric: str,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Reset (restart) a leaderboard by recording the current timestamp."""
+    if metric not in _VALID_METRICS:
+        raise HTTPException(status_code=400, detail=f"Invalid metric '{metric}'")
+    now = datetime.utcnow()
+    existing = db.query(LeaderboardReset).filter(LeaderboardReset.metric == metric).first()
+    if existing:
+        existing.reset_at = now
+    else:
+        db.add(LeaderboardReset(metric=metric, reset_at=now))
+    db.commit()
+    return {"message": f"Leaderboard '{metric}' has been reset.", "reset_at": now.isoformat()}
+
+
+# ── Universities ───────────────────────────────────────────────────────────────
+
+@router.get("/universities")
+def get_universities(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Return users grouped by university with level breakdown."""
+    rows = (
+        db.query(User.university, User.level, func.count(User.id).label("cnt"))
+        .filter(User.is_admin == False)  # noqa: E712
+        .group_by(User.university, User.level)
+        .all()
+    )
+
+    uni_map: dict = {}
+    for uni, level, cnt in rows:
+        uni_key   = (uni or "").strip() or "Unspecified"
+        level_key = (level or "").strip() or "Unspecified"
+        if uni_key not in uni_map:
+            uni_map[uni_key] = {"university": uni_key, "total": 0, "levels": {}}
+        uni_map[uni_key]["total"] += cnt
+        uni_map[uni_key]["levels"][level_key] = uni_map[uni_key]["levels"].get(level_key, 0) + cnt
+
+    return sorted(uni_map.values(), key=lambda x: -x["total"])
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
 
 @router.get("/notifications")
 def list_sent_notifications(

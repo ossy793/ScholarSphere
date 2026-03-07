@@ -9,6 +9,7 @@ All database query logic for performance analytics:
 """
 
 from collections import defaultdict
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models.attempt import Attempt, AttemptAnswer
+from ..models.brainstorm import BrainstormSession
 from ..models.course import Course
 from ..models.quiz import Quiz
 from ..models.question import Question
@@ -249,3 +251,36 @@ def get_performance_for_recommendations(user_id, db: Session) -> List[Dict[str, 
         {"course_name": name, "quizzes": quiz_list}
         for name, quiz_list in by_course.items()
     ]
+
+
+def get_brainstorm_streak(user_id, db: Session) -> int:
+    """
+    Return the current consecutive-day Brainstorm streak for a user.
+
+    Streak rules:
+    - A day counts if the user had at least one Brainstorm session that day (UTC).
+    - If today has a session, the streak starts at 1 (today).
+    - If today has no session but yesterday does, the streak starts at yesterday.
+    - Counting goes back one day at a time until a gap is found.
+    """
+    rows = (
+        db.query(func.date(BrainstormSession.created_at).label("session_date"))
+        .filter(BrainstormSession.user_id == user_id)
+        .distinct()
+        .all()
+    )
+    if not rows:
+        return 0
+
+    session_dates = {r.session_date for r in rows}
+    today = date.today()
+
+    # Start from today if there's a session, otherwise try yesterday
+    check = today if today in session_dates else today - timedelta(days=1)
+
+    streak = 0
+    while check in session_dates:
+        streak += 1
+        check -= timedelta(days=1)
+
+    return streak

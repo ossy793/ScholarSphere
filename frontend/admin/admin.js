@@ -23,9 +23,14 @@ let searchTimer   = null;
 let deleteTarget  = null;   // { id, name } pending deletion
 let notifTarget   = null;   // { id, name } | null = broadcast
 
+let lbData        = null;   // cached leaderboard API response
+let activeLbMetric = 'brainstorm_time';
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadStats();
 loadUsers();
+loadLeaderboards();
+loadUniversities();
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
@@ -445,6 +450,149 @@ function showToast(msg, type = 'success') {
   el.className   = `admin-toast ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+
+const LB_LABELS = {
+  brainstorm_time:     { title: 'Brainstorm Time',   col: 'Time Spent',      tab: 'Brainstorm Time' },
+  brainstorm_messages: { title: 'AI Messages Sent',  col: 'Messages',        tab: 'AI Messages' },
+  quizzes_generated:   { title: 'Quizzes Generated', col: 'Quizzes Created', tab: 'Quizzes Generated' },
+  avg_score:           { title: 'Average Score',     col: 'Avg Score',       tab: 'Avg Score' },
+};
+
+async function loadLeaderboards() {
+  const wrap = document.getElementById('lb-wrap');
+  try {
+    lbData = await api.get('/admin/leaderboard?limit=20');
+    renderLeaderboard(activeLbMetric);
+  } catch (err) {
+    if (wrap) wrap.innerHTML =
+      `<div style="padding:24px;text-align:center;color:var(--danger)">Failed to load leaderboard: ${escHtml(err.message)}</div>`;
+  }
+}
+
+window.switchLeaderboard = function (metric) {
+  activeLbMetric = metric;
+  document.querySelectorAll('.lb-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === LB_LABELS[metric].tab);
+  });
+  renderLeaderboard(metric);
+};
+
+function renderLeaderboard(metric) {
+  const wrap = document.getElementById('lb-wrap');
+  if (!wrap || !lbData) return;
+
+  const rows    = lbData[metric] || [];
+  const resets  = lbData.reset_timestamps || {};
+  const resetAt = resets[metric];
+  const label   = LB_LABELS[metric];
+
+  const resetLabel = resetAt
+    ? `Reset on ${new Date(resetAt).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}`
+    : 'Showing all-time data';
+
+  let html = `
+    <div class="lb-meta">
+      <span>${resetLabel}</span>
+      <button class="lb-reset-btn" onclick="resetLeaderboard('${metric}')">Reset Leaderboard</button>
+    </div>
+  `;
+
+  if (!rows.length) {
+    html += `<div class="table-empty">No data yet for this leaderboard.</div>`;
+  } else {
+    html += `
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th style="width:48px">Rank</th>
+            <th>User</th>
+            <th>${escHtml(label.col)}</th>
+            ${metric === 'avg_score' ? '<th>Attempts</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => {
+            const rankClass = r.rank <= 3 ? `lb-rank-${r.rank}` : 'lb-rank-n';
+            const rankIcon  = r.rank === 1 ? '&#127941;' : r.rank === 2 ? '&#129352;' : r.rank === 3 ? '&#129353;' : r.rank;
+            const initials  = r.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+            return `
+              <tr>
+                <td><div class="lb-rank-badge ${rankClass}">${rankIcon}</div></td>
+                <td>
+                  <div class="user-cell">
+                    <div class="user-avatar">${escHtml(initials)}</div>
+                    <div>
+                      <div class="user-name">${escHtml(r.full_name)}</div>
+                      <div class="user-email">${escHtml(r.email)}</div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="lb-value">${escHtml(r.display)}</span></td>
+                ${metric === 'avg_score' ? `<td style="color:var(--text-muted);font-size:0.82rem">${r.attempts} attempt${r.attempts !== 1 ? 's' : ''}</td>` : ''}
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  wrap.innerHTML = html;
+}
+
+window.resetLeaderboard = async function (metric) {
+  const label = LB_LABELS[metric]?.title || metric;
+  if (!confirm(`Reset the "${label}" leaderboard? Rankings will restart from now. This cannot be undone.`)) return;
+  try {
+    const data = await api.post(`/admin/leaderboard/${metric}/reset`, {});
+    showToast(data.message, 'success');
+    await loadLeaderboards();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
+// ── Universities ──────────────────────────────────────────────────────────────
+
+async function loadUniversities() {
+  const wrap = document.getElementById('uni-wrap');
+  try {
+    const data = await api.get('/admin/universities');
+    if (!data.length) {
+      wrap.innerHTML = '<div class="table-empty">No university data yet. Users will need to fill in their university on registration.</div>';
+      return;
+    }
+
+    const cards = data.map(u => {
+      const isUnspecified = u.university === 'Unspecified';
+      const levelRows = Object.entries(u.levels)
+        .sort(([, a], [, b]) => b - a)
+        .map(([lvl, cnt]) => `
+          <div class="uni-level-row">
+            <span class="uni-level-name">${escHtml(lvl)}</span>
+            <span class="uni-level-cnt">${cnt} student${cnt !== 1 ? 's' : ''}</span>
+          </div>
+        `).join('');
+
+      return `
+        <div class="uni-card${isUnspecified ? ' uni-unspecified' : ''}">
+          <div class="uni-card-header">
+            <span class="uni-card-name" title="${escHtml(u.university)}">${escHtml(u.university)}</span>
+            <span class="uni-card-count">${u.total} user${u.total !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="uni-levels">${levelRows}</div>
+        </div>
+      `;
+    }).join('');
+
+    wrap.innerHTML = `<div class="uni-grid">${cards}</div>`;
+  } catch (err) {
+    if (wrap) wrap.innerHTML =
+      `<div style="padding:24px;text-align:center;color:var(--danger)">Failed to load universities: ${escHtml(err.message)}</div>`;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

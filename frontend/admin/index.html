@@ -155,6 +155,32 @@
           </div>
         </div>
 
+        <!-- Leaderboards -->
+        <div class="lb-section">
+          <div class="admin-toolbar" style="margin-bottom:12px">
+            <h2>Leaderboards</h2>
+            <div class="lb-tabs" id="lb-tabs">
+              <button class="lb-tab active" onclick="switchLeaderboard('brainstorm_time')">Brainstorm Time</button>
+              <button class="lb-tab" onclick="switchLeaderboard('brainstorm_messages')">AI Messages</button>
+              <button class="lb-tab" onclick="switchLeaderboard('quizzes_generated')">Quizzes Generated</button>
+              <button class="lb-tab" onclick="switchLeaderboard('avg_score')">Avg Score</button>
+            </div>
+          </div>
+          <div class="admin-table-wrap" id="lb-wrap">
+            <div style="text-align:center;padding:40px;color:var(--text-muted)">Loading leaderboard…</div>
+          </div>
+        </div>
+
+        <!-- Users by University -->
+        <div class="uni-section">
+          <div class="admin-toolbar" style="margin-bottom:12px">
+            <h2>Users by University</h2>
+          </div>
+          <div id="uni-wrap">
+            <div style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
+          </div>
+        </div>
+
       </div><!-- /.page-body -->
     </div><!-- /.main-content -->
   </div><!-- /.app-layout -->
