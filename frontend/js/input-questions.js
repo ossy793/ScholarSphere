@@ -327,6 +327,14 @@ function showReviewSection(items) {
   document.getElementById('review-section').scrollIntoView({ behavior: 'smooth' });
 }
 
+window.goBackToQuizDetails = function () {
+  document.getElementById('bulk-input-section').classList.add('hidden');
+  const card = document.getElementById('quiz-details-card');
+  card.style.opacity = '';
+  card.style.pointerEvents = '';
+  setStep(1);
+};
+
 window.goBackToBulkInput = function () {
   document.getElementById('review-section').classList.add('hidden');
   document.getElementById('bulk-input-section').classList.remove('hidden');
