@@ -17,6 +17,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_
+from sqlalchemy import Numeric
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -520,7 +521,7 @@ def get_leaderboards(
             User.id,
             User.full_name,
             User.email,
-            func.round(func.avg(Attempt.score), 1).label("avg_sc"),
+            func.round(func.avg(Attempt.score).cast(Numeric), 1).label("avg_sc"),
             func.count(Attempt.id).label("attempts"),
         )
         .join(Attempt, Attempt.user_id == User.id)
