@@ -513,7 +513,7 @@ tr:hover td { background: #f8fafc; }
 
 /* ── Mobile sign-out button ── */
 .mobile-signout-btn {
-  display: none;
+  display: flex;
   background: none;
   border: none;
   cursor: pointer;

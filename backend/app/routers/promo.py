@@ -52,10 +52,10 @@ def _hash_code(raw_code: str) -> str:
 
 
 def _count_promo_activations(db: Session) -> int:
-    """Count users who have ever activated the promotional Pro plan."""
+    """Count all premium users (claimed spots)."""
     return (
         db.query(func.count(User.id))
-        .filter(User.promo_expires_at.isnot(None))
+        .filter(User.is_premium == True)  # noqa: E712
         .scalar() or 0
     )
 
