@@ -331,12 +331,52 @@ def submit_attempt(attempt_id: UUID, payload: AttemptSubmit, user_id, db: Sessio
         for q in db.query(Question).filter(Question.quiz_id == attempt.quiz_id).all()
     }
 
-    correct_count = 0
+    from .ai_service import grade_short_answers
+
+    # Split answers into exact-match (MCQ/true_false) and semantic (short_answer)
+    exact_answers = []
+    semantic_answers = []  # list of (ans, q, batch_index)
+
     for ans in payload.answers:
         q = questions.get(str(ans.question_id))
         if not q:
             continue
+        if q.question_type == "short_answer":
+            semantic_answers.append((ans, q, len(semantic_answers)))
+        else:
+            exact_answers.append((ans, q))
+
+    # Semantically grade all short_answer questions in one batch call
+    semantic_results: list[bool] = []
+    if semantic_answers:
+        batch = [
+            {
+                "index": i,
+                "question": q.question_text,
+                "expected": q.correct_answer,
+                "user_answer": ans.user_answer or "",
+            }
+            for i, (ans, q, _) in enumerate(semantic_answers)
+        ]
+        semantic_results = grade_short_answers(batch)
+
+    correct_count = 0
+
+    # Persist exact-match answers
+    for ans, q in exact_answers:
         is_correct = (ans.user_answer or "").strip().lower() == q.correct_answer.strip().lower()
+        if is_correct:
+            correct_count += 1
+        db.add(AttemptAnswer(
+            attempt_id=attempt.id,
+            question_id=ans.question_id,
+            user_answer=ans.user_answer,
+            is_correct=is_correct,
+        ))
+
+    # Persist semantically graded answers
+    for idx, (ans, q, _) in enumerate(semantic_answers):
+        is_correct = semantic_results[idx] if idx < len(semantic_results) else False
         if is_correct:
             correct_count += 1
         db.add(AttemptAnswer(

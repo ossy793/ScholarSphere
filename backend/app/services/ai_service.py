@@ -427,3 +427,72 @@ def _validate_questions(questions: list) -> List[Dict[str, Any]]:
         q["order_index"] = i
         valid.append(q)
     return valid
+
+
+_SEMANTIC_GRADE_PROMPT = """\
+You are a strict but fair quiz grader. You will receive a list of short-answer or theory questions, \
+the expected correct answer for each, and the student's answer.
+
+Your job: decide if each student answer is CORRECT or INCORRECT based on meaning, not exact wording.
+
+Rules:
+- CORRECT if the student's answer captures the core concept, even if phrased differently or uses synonyms.
+- CORRECT if the student gives additional correct detail beyond the expected answer.
+- INCORRECT if the student's answer is missing the key concept, is vague, or is factually wrong.
+- INCORRECT if the student left the answer blank or wrote something irrelevant.
+- Do NOT penalise for spelling mistakes, grammar, or different sentence structure.
+- Do NOT require the exact words from the expected answer.
+
+Output ONLY a JSON array of objects, one per question, in the same order received.
+Each object must have exactly two keys:
+  "index": the integer index of the question (0-based)
+  "correct": true or false
+
+No prose, no explanation, no markdown. Only the JSON array.\
+"""
+
+
+def grade_short_answers(questions: list[dict]) -> list[bool]:
+    """
+    Semantically grade a batch of short-answer / theory questions using AI.
+
+    Each item in `questions` must have:
+      - "index": int
+      - "question": str
+      - "expected": str
+      - "user_answer": str
+
+    Returns a list of bools in the same order as the input.
+    Falls back to exact-match if the AI call fails.
+    """
+    if not questions:
+        return []
+
+    client = get_groq_client()
+
+    user_content = json.dumps(questions, ensure_ascii=False)
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": _SEMANTIC_GRADE_PROMPT},
+                {"role": "user",   "content": user_content},
+            ],
+            temperature=0.0,
+            max_tokens=512,
+        )
+        raw = response.choices[0].message.content.strip()
+        results = _extract_json_array(raw)
+        if not isinstance(results, list):
+            raise ValueError("Expected JSON array")
+        # Build index → correct map
+        grade_map = {item["index"]: bool(item["correct"]) for item in results if "index" in item}
+        return [grade_map.get(q["index"], False) for q in questions]
+    except Exception as exc:
+        logger.warning("Semantic grading failed, falling back to exact match: %s", exc)
+        # Fallback: case-insensitive exact match
+        return [
+            q["user_answer"].strip().lower() == q["expected"].strip().lower()
+            for q in questions
+        ]
