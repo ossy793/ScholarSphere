@@ -332,7 +332,12 @@ window.goBackToQuizDetails = function () {
   const card = document.getElementById('quiz-details-card');
   card.style.opacity = '';
   card.style.pointerEvents = '';
+  const btn = document.getElementById('create-quiz-btn');
+  btn.disabled = false;
+  btn.textContent = 'Create Quiz & Continue →';
+  currentQuizId = null;
   setStep(1);
+  card.scrollIntoView({ behavior: 'smooth' });
 };
 
 window.goBackToBulkInput = function () {

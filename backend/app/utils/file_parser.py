@@ -32,24 +32,23 @@ def _find_tesseract_cmd() -> str | None:
     return None
 
 
-_OCR_PAGE_LIMIT = 10  # max pages sent for OCR — keeps response time bounded
+_OCR_PAGE_LIMIT = 20  # max pages sent for OCR — covers most academic documents
 
 
 def _render_pdf_pages(file_bytes: bytes, max_pages: int = _OCR_PAGE_LIMIT) -> list:
     """
     Render up to max_pages PDF pages as JPEG images using pymupdf.
-    Capped to avoid timeouts on large scanned documents.
-    Uses 2× zoom (144 DPI) with JPEG compression for efficient memory use.
+    Uses 3× zoom (216 DPI) for better quality on scanned/handwritten documents.
     """
     import fitz  # pymupdf
 
     doc = fitz.open(stream=file_bytes, filetype="pdf")
-    mat = fitz.Matrix(2, 2)  # 2× zoom ≈ 144 DPI — good OCR quality
+    mat = fitz.Matrix(3, 3)  # 3× zoom ≈ 216 DPI — sharper for handwritten/scanned docs
     pages_to_render = min(len(doc), max_pages)
     images = []
     for page_num in range(pages_to_render):
         pix = doc[page_num].get_pixmap(matrix=mat)
-        images.append(pix.tobytes("jpeg", jpg_quality=85))
+        images.append(pix.tobytes("jpeg", jpg_quality=90))
         del pix  # free pixmap memory immediately
     doc.close()
     return images
@@ -115,8 +114,11 @@ def _ocr_with_groq(page_images: list) -> str:
                     {
                         "type": "text",
                         "text": (
-                            "Extract all text from this document page exactly as it appears. "
-                            "Output only the extracted text, preserving structure where possible."
+                            "This is a page from an academic document — it may be typed, printed, "
+                            "or handwritten lecture notes. Extract ALL text you can read from this page. "
+                            "For handwritten content, do your best to interpret the writing accurately. "
+                            "Preserve headings, numbered lists, equations, and structure where possible. "
+                            "Output only the extracted text — no commentary, no descriptions of the image."
                         ),
                     },
                 ],

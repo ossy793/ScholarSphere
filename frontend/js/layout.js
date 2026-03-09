@@ -110,12 +110,12 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     signOutBtn.className = 'mobile-signout-btn';
     signOutBtn.title     = 'Sign Out';
     signOutBtn.setAttribute('onclick', 'handleLogout()');
-    signOutBtn.innerHTML = svgLogout();
+    signOutBtn.innerHTML = 'Sign Out';
 
-    // Insert before the bell wrap (sign-out appears left of notification button)
+    // Insert after the bell wrap (sign-out appears right of notification button)
     const bellWrap = headerEl.querySelector('.notif-bell-wrap');
     if (bellWrap) {
-      bellWrap.parentNode.insertBefore(signOutBtn, bellWrap);
+      bellWrap.parentNode.insertBefore(signOutBtn, bellWrap.nextSibling);
     } else {
       const userBadge = headerEl.querySelector('.user-badge');
       userBadge ? userBadge.parentNode.insertBefore(signOutBtn, userBadge)

@@ -511,20 +511,25 @@ tr:hover td { background: #f8fafc; }
 .header-menu-btn:hover { background: var(--bg); color: var(--text); }
 .header-menu-btn svg { width: 22px; height: 22px; display: block; }
 
-/* ── Mobile sign-out button ── */
+/* ── Sign-out button in header ── */
 .mobile-signout-btn {
   display: flex;
   background: none;
-  border: none;
+  border: 1.5px solid #ef4444;
   cursor: pointer;
   color: #ef4444;
-  padding: 6px;
+  padding: 5px 12px;
   border-radius: 6px;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
 }
-.mobile-signout-btn svg { width: 20px; height: 20px; display: block; }
+.mobile-signout-btn:hover { background: rgba(239,68,68,0.08); }
 
 /* ── Sidebar overlay (mobile) ── */
 .sidebar-overlay {
