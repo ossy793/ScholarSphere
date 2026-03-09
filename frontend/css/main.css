@@ -487,7 +487,7 @@ tr:hover td { background: #f8fafc; }
   .sidebar { transform: translateX(-100%); width: var(--sidebar-w); }
   .main-content { margin-left: 0; }
   .header-menu-btn { display: flex; }
-  .mobile-signout-btn { display: flex; }
+  .mobile-signout-btn { display: flex !important; }
   .sidebar-expand-btn { display: none !important; }
   .top-header { padding: 0 14px; gap: 8px; }
   .top-header h1 { font-size: 1rem; }
