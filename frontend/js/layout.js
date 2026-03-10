@@ -11,12 +11,13 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
 
   const isPremium = !!user.is_premium;
 
-  const initials = user.full_name
+  const initials = (user.full_name || user.email || '?')
     .split(' ')
+    .filter(n => n.length > 0)
     .map(n => n[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || '?';
 
   const navItems = [
     { href: basePath + 'dashboard.html',       icon: svgHome(),       label: 'Dashboard' },
