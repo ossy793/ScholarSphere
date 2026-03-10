@@ -11,9 +11,13 @@ if (!isShared) {
   if (!requireAuth()) throw new Error('unauthenticated');
   renderLayout('Quiz Practice', 'My Questions');
 } else {
-  // Minimal layout for shared quizzes
+  // Minimal layout for shared quizzes — show Pritis branding instead
   document.getElementById('sidebar').style.display = 'none';
   document.querySelector('.main-content').style.marginLeft = '0';
+  document.getElementById('main-header').style.display = 'none';
+  const sharedHeader = document.getElementById('shared-header');
+  sharedHeader.style.display = 'flex';
+  sharedHeader.classList.remove('hidden');
 }
 
 // ── State ──
@@ -34,9 +38,7 @@ async function loadQuiz() {
       const data = await api.get(`/quizzes/shared/${shareToken}`);
       quiz      = data;
       questions = data.questions;
-      // Shared quizzes only get practice mode, no score submission
-      mode = 'practice';
-      document.getElementById('setup-screen').querySelector('[onclick="setMode(\'exam\', this)"]')?.setAttribute('disabled', true);
+      // Shared quizzes support both modes — just no score submission to backend
     } else {
       quiz = await api.get(`/quizzes/${quizId}`);
       const qs = await api.get(`/quizzes/${quizId}/questions`);
@@ -288,6 +290,16 @@ function showResults(score, correctCount, timeTaken) {
   const m = Math.floor(timeTaken / 60);
   const s = timeTaken % 60;
   document.getElementById('res-time').textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+  // Shared quiz: hide auth-only buttons, show promo
+  if (isShared) {
+    const backBtn = document.getElementById('back-to-quizzes-btn');
+    const perfBtn = document.getElementById('view-perf-btn');
+    if (backBtn) backBtn.style.display = 'none';
+    if (perfBtn) perfBtn.style.display = 'none';
+    const promo = document.getElementById('shared-promo');
+    if (promo) promo.classList.remove('hidden');
+  }
 
   // Answer review
   if (mode === 'exam') {

@@ -15,13 +15,19 @@
     <aside class="sidebar" id="sidebar"></aside>
 
     <div class="main-content">
-      <header class="top-header">
+      <header class="top-header" id="main-header">
         <h1 id="page-title">Quiz Practice</h1>
         <div class="user-badge">
           <span id="user-name"></span>
           <div class="avatar" id="user-avatar"></div>
         </div>
       </header>
+
+      <!-- Shared quiz branding header (hidden by default) -->
+      <div id="shared-header" class="hidden" style="display:none;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)">
+        <img src="favicon.svg" alt="Pritis" style="width:32px;height:32px">
+        <span style="font-weight:800;font-size:1.1rem;color:var(--text)">Pritis</span>
+      </div>
 
       <main class="page-body" style="max-width:760px">
 
@@ -123,8 +129,17 @@
 
             <div class="flex gap-3 mt-6" style="justify-content:center;flex-wrap:wrap">
               <button class="btn btn-primary" onclick="restartQuiz()">Try Again</button>
-              <a href="my-questions.html" class="btn btn-secondary">Back to My Quizzes</a>
-              <a href="performance.html" class="btn btn-outline">View Performance</a>
+              <a href="my-questions.html" class="btn btn-secondary" id="back-to-quizzes-btn">Back to My Quizzes</a>
+              <a href="performance.html" class="btn btn-outline" id="view-perf-btn">View Performance</a>
+            </div>
+
+            <!-- Post-quiz promo (shared quizzes only) -->
+            <div id="shared-promo" class="hidden" style="margin-top:28px;padding:24px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);text-align:center">
+              <p style="font-weight:700;font-size:1.05rem;margin-bottom:8px">Join Pritis Scholars!</p>
+              <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:18px;line-height:1.6">
+                Study smarter, generate quizzes from your documents, track your performance and a lot more — completely free.
+              </p>
+              <a href="index.html" class="btn btn-primary">Get Started Free</a>
             </div>
           </div>
         </div>
