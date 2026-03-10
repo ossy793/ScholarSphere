@@ -84,10 +84,18 @@ window.verifyCode = async function () {
   try {
     const data = await api.post('/promo/verify', { email, code });
 
-    // Update auth state with fresh token + user
-    setToken(data.access_token);
-    const user = await api.get('/auth/me');
-    setUser(user);
+    // Update token first
+    if (data.access_token) setToken(data.access_token);
+
+    // Fetch fresh user and update localStorage with is_premium: true
+    const freshUser = await api.get('/auth/me');
+    if (freshUser) {
+      setUser(freshUser);
+    } else {
+      // Fallback: patch existing user object directly
+      const existing = getUser();
+      if (existing) setUser({ ...existing, is_premium: true });
+    }
 
     // Show WhatsApp link
     const waLink = document.getElementById('whatsapp-link');
@@ -98,6 +106,9 @@ window.verifyCode = async function () {
     }
 
     showStep('step-success');
+
+    // Auto-redirect to dashboard after 3 seconds — no logout needed
+    setTimeout(() => { window.location.href = 'dashboard.html'; }, 3000);
   } catch (err) {
     showAlert(err.message);
   } finally {

@@ -1,7 +1,18 @@
-import { api, requireAuth, getUser } from './api.js';
+import { api, requireAuth, getUser, setUser } from './api.js';
 import { renderLayout } from './layout.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
+
+// Always refresh user data from server so premium upgrades reflect immediately
+(async () => {
+  try {
+    const fresh = await api.get('/auth/me');
+    if (fresh) setUser(fresh);
+  } catch {}
+  initDashboard();
+})();
+
+function initDashboard() {
 
 renderLayout('Dashboard', 'Dashboard');
 
@@ -68,6 +79,8 @@ if (!user?.is_premium) {
   // ── Premium-user view ─────────────────────────────────────────────────────
   loadDashboard();
 }
+
+} // end initDashboard
 
 async function loadStreak() {
   try {
