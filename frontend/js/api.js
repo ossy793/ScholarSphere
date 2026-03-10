@@ -94,7 +94,7 @@ async function apiFetch(path, options = {}) {
     clearTimeout(timer);
   }
 
-  if (res.status === 401) {
+  if (res.status === 401 || res.status === 403) {
     clearToken();
     // Read the error detail before deciding what to do
     let errMsg = 'Incorrect email or password.';
