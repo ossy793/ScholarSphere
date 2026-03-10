@@ -94,10 +94,17 @@
 
           <div class="quiz-nav">
             <button class="btn btn-secondary" id="prev-btn" onclick="navigate(-1)">← Previous</button>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap">Go to Q:</span>
+              <input type="number" id="jump-input" min="1" placeholder="#"
+                style="width:54px;height:34px;border:1.5px solid var(--border);border-radius:8px;padding:0 8px;font-size:0.85rem;text-align:center;background:var(--surface);color:var(--text);outline:none"
+                onkeydown="handleJumpKey(event)" onfocus="this.select()">
+            </div>
             <div class="flex gap-2">
               <button class="btn btn-secondary" id="skip-btn" onclick="navigate(1)">Skip →</button>
               <button class="btn btn-primary" id="next-btn" onclick="navigate(1)">Next →</button>
               <button class="btn btn-success hidden" id="submit-btn" onclick="submitQuiz()">Submit Quiz</button>
+              <button class="btn btn-danger" id="end-btn" onclick="confirmEndQuiz()" style="background:#ef4444;color:#fff;border:none">End Quiz</button>
             </div>
           </div>
         </div>

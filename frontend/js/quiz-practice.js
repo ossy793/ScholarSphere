@@ -329,6 +329,40 @@ window.restartQuiz = function() {
   document.getElementById('setup-screen').classList.remove('hidden');
 };
 
+// ── Jump to question ──
+window.handleJumpKey = function(e) {
+  if (e.key === 'Enter') {
+    const n = parseInt(e.target.value);
+    if (n >= 1 && n <= questions.length) {
+      currentIdx = n - 1;
+      renderQuestion();
+    }
+    e.target.value = '';
+    e.target.blur();
+  } else if (e.key === 'Escape') {
+    e.target.value = '';
+    e.target.blur();
+  }
+};
+
+// Pressing a digit key while quiz is active auto-focuses the jump input
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('quiz-screen').classList.contains('hidden')) return;
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+  if (/^\d$/.test(e.key)) {
+    const jumpInput = document.getElementById('jump-input');
+    jumpInput.focus();
+  }
+});
+
+// ── End Quiz ──
+window.confirmEndQuiz = function() {
+  if (confirm('End the quiz now? Your current answers will be submitted and results shown.')) {
+    submitQuiz();
+  }
+};
+
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
