@@ -298,28 +298,39 @@ def parse_and_generate_from_content(content: str) -> List[Dict[str, Any]]:
         f"Content:\n{content}"
     )
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": PARSE_GENERATE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.4,
-        max_tokens=4096,
-    )
+    # Split large content into batches of ~15,000 chars to avoid token limits
+    BATCH_SIZE = 15000
+    chunks = [content[i:i+BATCH_SIZE] for i in range(0, len(content), BATCH_SIZE)]
 
-    raw = response.choices[0].message.content.strip()
-    logger.debug("parse_and_generate raw (first 300): %s", raw[:300])
-    items = _extract_json_array(raw)
-    validated = _validate_questions(items)
+    all_validated = []
+    for chunk in chunks:
+        chunk_prompt = (
+            "Extract all questions from the following content and generate complete quiz entries "
+            "(with options and correct answers) for each. Return ONLY the JSON array.\n\n"
+            f"Content:\n{chunk}"
+        )
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": PARSE_GENERATE_SYSTEM_PROMPT},
+                {"role": "user", "content": chunk_prompt},
+            ],
+            temperature=0.4,
+            max_tokens=8192,
+        )
+        raw = response.choices[0].message.content.strip()
+        logger.debug("parse_and_generate chunk raw (first 300): %s", raw[:300])
+        items = _extract_json_array(raw)
+        validated = _validate_questions(items)
+        all_validated.extend(validated)
 
-    if not validated:
+    if not all_validated:
         raise ValueError(
             "AI could not detect any questions in the provided content. "
             "Please ensure the text contains questions and try again."
         )
 
-    return validated
+    return all_validated
 
 
 RECOMMENDATIONS_SYSTEM_PROMPT = """You are an expert educational analyst specialising in personalised study plans.
