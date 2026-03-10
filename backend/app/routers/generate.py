@@ -38,7 +38,7 @@ def _parse_types(raw: str) -> list[str]:
 
 def _run_ai(text: str, num_questions: int, allowed_types: list[str] | None = None) -> list:
     """Truncate input and call the AI service; raises 500 on failure."""
-    truncated = truncate_text(text)
+    truncated = truncate_text(text, max_chars=60000)
     try:
         return generate_questions(truncated, num_questions, allowed_types or ["mcq", "short_answer", "essay"])
     except Exception as exc:
@@ -77,7 +77,7 @@ def parse_content_and_generate(
     if not payload.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty.")
     try:
-        truncated = truncate_text(payload.content)
+        truncated = truncate_text(payload.content, max_chars=60000)
         return parse_and_generate_from_content(truncated)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

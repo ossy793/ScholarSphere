@@ -598,7 +598,7 @@ async def upload_document(
     else:
         text = ""
 
-    text = truncate_text(text, max_chars=12000)
+    text = truncate_text(text, max_chars=60000)
     return {
         "text": text,
         "filename": file.filename,
