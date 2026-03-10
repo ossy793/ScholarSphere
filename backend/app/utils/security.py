@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import bcrypt
 from jose import JWTError, jwt
@@ -48,7 +48,7 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     # Auto-expire promo premium if 5-week window has passed
-    if user.promo_expires_at and user.is_premium and datetime.utcnow() > user.promo_expires_at:
+    if user.promo_expires_at and user.is_premium and datetime.now(timezone.utc) > user.promo_expires_at:
         user.is_premium       = False
         user.promo_expires_at = None
         db.commit()
