@@ -26,7 +26,7 @@ Your task:
 Output ONLY a JSON array (no prose, no markdown fences). Each element must have:
 - "question_text": string (the clean, complete question)
 - "question_type": one of "mcq", "true_false", "short_answer"
-- "options": exactly 4 strings for mcq; ["True","False"] for true_false; null for short_answer
+- "options": array of strings for mcq — preserve the EXACT number of options from the document (typically 2–6); do NOT pad to 4 if fewer exist, do NOT truncate to 4 if more exist; ["True","False"] for true_false; null for short_answer
 - "correct_answer": string (exact option text for mcq/true_false; concise answer for short_answer)
 - "explanation": string (one sentence explaining why the answer is correct)
 
@@ -45,7 +45,7 @@ General rules:
 - If no options exist for an MCQ-style question, generate 4 plausible options.
 - Use "true_false" for yes/no or "is it true that…" style questions.
 - Use "short_answer" for open-ended, definition, or calculation questions.
-- MCQ must always have exactly 4 options.
+- MCQ must preserve the original option count from the document (minimum 2, maximum 6).
 - Start your response with [ and end with ]."""
 
 OPTIONS_SYSTEM_PROMPT = """You are a quiz question formatter. Given a numbered list of questions, output ONLY a JSON array of the same length — no prose, no markdown fences.

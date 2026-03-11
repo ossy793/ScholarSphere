@@ -118,6 +118,9 @@ def _ocr_with_groq(page_images: list) -> str:
                             "or handwritten lecture notes. Extract ALL text you can read from this page. "
                             "For handwritten content, do your best to interpret the writing accurately. "
                             "Preserve headings, numbered lists, equations, and structure where possible. "
+                            "IMPORTANT: If any text appears visually emphasized — bold, highlighted, "
+                            "underlined, circled, starred, or otherwise marked — wrap it in **...** "
+                            "(e.g. **Option C**). This is critical for detecting correct answers. "
                             "Output only the extracted text — no commentary, no descriptions of the image."
                         ),
                     },
@@ -232,11 +235,29 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
-    """Extract text content from a DOCX file."""
+    """
+    Extract text from a DOCX file.
+    Bold runs are wrapped in **...** so the AI can detect visually marked answers.
+    """
     try:
         from docx import Document
         doc = Document(io.BytesIO(file_bytes))
-        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        paragraphs = []
+        for p in doc.paragraphs:
+            if not p.text.strip():
+                continue
+            # Rebuild paragraph run-by-run, wrapping bold runs in **...**
+            parts = []
+            for run in p.runs:
+                if not run.text:
+                    continue
+                if run.bold:
+                    parts.append(f"**{run.text}**")
+                else:
+                    parts.append(run.text)
+            line = "".join(parts).strip()
+            if line:
+                paragraphs.append(line)
         text = "\n\n".join(paragraphs).strip()
         if not text:
             raise ValueError(

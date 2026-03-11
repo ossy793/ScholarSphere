@@ -197,9 +197,27 @@ async function readDocxFile(file) {
     throw new Error('mammoth.js failed to load. Check your internet connection.');
   }
   const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  const text = result.value.trim();
+
+  // Extract HTML to detect bold/italic formatting
+  const [htmlResult, textResult] = await Promise.all([
+    mammoth.convertToHtml({ arrayBuffer }),
+    mammoth.extractRawText({ arrayBuffer }),
+  ]);
+
+  const text = textResult.value.trim();
   if (!text) throw new Error('This DOCX file contains no extractable text.');
+
+  // Find bold elements — may indicate correct answers
+  const dom = new DOMParser().parseFromString(htmlResult.value, 'text/html');
+  const boldTexts = [...dom.querySelectorAll('strong, b')]
+    .map(el => el.textContent.trim())
+    .filter(t => t.length > 0 && t.length < 120);
+
+  if (boldTexts.length > 0) {
+    const unique = [...new Set(boldTexts)];
+    return `[FORMATTING NOTE: The following text appears bold in the document — likely correct answers or key terms: ${unique.join(' | ')}]\n\n${text}`;
+  }
+
   return text;
 }
 
@@ -385,25 +403,29 @@ function renderReview(items) {
   container.innerHTML = items.map((item, i) => renderCard(i, item)).join('');
 }
 
-function normaliseMcqOptions(opts) {
-  const arr = (opts || []).slice(0, 4);
-  while (arr.length < 4) arr.push('');
-  return arr;
+function normaliseMcqOptions(opts, defaultCount = 4) {
+  if (!opts || opts.length === 0) return Array(defaultCount).fill('');
+  // Preserve actual option count from document (min 2, max 6), clean nulls
+  return opts.slice(0, 6).map(o => (o == null ? '' : String(o)));
 }
 
 function renderCard(i, item) {
-  const labels = ['A', 'B', 'C', 'D'];
+  const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
   let optionsHtml = '';
 
   if (item.question_type === 'mcq') {
     const opts = normaliseMcqOptions(item.options);
+    const canRemove = opts.length > 2;
+    const canAdd    = opts.length < 6;
 
     const optInputs = opts.map((o, j) => `
       <div class="opt-row">
         <span class="opt-label">${labels[j]}</span>
-        <input type="text" class="form-control" style="padding:8px 12px"
+        <input type="text" class="form-control" style="padding:8px 12px;flex:1"
           value="${escAttr(o)}" placeholder="Option ${labels[j]}"
           oninput="updateReviewOption(${i},${j},this.value)">
+        ${canRemove ? `<button type="button" onclick="removeReviewOption(${i},${j})"
+          style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1.2rem;padding:0 6px;flex-shrink:0;line-height:1">×</button>` : ''}
       </div>`).join('');
 
     const correctOpts = opts.map((o, j) =>
@@ -414,6 +436,7 @@ function renderCard(i, item) {
       <div class="form-group">
         <label class="form-label">Options</label>
         ${optInputs}
+        ${canAdd ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addReviewOption(${i})">+ Add Option</button>` : ''}
       </div>
       <div class="form-group">
         <label class="form-label">Correct Answer</label>
@@ -512,14 +535,33 @@ window.changeReviewType = function (i, type) {
     item.options        = ['True', 'False'];
     item.correct_answer = 'True';
   } else if (type === 'mcq') {
-    item.options = normaliseMcqOptions(item.options);
-    item.correct_answer = item.options[0] || '';
+    item.options = normaliseMcqOptions(item.options && item.options.length >= 2 ? item.options : null);
+    item.correct_answer = item.correct_answer && item.options.includes(item.correct_answer)
+      ? item.correct_answer : (item.options[0] || '');
   } else {
     item.options = null;
   }
 
   const card = document.getElementById(`rcard-${i}`);
   if (card) card.outerHTML = renderCard(i, item);
+};
+
+window.addReviewOption = function (i) {
+  if (!reviewItems[i].options) reviewItems[i].options = ['', '', '', ''];
+  if (reviewItems[i].options.length < 6) reviewItems[i].options.push('');
+  const card = document.getElementById(`rcard-${i}`);
+  if (card) card.outerHTML = renderCard(i, reviewItems[i]);
+};
+
+window.removeReviewOption = function (i, j) {
+  const opts = reviewItems[i].options;
+  if (!opts || opts.length <= 2) return;
+  if (reviewItems[i].correct_answer === opts[j]) {
+    reviewItems[i].correct_answer = opts[j === 0 ? 1 : 0] || '';
+  }
+  opts.splice(j, 1);
+  const card = document.getElementById(`rcard-${i}`);
+  if (card) card.outerHTML = renderCard(i, reviewItems[i]);
 };
 
 window.removeReviewItem = function (i) {
@@ -546,7 +588,8 @@ window.saveAllQuestions = async function () {
       errors.push(`Q${i + 1}: Question text is empty.`);
     if (item.question_type === 'mcq') {
       const opts = item.options || [];
-      if (opts.some(o => !o.trim())) errors.push(`Q${i + 1}: All 4 options must be filled.`);
+      if (opts.length < 2)            errors.push(`Q${i + 1}: At least 2 options are required.`);
+      if (opts.some(o => !o.trim()))  errors.push(`Q${i + 1}: All options must be filled.`);
       if (!item.correct_answer)       errors.push(`Q${i + 1}: Please select a correct answer.`);
     }
     if (item.question_type === 'short_answer' && !item.correct_answer.trim())
