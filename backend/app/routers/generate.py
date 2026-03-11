@@ -21,6 +21,7 @@ class OptionsRequest(BaseModel):
 
 class ParseRequest(BaseModel):
     content: str
+    answer_hint: str = ""
 
 
 class TextGenerateRequest(BaseModel):
@@ -78,7 +79,7 @@ def parse_content_and_generate(
         raise HTTPException(status_code=400, detail="Content cannot be empty.")
     try:
         truncated = truncate_text(payload.content, max_chars=60000)
-        return parse_and_generate_from_content(truncated)
+        return parse_and_generate_from_content(truncated, answer_hint=payload.answer_hint)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

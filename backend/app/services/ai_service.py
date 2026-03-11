@@ -30,10 +30,19 @@ Output ONLY a JSON array (no prose, no markdown fences). Each element must have:
 - "correct_answer": string (exact option text for mcq/true_false; concise answer for short_answer)
 - "explanation": string (one sentence explaining why the answer is correct)
 
-Rules:
+CRITICAL — ANSWER EXTRACTION PRIORITY:
+Many past question documents already contain answers. You MUST detect and use existing answers FIRST. Only generate an answer when none can be found.
+
+Detect these common answer formats:
+1. ANSWER KEY AT END: A section like "1. C  2. A  3. True  4. B" or "Q1: C, Q2: A" — match each answer back to its question by number.
+2. INLINE AFTER QUESTION: Answer appears right after the question, e.g. "Answer: C", "Ans: B", "Correct: True", "The answer is D".
+3. MARKED OPTION: One option is explicitly marked — bold, asterisk (*), "ANS:", "✓", or any label indicating it is correct.
+4. OPTION ANNOTATION: An option has a note like "(correct)", "(right answer)", or similar beside it.
+
+General rules:
 - Extract questions even if they appear mid-paragraph or are mixed with answers.
-- If the original content already has options/answers, preserve them and fill any gaps.
-- If no options exist, generate 4 plausible options for MCQ questions.
+- Preserve ALL original options exactly as written; only fill gaps if fewer than 4 options exist for MCQ.
+- If no options exist for an MCQ-style question, generate 4 plausible options.
 - Use "true_false" for yes/no or "is it true that…" style questions.
 - Use "short_answer" for open-ended, definition, or calculation questions.
 - MCQ must always have exactly 4 options.
@@ -282,21 +291,17 @@ def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]
     return result
 
 
-def parse_and_generate_from_content(content: str) -> List[Dict[str, Any]]:
+def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List[Dict[str, Any]]:
     """
     Given any unstructured educational content (past papers, notes, Q&A),
     detect all questions and generate complete quiz entries with options and answers.
+    answer_hint: optional user instruction about how answers are structured in the document.
     """
     if not content or not content.strip():
         raise ValueError("Content is empty — nothing to analyze.")
 
     client = get_groq_client()
-
-    user_prompt = (
-        "Extract all questions from the following content and generate complete quiz entries "
-        "(with options and correct answers) for each. Return ONLY the JSON array.\n\n"
-        f"Content:\n{content}"
-    )
+    hint_line = f"\n\nUSER INSTRUCTION ABOUT ANSWER FORMAT: {answer_hint.strip()}" if answer_hint and answer_hint.strip() else ""
 
     # Split large content into batches of ~15,000 chars to avoid token limits
     BATCH_SIZE = 15000
@@ -306,8 +311,9 @@ def parse_and_generate_from_content(content: str) -> List[Dict[str, Any]]:
     for chunk in chunks:
         chunk_prompt = (
             "Extract all questions from the following content and generate complete quiz entries "
-            "(with options and correct answers) for each. Return ONLY the JSON array.\n\n"
-            f"Content:\n{chunk}"
+            "(with options and correct answers) for each. "
+            "Use existing answers from the document wherever possible. Return ONLY the JSON array."
+            f"{hint_line}\n\nContent:\n{chunk}"
         )
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",

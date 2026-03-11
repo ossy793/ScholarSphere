@@ -249,6 +249,27 @@ async function uploadFileForText(file) {
   return res.text;
 }
 
+// ── Answer hint chip selector ─────────────────────────────────────────────────
+window.setAnswerHint = function (btn) {
+  document.querySelectorAll('.hint-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+const _HINT_MAP = {
+  '':           '',
+  'highlighted':'The correct answers are highlighted or visually marked in the document (e.g. bold, underlined, asterisk, or labelled "ANS:").',
+  'after_each': 'The correct answer for each question is listed immediately after that question (e.g. "Answer: C" or "Ans: B").',
+  'end_key':    'An answer key is provided at the end of the document listing question numbers with their correct answers.',
+  'none':       'No answers are provided in the document — generate correct answers for all questions.',
+};
+
+function _buildAnswerHint() {
+  const selected = document.querySelector('.hint-chip.active')?.dataset.hint || '';
+  const extra    = (document.getElementById('extra-instructions')?.value || '').trim();
+  const base     = _HINT_MAP[selected] || '';
+  return base && extra ? `${base} ${extra}` : (base || extra);
+}
+
 // ── Step 2: Analyze & Generate ────────────────────────────────────────────────
 window.analyzeAndGenerate = async function () {
   const content = document.getElementById('content-textarea').value.trim();
@@ -282,7 +303,7 @@ window.analyzeAndGenerate = async function () {
   });
 
   try {
-    const generated = await api.post('/generate/parse', { content });
+    const generated = await api.post('/generate/parse', { content, answer_hint: _buildAnswerHint() });
     clearInterval(simTimer);
     setAnalyzeProgress(100, 'Done!');
 
