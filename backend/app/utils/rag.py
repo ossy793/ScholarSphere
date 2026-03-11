@@ -87,7 +87,7 @@ def store_chunks(
                     INSERT INTO brainstorm_chunks
                         (id, document_id, session_id, chunk_index, chunk_text, embedding)
                     VALUES
-                        (gen_random_uuid(), :did, :sid, :idx, :txt, :emb::vector)
+                        (gen_random_uuid(), :did, :sid, :idx, :txt, CAST(:emb AS vector))
                 """),
                 {
                     "did": str(document_id),
@@ -143,7 +143,7 @@ def retrieve_chunks(
                 FROM   brainstorm_chunks
                 WHERE  session_id = :sid
                   AND  embedding  IS NOT NULL
-                ORDER  BY embedding <=> :vec::vector
+                ORDER  BY embedding <=> CAST(:vec AS vector)
                 LIMIT  :k
             """),
             {
