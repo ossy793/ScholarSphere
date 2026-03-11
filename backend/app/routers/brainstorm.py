@@ -86,6 +86,11 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class SummaryRequest(BaseModel):
+    context: str
+    filename: str = "Document"
+
+
 class CreateSessionRequest(BaseModel):
     title: str
     filename: str
@@ -708,3 +713,52 @@ def brainstorm_chat(
         db.commit()
 
     return {"reply": reply}
+
+
+@router.post("/summary")
+def generate_summary(
+    payload: SummaryRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate a structured summary of the uploaded document text.
+    Returns plain text divided into clear sections.
+    """
+    if not payload.context.strip():
+        raise HTTPException(status_code=400, detail="No document context provided.")
+
+    truncated = truncate_text(payload.context, max_chars=30000)
+
+    prompt = (
+        f"Generate a comprehensive, well-structured summary of the following document.\n\n"
+        f"Structure your summary exactly like this (use these exact section headers):\n\n"
+        f"OVERVIEW\n"
+        f"Write 2-3 sentences describing what the document is about.\n\n"
+        f"KEY POINTS\n"
+        f"List the most important facts, concepts, or arguments as numbered points.\n\n"
+        f"IMPORTANT DETAILS\n"
+        f"List supporting details, definitions, or examples worth remembering as numbered points.\n\n"
+        f"CONCLUSION\n"
+        f"Write 1-2 sentences on the main takeaway or conclusion.\n\n"
+        f"Important: Use plain text only. No markdown. No asterisks. No bullet symbols.\n\n"
+        f"Document:\n{truncated}"
+    )
+
+    try:
+        response = get_groq_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are an expert academic summarizer. Create clear, structured, educational summaries in plain text."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=2048,
+        )
+        summary = response.choices[0].message.content.strip()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI error: {str(e)}",
+        )
+
+    return {"summary": summary, "filename": payload.filename}

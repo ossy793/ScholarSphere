@@ -10,6 +10,17 @@ let chatHistory      = [];
 let isWaiting        = false;
 let currentBlobUrl   = null; // revoke on next upload
 let currentSessionId = null; // DB session ID (null = unsaved)
+let currentFilename  = 'Document'; // used for summary PDF filename
+
+function _docControlsHtml(changeLabel = 'Change') {
+  return `
+    <button class="btn btn-outline btn-sm" id="summary-btn" onclick="generateSummary()"
+      style="display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:0.78rem;font-weight:600">
+      📄 Summary
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="changeDocument()">${changeLabel}</button>
+  `;
+}
 
 // ── Proactive reading engagement timers ───────────────────────────────────────
 // Fires at 15 min, 45 min, and 90 min of uninterrupted reading (no chat sent).
@@ -204,8 +215,7 @@ async function _bsRestore() {
 
   document.getElementById('doc-upload-area').style.display = 'none';
   document.getElementById('doc-viewer-area').classList.add('visible');
-  document.getElementById('doc-controls').innerHTML =
-    `<button class="btn btn-secondary btn-sm" onclick="changeDocument()">Change</button>`;
+  document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change');
 
   enableChat();
   clearChat(false);
@@ -273,14 +283,14 @@ function handlePastedText(text) {
   scroll.style.height  = '';
   scroll.innerHTML = `<pre class="txt-render">${escHtml(text)}</pre>`;
 
+  currentFilename = 'Pasted Text';
   document.getElementById('doc-upload-area').style.display = 'none';
   document.getElementById('doc-viewer-area').classList.add('visible');
   document.getElementById('doc-meta-bar').innerHTML = `
     <strong>Pasted Text</strong>
     <span class="badge-sm">TEXT</span>
     <span style="margin-left:auto">${text.length.toLocaleString()} chars</span>`;
-  document.getElementById('doc-controls').innerHTML =
-    `<button class="btn btn-secondary btn-sm" onclick="changeDocument()">Change</button>`;
+  document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change');
 
   enableChat();
   clearChat(false);
@@ -779,6 +789,7 @@ function resetUploadZone() {
 }
 
 function showViewerArea(filename, extLabel, sizeBytes) {
+  currentFilename = filename;
   document.getElementById('doc-upload-area').style.display = 'none';
   document.getElementById('doc-viewer-area').classList.add('visible');
 
@@ -787,12 +798,120 @@ function showViewerArea(filename, extLabel, sizeBytes) {
     <strong>${escHtml(filename)}</strong>
     <span class="badge-sm">${extLabel}</span>
     <span style="margin-left:auto">${kb} KB</span>`;
-  document.getElementById('doc-controls').innerHTML =
-    `<button class="btn btn-secondary btn-sm" onclick="changeDocument()">Change File</button>`;
+  document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change File');
 
   _bsSaveMeta(filename, extLabel, kb + ' KB');
   _bsSave();
 }
+
+// ── Generate Summary ──────────────────────────────────────────────────────────
+window.generateSummary = async function () {
+  if (!documentContext) return;
+
+  const btn = document.getElementById('summary-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spinner-dark" style="width:12px;height:12px"></span> Generating…';
+  }
+
+  try {
+    const res = await api.post('/brainstorm/summary', {
+      context: documentContext,
+      filename: currentFilename,
+    });
+
+    // Build PDF using jsPDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW   = doc.internal.pageSize.getWidth();
+    const pageH   = doc.internal.pageSize.getHeight();
+    const margin  = 18;
+    const maxW    = pageW - margin * 2;
+    let y = margin + 8;
+
+    // ── Header bar ──
+    doc.setFillColor(0, 119, 255);
+    doc.rect(0, 0, pageW, 14, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Pritis — Document Summary', margin, 9.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }), pageW - margin, 9.5, { align: 'right' });
+
+    // ── Document title ──
+    y += 6;
+    doc.setTextColor(10, 22, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    const titleLines = doc.splitTextToSize(currentFilename.replace(/\.[^.]+$/, ''), maxW);
+    doc.text(titleLines, margin, y);
+    y += titleLines.length * 7 + 2;
+
+    // Divider
+    doc.setDrawColor(220, 228, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // ── Render summary sections ──
+    const lines = res.summary.split('\n');
+    const SECTION_HEADERS = ['OVERVIEW', 'KEY POINTS', 'IMPORTANT DETAILS', 'CONCLUSION'];
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) { y += 3; continue; }
+
+      const isHeader = SECTION_HEADERS.some(h => line.toUpperCase().startsWith(h));
+
+      if (isHeader) {
+        if (y > pageH - 30) { doc.addPage(); y = margin + 6; }
+        y += 3;
+        doc.setFillColor(240, 245, 255);
+        doc.setDrawColor(0, 119, 255);
+        doc.roundedRect(margin - 2, y - 5, maxW + 4, 9, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 80, 200);
+        doc.text(line, margin + 1, y);
+        y += 8;
+        doc.setTextColor(10, 22, 40);
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(40, 50, 65);
+        const wrapped = doc.splitTextToSize(line, maxW - 2);
+        for (const wl of wrapped) {
+          if (y > pageH - 16) { doc.addPage(); y = margin + 6; }
+          doc.text(wl, margin + 2, y);
+          y += 5.5;
+        }
+      }
+    }
+
+    // ── Footer on each page ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(160, 170, 185);
+      doc.text(`Page ${i} of ${pageCount}`, pageW / 2, pageH - 8, { align: 'center' });
+      doc.text('Generated by Pritis', pageW - margin, pageH - 8, { align: 'right' });
+    }
+
+    // Download
+    const safeName = currentFilename.replace(/[^a-z0-9_\-. ]/gi, '_').replace(/\.[^.]+$/, '');
+    doc.save(`Summary - ${safeName}.pdf`);
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '✓ Downloaded!'; }
+    setTimeout(() => { if (btn) btn.innerHTML = '📄 Summary'; btn.disabled = false; }, 3000);
+
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '📄 Summary'; }
+    alert('Could not generate summary: ' + (err.message || 'Unknown error'));
+  }
+};
 
 window.changeDocument = function () {
   _bsClear();
@@ -1124,10 +1243,10 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
       <span class="badge-sm">${session.document.file_type.toUpperCase()}</span>
       <span style="margin-left:auto">${sizeLabel}</span>`;
 
+    currentFilename = session.document?.filename || 'Document';
     document.getElementById('doc-upload-area').style.display = 'none';
     document.getElementById('doc-viewer-area').classList.add('visible');
-    document.getElementById('doc-controls').innerHTML =
-      `<button class="btn btn-secondary btn-sm" onclick="changeDocument()">Change</button>`;
+    document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change');
   }
 
   // Restore chat
