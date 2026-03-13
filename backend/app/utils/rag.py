@@ -85,9 +85,9 @@ def store_chunks(
             db.execute(
                 sql_text("""
                     INSERT INTO brainstorm_chunks
-                        (id, document_id, session_id, chunk_index, chunk_text, embedding)
+                        (id, document_id, session_id, chunk_index, chunk_text, embedding, created_at)
                     VALUES
-                        (gen_random_uuid(), :did, :sid, :idx, :txt, CAST(:emb AS vector))
+                        (gen_random_uuid(), :did, :sid, :idx, :txt, CAST(:emb AS vector), NOW())
                 """),
                 {
                     "did": str(document_id),
@@ -101,9 +101,9 @@ def store_chunks(
             db.execute(
                 sql_text("""
                     INSERT INTO brainstorm_chunks
-                        (id, document_id, session_id, chunk_index, chunk_text)
+                        (id, document_id, session_id, chunk_index, chunk_text, created_at)
                     VALUES
-                        (gen_random_uuid(), :did, :sid, :idx, :txt)
+                        (gen_random_uuid(), :did, :sid, :idx, :txt, NOW())
                 """),
                 {
                     "did": str(document_id),
