@@ -660,6 +660,10 @@ def brainstorm_chat(
                 rag_used = True
         except Exception as exc:
             logger.warning("RAG retrieval error for session %s: %s", session_uuid, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     # ── Fallback to full context from frontend ────────────────────────────────
     if not context:

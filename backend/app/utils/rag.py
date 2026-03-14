@@ -158,6 +158,10 @@ def retrieve_chunks(
 
     except Exception as exc:
         logger.warning("Vector search failed, falling back to keyword search: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     # ── 2. Keyword fallback (PostgreSQL FTS) ──────────────────────────────────
     try:
@@ -181,6 +185,10 @@ def retrieve_chunks(
 
     except Exception as exc:
         logger.warning("Keyword fallback search failed: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return []
 
 
@@ -195,4 +203,8 @@ def chunks_exist(db: "Session", session_id: uuid.UUID) -> bool:
         ).fetchone()
         return row is not None
     except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return False
