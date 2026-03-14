@@ -730,17 +730,32 @@ def generate_summary(
     truncated = truncate_text(payload.context, max_chars=30000)
 
     prompt = (
-        f"Generate a comprehensive, well-structured summary of the following document.\n\n"
-        f"Structure your summary exactly like this (use these exact section headers):\n\n"
+        f"Analyze the ENTIRE document below and produce a comprehensive, structured, study-ready summary.\n\n"
+        f"You MUST cover the full document — not just the beginning. Prioritize major sections, key concepts, and academically relevant content.\n\n"
+        f"Use EXACTLY these section headers in this order:\n\n"
+        f"DOCUMENT TITLE\n"
+        f"Extract or infer the title of the document. Write it on one line.\n\n"
         f"OVERVIEW\n"
-        f"Write 2-3 sentences describing what the document is about.\n\n"
-        f"KEY POINTS\n"
-        f"List the most important facts, concepts, or arguments as numbered points.\n\n"
-        f"IMPORTANT DETAILS\n"
-        f"List supporting details, definitions, or examples worth remembering as numbered points.\n\n"
-        f"CONCLUSION\n"
-        f"Write 1-2 sentences on the main takeaway or conclusion.\n\n"
-        f"Important: Use plain text only. No markdown. No asterisks. No bullet symbols.\n\n"
+        f"Write 3-5 sentences explaining the main topic, purpose, and scope of the document.\n\n"
+        f"KEY CONCEPTS\n"
+        f"Identify and explain the major concepts discussed. For each concept, write its name followed by a brief explanation in simple terms. Number each one.\n\n"
+        f"IMPORTANT POINTS\n"
+        f"List the most important ideas, arguments, or findings from across the entire document as numbered points.\n\n"
+        f"DEFINITIONS AND KEY TERMS\n"
+        f"Extract important terms, definitions, formulas, or technical vocabulary. Format as: Term - Definition.\n\n"
+        f"EXAMPLES OR APPLICATIONS\n"
+        f"Summarize any examples, case studies, or real-world applications mentioned. If none exist, write 'None provided in document.'\n\n"
+        f"STEP-BY-STEP PROCESSES\n"
+        f"If the document describes any method, procedure, or process, break it down into clear numbered steps. If not applicable, write 'Not applicable.'\n\n"
+        f"EXAM AND REVISION HIGHLIGHTS\n"
+        f"List the most exam-relevant facts, concepts, formulas, or points that students must remember. Number each one.\n\n"
+        f"KEY TAKEAWAYS\n"
+        f"Provide 5-8 core lessons or conclusions a student should walk away with after reading this document.\n\n"
+        f"Quality rules:\n"
+        f"- Cover the entire document, not just the introduction.\n"
+        f"- Preserve original meaning and context.\n"
+        f"- Use plain text only. No markdown. No asterisks. No bullet symbols (use numbers or dashes).\n"
+        f"- Write enough detail that a student can revise from this summary alone.\n\n"
         f"Document:\n{truncated}"
     )
 
@@ -748,11 +763,16 @@ def generate_summary(
         response = get_groq_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are an expert academic summarizer. Create clear, structured, educational summaries in plain text."},
+                {"role": "system", "content": (
+                    "You are an expert academic tutor and summarizer. "
+                    "Your job is to create deep, structured, study-ready summaries that help students understand, revise, and remember material. "
+                    "Always cover the full document. Never produce short or shallow summaries. "
+                    "Use plain text with clear section headers and numbered lists."
+                )},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=2048,
+            max_tokens=4096,
         )
         summary = response.choices[0].message.content.strip()
     except Exception as e:
