@@ -416,6 +416,7 @@
     <div class="hero-cta">
       <button class="btn btn-primary btn-xl" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)"> Get Started Free</button>
       <a href="#pillars" class="btn btn-outline-white btn-xl">See How It Works</a>
+      <button id="pwa-install-btn" class="btn btn-outline-white btn-xl" style="display:none" onclick="triggerInstall()">📲 Install App</button>
     </div>
 
     <!-- App Mockup -->
@@ -838,6 +839,31 @@
       }
     }
     loadPromoStatus();
+
+    // PWA install prompt
+    let _deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      _deferredPrompt = e;
+      // Only show if not already installed
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        document.getElementById('pwa-install-btn').style.display = '';
+      }
+    });
+    function triggerInstall() {
+      if (_deferredPrompt) {
+        _deferredPrompt.prompt();
+        _deferredPrompt.userChoice.then(() => {
+          _deferredPrompt = null;
+          document.getElementById('pwa-install-btn').style.display = 'none';
+        });
+      }
+    }
+    // Hide button if already running as installed app
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      const btn = document.getElementById('pwa-install-btn');
+      if (btn) btn.style.display = 'none';
+    }
   </script>
   <script type="module" src="js/auth.js"></script>
 </body>
