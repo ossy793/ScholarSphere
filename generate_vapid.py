@@ -25,7 +25,8 @@ private_key_b64 = base64.urlsafe_b64encode(private_key_bytes).rstrip(b'=').decod
 
 # Public key: uncompressed EC point (65 bytes) → base64url (no padding)
 # This is used as applicationServerKey in the browser
-public_key_bytes = v.get_public_key()
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+public_key_bytes = v._public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
 public_key_b64 = base64.urlsafe_b64encode(public_key_bytes).rstrip(b'=').decode()
 
 print("Add these to your backend/.env file:")
