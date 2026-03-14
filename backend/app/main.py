@@ -8,13 +8,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .config import settings
 from .database import create_tables, get_db
-from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, promo, admin, notifications
+from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, promo, admin, notifications, push
 from .models.user import User
 from .models.question import Question
 from .models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument  # noqa: F401 – registers tables
 from .models.promo import PromoCode  # noqa: F401 – registers table
 from .models.notification import Notification, NotificationRead  # noqa: F401 – registers tables
 from .models.leaderboard import LeaderboardReset  # noqa: F401 – registers table
+from .models.push_subscription import PushSubscription  # noqa: F401 – registers table
 
 # ── Rate limiter (shared across routers via app.state) ────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -34,7 +35,7 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Cron-Secret"],
 )
 
 # ── Security headers ──────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ app.include_router(brainstorm.router, prefix="/api")
 app.include_router(promo.router,          prefix="/api")
 app.include_router(admin.router,          prefix="/api")
 app.include_router(notifications.router,  prefix="/api")
+app.include_router(push.router,           prefix="/api")
 
 
 @app.get("/api/health")

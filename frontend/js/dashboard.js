@@ -1,5 +1,6 @@
 import { api, requireAuth, getUser, setUser } from './api.js';
 import { renderLayout } from './layout.js';
+import { initPushNotifications } from './push.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
 
@@ -10,6 +11,8 @@ if (!requireAuth()) throw new Error('unauthenticated');
     if (fresh) setUser(fresh);
   } catch {}
   initDashboard();
+  // Request push notification permission after a short delay (non-blocking)
+  setTimeout(() => initPushNotifications(), 3000);
 })();
 
 function initDashboard() {

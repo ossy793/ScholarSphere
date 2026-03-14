@@ -181,6 +181,55 @@
           </div>
         </div>
 
+        <!-- Push Notifications -->
+        <div style="margin-top:32px">
+          <div class="admin-toolbar" style="margin-bottom:12px">
+            <h2>Push Notifications</h2>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm" onclick="sendQuickPush('daily')">📚 Daily Reminder</button>
+              <button class="btn btn-outline btn-sm" onclick="sendQuickPush('streak')">🔥 Streak Reminder</button>
+              <button class="btn btn-outline btn-sm" onclick="sendQuickPush('feature')">🚀 New Feature</button>
+              <button class="btn btn-primary btn-sm" onclick="openBroadcastModal()">📢 Custom Broadcast</button>
+            </div>
+          </div>
+
+          <!-- Push stats bar -->
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+            <div class="admin-stat-card" style="flex:1;min-width:160px;padding:14px 18px">
+              <div class="stat-label">Push Subscribers</div>
+              <div class="stat-value" id="push-sub-count">–</div>
+              <div class="stat-sub">devices opted in</div>
+            </div>
+            <div class="admin-stat-card" style="flex:1;min-width:160px;padding:14px 18px">
+              <div class="stat-label">Scheduled Daily Reminder</div>
+              <div class="stat-value" style="font-size:1rem;margin-top:4px">8:00 AM (WAT)</div>
+              <div class="stat-sub">via server cron</div>
+            </div>
+            <div class="admin-stat-card" style="flex:1;min-width:160px;padding:14px 18px">
+              <div class="stat-label">Scheduled Streak Reminder</div>
+              <div class="stat-value" style="font-size:1rem;margin-top:4px">6:00 PM (WAT)</div>
+              <div class="stat-sub">inactive users only</div>
+            </div>
+          </div>
+
+          <!-- Notification history -->
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Message</th>
+                  <th>Target</th>
+                  <th>Sent</th>
+                </tr>
+              </thead>
+              <tbody id="notif-history-tbody">
+                <tr><td colspan="4" class="table-loading">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div><!-- /.page-body -->
     </div><!-- /.main-content -->
   </div><!-- /.app-layout -->

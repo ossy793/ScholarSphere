@@ -31,6 +31,7 @@ loadStats();
 loadUsers();
 loadLeaderboards();
 loadUniversities();
+loadNotificationHistory();
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
@@ -75,7 +76,14 @@ async function loadStats() {
         <div class="stat-value" style="font-size:1.4rem">${s.avg_brainstorm_duration}</div>
         <div class="stat-sub">time reading per session</div>
       </div>
+      <div class="admin-stat-card blue">
+        <div class="stat-label">Push Subscribers</div>
+        <div class="stat-value">${s.push_subscribers ?? 0}</div>
+        <div class="stat-sub">devices opted in</div>
+      </div>
     `;
+    const subCountEl = document.getElementById('push-sub-count');
+    if (subCountEl) subCountEl.textContent = s.push_subscribers ?? 0;
   } catch (err) {
     document.getElementById('stats-row').innerHTML =
       `<div class="admin-stat-card red" style="grid-column:1/-1">
@@ -594,6 +602,70 @@ async function loadUniversities() {
       `<div style="padding:24px;text-align:center;color:var(--danger)">Failed to load universities: ${escHtml(err.message)}</div>`;
   }
 }
+
+// ── Notification History ──────────────────────────────────────────────────────
+
+async function loadNotificationHistory() {
+  const tbody = document.getElementById('notif-history-tbody');
+  if (!tbody) return;
+  try {
+    const data = await api.get('/admin/notifications');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No notifications sent yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(n => {
+      const sent = new Date(n.created_at).toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+      const target = n.is_broadcast
+        ? '<span class="badge badge-primary">All Users</span>'
+        : '<span class="badge badge-free">Targeted</span>';
+      return `
+        <tr>
+          <td style="font-weight:600">${escHtml(n.title)}</td>
+          <td style="color:var(--text-muted);font-size:0.85rem;max-width:280px">${escHtml(n.message)}</td>
+          <td>${target}</td>
+          <td style="color:var(--text-muted);font-size:0.82rem;white-space:nowrap">${sent}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    if (tbody) tbody.innerHTML =
+      `<tr><td colspan="4" style="text-align:center;color:var(--danger)">Failed: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ── Quick Push ─────────────────────────────────────────────────────────────────
+
+const QUICK_PUSH = {
+  daily:   { title: 'Time to study! 📚',        message: "Good morning! Open Pritis and practice a quiz today. Consistency is key!" },
+  streak:  { title: "Don't break your streak! 🔥", message: "You haven't practiced today. Open Pritis and keep your streak alive!" },
+  feature: { title: 'New on Pritis 🚀',          message: "We've added new features to help you study smarter. Check it out!" },
+};
+
+window.sendQuickPush = function (type) {
+  const preset = QUICK_PUSH[type];
+  if (!preset) return;
+  notifTarget = null;
+  document.getElementById('notif-target-label').textContent = '📢 This message will be sent to ALL users (in-app + push).';
+  document.getElementById('notif-title').value   = preset.title;
+  document.getElementById('notif-message').value = preset.message;
+  document.getElementById('send-notif-btn').textContent = 'Send to All';
+  // Override send to also reload history
+  _quickPushPending = true;
+  document.getElementById('notif-modal').classList.remove('hidden');
+};
+
+let _quickPushPending = false;
+
+// Patch sendNotification to reload notification history after sending
+const _origSend = window.sendNotification;
+window.sendNotification = async function () {
+  await _origSend();
+  setTimeout(() => loadNotificationHistory(), 500);
+  _quickPushPending = false;
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(str) {

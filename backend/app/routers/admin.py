@@ -113,6 +113,10 @@ def admin_stats(
         func.coalesce(func.avg(dur_sub.c.duration_seconds), 0).label("avg_seconds"),
     ).first()
 
+    # Push subscribers
+    from ..services.push_service import get_subscriber_count
+    push_subscribers = get_subscriber_count(db)
+
     return {
         "total_users":              total_users,
         "active_users":             active_users,
@@ -126,6 +130,7 @@ def admin_stats(
         "total_brainstorm_sessions": int(bs_agg.total_sessions or 0),
         "total_brainstorm_time":    _fmt_duration(float(bs_agg.total_seconds or 0)),
         "avg_brainstorm_duration":  _fmt_duration(float(bs_agg.avg_seconds or 0)),
+        "push_subscribers":         push_subscribers,
     }
 
 
@@ -383,6 +388,17 @@ def send_notification(
     db.add(notif)
     db.commit()
     db.refresh(notif)
+
+    # Also deliver as a device push notification
+    try:
+        from ..services.push_service import send_push_to_user, send_push_broadcast
+        if target_id:
+            send_push_to_user(db, target_id, payload.title, payload.message)
+        else:
+            send_push_broadcast(db, payload.title, payload.message)
+    except Exception:
+        pass  # Push failure must not block in-app notification delivery
+
     scope = f"user {target.full_name}" if target_id else "all users"
     return {"message": f"Notification sent to {scope}.", "id": str(notif.id)}
 

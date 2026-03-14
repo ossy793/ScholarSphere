@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # Premium promo
     WHATSAPP_GROUP_LINK: str = ""
 
+    # Push notifications (VAPID)
+    VAPID_PUBLIC_KEY:  str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_CLAIM_EMAIL: str = "admin@pritis.name.ng"
+
+    # Cron job secret (protects scheduled notification endpoints)
+    CRON_SECRET: str = ""
+
 
 @lru_cache()
 def get_settings() -> Settings:
