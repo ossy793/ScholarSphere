@@ -1,0 +1,25 @@
+{
+  "name": "Pritis",
+  "short_name": "Pritis",
+  "description": "Read, Brainstorm & Master Any Subject with AI",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0A1628",
+  "theme_color": "#0077FF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

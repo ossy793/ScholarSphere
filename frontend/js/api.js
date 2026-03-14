@@ -1,6 +1,11 @@
 /* ── Pritis API Client ── */
 const BASE_URL = "https://www.pritis.name.ng/api";
 
+// Register service worker for PWA support
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 export function getToken() {
   return localStorage.getItem('pritis_token');
 }
