@@ -511,6 +511,9 @@
               <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
             </div>
             <button type="submit" class="btn btn-primary btn-lg btn-full" id="login-btn">Sign In</button>
+            <p style="text-align:center;margin-top:12px;font-size:0.85rem">
+              <a href="#" onclick="openForgotPassword();return false;" style="color:var(--blue);font-weight:500">Forgot password?</a>
+            </p>
           </form>
         </div>
 
@@ -876,5 +879,176 @@
     }
   </script>
   <script type="module" src="js/auth.js"></script>
+
+  <!-- ── Forgot Password Modal ── -->
+  <div id="fp-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);overflow:hidden">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#0077FF,#0044CC);padding:24px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#fff;border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#0077FF">P</div>
+          <span style="color:#fff;font-weight:700;font-size:1rem">Reset Password</span>
+        </div>
+        <button onclick="closeForgotPassword()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+      </div>
+
+      <!-- Step 1: Email -->
+      <div id="fp-step1" style="padding:28px 24px">
+        <p style="color:#4A6080;font-size:0.875rem;margin:0 0 20px">Enter your email address and we'll send you a 6-digit reset code.</p>
+        <div id="fp-alert1" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px 14px;color:#CC0000;font-size:0.85rem;margin-bottom:16px"></div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:#0A1628">Email Address</label>
+          <input type="email" id="fp-email" placeholder="you@example.com" style="width:100%;padding:11px 14px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;transition:border 0.15s" onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'">
+        </div>
+        <button onclick="fpSendCode()" id="fp-btn1" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;font-family:inherit">Send Reset Code</button>
+      </div>
+
+      <!-- Step 2: Code verification -->
+      <div id="fp-step2" style="display:none;padding:28px 24px">
+        <p style="color:#4A6080;font-size:0.875rem;margin:0 0 4px">We sent a 6-digit code to</p>
+        <p id="fp-email-display" style="color:#0077FF;font-weight:600;font-size:0.9rem;margin:0 0 20px"></p>
+        <div id="fp-alert2" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px 14px;color:#CC0000;font-size:0.85rem;margin-bottom:16px"></div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:#0A1628">6-Digit Code</label>
+          <input type="text" id="fp-code" placeholder="• • • • • •" maxlength="6" inputmode="numeric"
+            style="width:100%;padding:14px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:1.5rem;font-weight:700;letter-spacing:10px;text-align:center;font-family:monospace;outline:none;transition:border 0.15s"
+            onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'">
+        </div>
+        <button onclick="fpVerifyCode()" id="fp-btn2" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;font-family:inherit">Verify Code</button>
+        <p style="text-align:center;margin-top:12px;font-size:0.83rem;color:#4A6080">Didn't receive it? <a href="#" onclick="fpSendCode(true);return false;" style="color:#0077FF;font-weight:500">Resend code</a></p>
+      </div>
+
+      <!-- Step 3: New password -->
+      <div id="fp-step3" style="display:none;padding:28px 24px">
+        <p style="color:#4A6080;font-size:0.875rem;margin:0 0 20px">Create a new password for your account.</p>
+        <div id="fp-alert3" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px 14px;color:#CC0000;font-size:0.85rem;margin-bottom:16px"></div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:#0A1628">New Password</label>
+          <input type="password" id="fp-newpw" placeholder="Min 8 chars, upper, lower &amp; number/symbol"
+            style="width:100%;padding:11px 14px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;transition:border 0.15s"
+            onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'">
+          <p style="color:#4A6080;font-size:0.78rem;margin:6px 0 0">Must include uppercase, lowercase, and a number or symbol.</p>
+        </div>
+        <div style="margin-bottom:20px">
+          <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:#0A1628">Confirm Password</label>
+          <input type="password" id="fp-confirmpw" placeholder="Re-enter new password"
+            style="width:100%;padding:11px 14px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;transition:border 0.15s"
+            onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'">
+        </div>
+        <button onclick="fpResetPassword()" id="fp-btn3" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;font-family:inherit">Reset Password</button>
+      </div>
+
+      <!-- Step 4: Success -->
+      <div id="fp-step4" style="display:none;padding:36px 24px;text-align:center">
+        <div style="width:60px;height:60px;background:#E8F5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px">✓</div>
+        <h3 style="color:#0A1628;margin:0 0 8px">Password Reset!</h3>
+        <p style="color:#4A6080;font-size:0.875rem;margin:0 0 24px">Your password has been updated. You can now sign in with your new password.</p>
+        <button onclick="closeForgotPassword();showTab('login')" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;font-family:inherit">Sign In</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://www.pritis.name.ng/api';
+    let _fpEmail = '', _fpCode = '';
+
+    function openForgotPassword() {
+      document.getElementById('fp-overlay').style.display = 'flex';
+      fpShowStep(1);
+      document.getElementById('fp-email').value = document.getElementById('login-email').value || '';
+    }
+    function closeForgotPassword() {
+      document.getElementById('fp-overlay').style.display = 'none';
+    }
+    function fpShowStep(n) {
+      [1,2,3,4].forEach(i => {
+        const el = document.getElementById('fp-step' + i);
+        if (el) el.style.display = i === n ? 'block' : 'none';
+      });
+      ['fp-alert1','fp-alert2','fp-alert3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    }
+    function fpShowAlert(step, msg) {
+      const el = document.getElementById('fp-alert' + step);
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function fpSetLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = loading;
+      btn.style.opacity = loading ? '0.7' : '1';
+    }
+
+    async function fpSendCode(resend) {
+      const email = document.getElementById('fp-email').value.trim();
+      if (!email) { fpShowAlert(1, 'Please enter your email address.'); return; }
+      fpSetLoading('fp-btn1', true);
+      try {
+        const res = await fetch(API + '/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) { fpShowAlert(1, data.detail || 'Something went wrong.'); return; }
+        _fpEmail = email;
+        document.getElementById('fp-email-display').textContent = email;
+        if (resend) {
+          fpShowAlert(2, 'A new code has been sent.');
+          const alertEl = document.getElementById('fp-alert2');
+          if (alertEl) { alertEl.style.background='#E8F5E9'; alertEl.style.borderColor='#A5D6A7'; alertEl.style.color='#1B5E20'; }
+        } else {
+          fpShowStep(2);
+        }
+      } catch { fpShowAlert(1, 'Network error. Please try again.'); }
+      finally { fpSetLoading('fp-btn1', false); }
+    }
+
+    async function fpVerifyCode() {
+      const code = document.getElementById('fp-code').value.trim();
+      if (code.length !== 6) { fpShowAlert(2, 'Please enter the 6-digit code.'); return; }
+      fpSetLoading('fp-btn2', true);
+      try {
+        const res = await fetch(API + '/auth/verify-reset-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: _fpEmail, code }),
+        });
+        const data = await res.json();
+        if (!res.ok) { fpShowAlert(2, data.detail || 'Invalid or expired code.'); return; }
+        _fpCode = code;
+        fpShowStep(3);
+      } catch { fpShowAlert(2, 'Network error. Please try again.'); }
+      finally { fpSetLoading('fp-btn2', false); }
+    }
+
+    async function fpResetPassword() {
+      const newpw = document.getElementById('fp-newpw').value;
+      const confirmpw = document.getElementById('fp-confirmpw').value;
+      if (newpw !== confirmpw) { fpShowAlert(3, 'Passwords do not match.'); return; }
+      if (newpw.length < 8) { fpShowAlert(3, 'Password must be at least 8 characters.'); return; }
+      fpSetLoading('fp-btn3', true);
+      try {
+        const res = await fetch(API + '/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: _fpEmail, code: _fpCode, new_password: newpw }),
+        });
+        const data = await res.json();
+        if (!res.ok) { fpShowAlert(3, data.detail || 'Failed to reset password.'); return; }
+        fpShowStep(4);
+      } catch { fpShowAlert(3, 'Network error. Please try again.'); }
+      finally { fpSetLoading('fp-btn3', false); }
+    }
+
+    // Close on overlay click
+    document.getElementById('fp-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeForgotPassword();
+    });
+  </script>
 </body>
 </html>

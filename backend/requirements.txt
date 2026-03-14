@@ -20,3 +20,4 @@ email-validator==2.2.0
 resend==2.4.0
 fastembed==0.4.2
 pywebpush==2.0.0
+mailjet-rest==1.3.4
