@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pritis</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0077FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pritis">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(160deg, #0A1628 0%, #0d2050 50%, #0A1628 100%);
+      color: #fff;
+    }
+
+    .screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    /* Logo */
+    .logo-wrap {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #0077FF, #00C8FF);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+      box-shadow: 0 8px 32px rgba(0,119,255,0.4);
+    }
+    .logo-wrap span {
+      font-size: 52px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+    .tagline {
+      font-size: 1rem;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 48px;
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.9; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0077FF, #00C8FF);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(0,119,255,0.4);
+    }
+    .btn-outline {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .footer-note {
+      margin-top: 40px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.35);
+    }
+    .footer-note a {
+      color: rgba(255,255,255,0.5);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <div class="logo-wrap">
+      <span>P</span>
+    </div>
+
+    <h1>Welcome to Pritis</h1>
+    <p class="tagline">AI-powered academic platform — read deeper, brainstorm smarter, master any subject.</p>
+
+    <div class="btn-group">
+      <a href="index.html?tab=register" class="btn btn-primary">Create Free Account</a>
+      <a href="index.html?tab=login" class="btn btn-outline">Sign In</a>
+    </div>
+
+    <p class="footer-note">By continuing you agree to our <a href="index.html#terms">Terms</a></p>
+  </div>
+
+  <script>
+    // If already logged in, skip straight to dashboard
+    const token = localStorage.getItem('pritis_token');
+    if (token) window.location.replace('dashboard.html');
+  </script>
+</body>
+</html>

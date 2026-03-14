@@ -792,6 +792,16 @@
       document.getElementById('auth').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Auto-scroll + switch tab when coming from app-home.html
+    const _tab = new URLSearchParams(location.search).get('tab');
+    if (_tab) {
+      window.addEventListener('load', () => {
+        scrollToAuth();
+        if (typeof showTab === 'function') showTab(_tab);
+        else setTimeout(() => { if (typeof showTab === 'function') showTab(_tab); }, 500);
+      });
+    }
+
     // Live stats from API
     async function loadStats() {
       const qEl = document.getElementById('stat-questions');

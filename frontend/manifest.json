@@ -2,7 +2,7 @@
   "name": "Pritis",
   "short_name": "Pritis",
   "description": "Read, Brainstorm & Master Any Subject with AI",
-  "start_url": "/index.html",
+  "start_url": "/app-home.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0A1628",
