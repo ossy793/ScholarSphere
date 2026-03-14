@@ -119,7 +119,14 @@ async function apiFetch(path, options = {}) {
     throw new Error('The server is starting up. Please wait a moment and try again.');
   }
 
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    // Server returned non-JSON (e.g. nginx 500 page)
+    if (!res.ok) throw new Error(`Something went wrong (${res.status}). Please try again.`);
+    throw new Error('Unexpected response from server. Please try again.');
+  }
   if (!res.ok) {
     const detail = data?.detail;
     let msg;
