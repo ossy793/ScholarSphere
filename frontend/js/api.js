@@ -81,7 +81,7 @@ async function apiFetch(path, options = {}) {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
+  const timer = setTimeout(() => controller.abort(), 300000); // 5 minutes for large AI processing
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal });
