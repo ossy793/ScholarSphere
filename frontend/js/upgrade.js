@@ -60,7 +60,7 @@ window.requestCode = async function () {
     // Move to step 2
     document.getElementById('ver-email').value = email;
     showStep('step-verify');
-    showAlert(data.message || 'Code sent! Check your inbox.', 'success');
+    showAlert(data.message || 'Code sent! Check your inbox (and spam folder if you don\'t see it).', 'success');
   } catch (err) {
     showAlert(err.message);
   } finally {

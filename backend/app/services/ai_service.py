@@ -64,7 +64,7 @@ Auto-detect the best question type:
 - MCQ must have exactly 4 options
 Output ONLY the raw JSON array. Start with [ and end with ]."""
 
-SYSTEM_PROMPT = """You are a quiz question generator. Given learning material, output ONLY a JSON array — no prose, no markdown fences, no commentary before or after.
+SYSTEM_PROMPT = """You are an expert academic quiz question generator. Given learning material, output ONLY a JSON array — no prose, no markdown fences, no commentary before or after.
 
 Each element in the array must be a JSON object with these exact keys:
 - "question_text": string
@@ -73,11 +73,16 @@ Each element in the array must be a JSON object with these exact keys:
 - "correct_answer": string — for mcq use the exact option text; for true_false use "True" or "False"; for short_answer use the expected answer
 - "explanation": string — one sentence explaining the correct answer
 
-Rules:
-- MCQ must have exactly 4 options.
-- true_false options must be exactly ["True", "False"].
-- Mix question types across the set.
-- Output ONLY the raw JSON array. Start your response with [ and end with ]."""
+QUALITY RULES — follow these strictly:
+1. NO REPETITION: Every question must test a distinct concept or fact. Do NOT generate two questions that ask the same thing with different wording. Do NOT repeat the same correct answer across multiple MCQ questions.
+2. LOGICAL QUESTIONS ONLY: Each question must be clear, unambiguous, and directly answerable from the content. Avoid vague or trick questions.
+3. SPREAD COVERAGE: Cover different sections, topics, and difficulty levels across the entire document — not just the beginning.
+4. MCQ DISTRACTORS: Wrong options must be plausible but clearly incorrect. Avoid obviously wrong options like "None of the above" or random unrelated words.
+5. MCQ must have exactly 4 distinct options with only one correct answer.
+6. true_false options must be exactly ["True", "False"].
+7. short_answer questions must have a concise, factually precise expected answer.
+8. Mix question types and difficulty levels (recall, application, analysis) across the set.
+9. Output ONLY the raw JSON array. Start your response with [ and end with ]."""
 
 
 def _extract_json_array(raw: str) -> list:
@@ -202,6 +207,8 @@ def generate_questions(
     user_prompt = (
         f"Generate exactly {num_questions} quiz questions from the content below. "
         f"{type_instruction} "
+        f"IMPORTANT: Each question must cover a DIFFERENT concept — no two questions should test the same idea or fact. "
+        f"Spread questions across the full content, not just the beginning. "
         f"Output ONLY the JSON array.\n\n"
         f"Content:\n{content}"
     )
@@ -312,7 +319,9 @@ def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List
         chunk_prompt = (
             "Extract all questions from the following content and generate complete quiz entries "
             "(with options and correct answers) for each. "
-            "Use existing answers from the document wherever possible. Return ONLY the JSON array."
+            "Use existing answers from the document wherever possible. "
+            "Do NOT generate duplicate questions — each question must test a different concept. "
+            "Return ONLY the JSON array."
             f"{hint_line}\n\nContent:\n{chunk}"
         )
         response = client.chat.completions.create(
@@ -421,9 +430,16 @@ def generate_recommendations(performance_data: list) -> List[Dict[str, Any]]:
         raise ValueError(f"AI recommendation generation failed: {exc}")
 
 
+def _normalize_text(text: str) -> str:
+    """Lowercase, strip punctuation and whitespace for similarity comparison."""
+    return re.sub(r"[^a-z0-9 ]", "", text.lower()).strip()
+
+
 def _validate_questions(questions: list) -> List[Dict[str, Any]]:
-    """Filter and normalise question objects."""
+    """Filter, normalise, and deduplicate question objects."""
     valid = []
+    seen_texts: list[str] = []
+
     for i, q in enumerate(questions):
         if not isinstance(q, dict):
             continue
@@ -441,8 +457,27 @@ def _validate_questions(questions: list) -> List[Dict[str, Any]]:
         elif q_type == "mcq" and not q.get("options"):
             continue  # skip MCQ with no options
 
+        # Deduplicate: skip if question text is too similar to an already-accepted one
+        norm = _normalize_text(q["question_text"])
+        norm_words = set(norm.split())
+        is_duplicate = False
+        for seen in seen_texts:
+            seen_words = set(seen.split())
+            if not seen_words:
+                continue
+            overlap = len(norm_words & seen_words) / max(len(norm_words), len(seen_words), 1)
+            if overlap > 0.75:  # >75% word overlap = likely duplicate
+                is_duplicate = True
+                break
+
+        if is_duplicate:
+            logger.debug("Skipping duplicate question: %s", q["question_text"][:80])
+            continue
+
+        seen_texts.append(norm)
         q["order_index"] = i
         valid.append(q)
+
     return valid
 
 
