@@ -665,7 +665,26 @@ def brainstorm_chat(
             except Exception:
                 pass
 
-    # ── Fallback to full context from frontend ────────────────────────────────
+    # ── Fallback: load full extracted_text from DB ────────────────────────────
+    # payload.context is only the first 12k chars (upload preview). When RAG
+    # is unavailable we load the complete stored text from BrainstormDocument
+    # so the AI can answer questions about any part of the document.
+    if not context:
+        if session_uuid:
+            try:
+                doc_record = db.query(BrainstormDocument).filter(
+                    BrainstormDocument.session_id == session_uuid
+                ).first()
+                if doc_record and doc_record.extracted_text:
+                    context = truncate_text(doc_record.extracted_text, max_chars=60000)
+            except Exception as exc:
+                logger.warning("Could not load document text from DB: %s", exc)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+    # Last resort: use whatever the frontend sent
     if not context:
         context = payload.context.strip()
 
@@ -674,7 +693,7 @@ def brainstorm_chat(
 
     if not rag_used:
         logger.info(
-            "RAG not available for session %s — using full context fallback.",
+            "RAG not available for session %s — using full DB text fallback.",
             payload.session_id,
         )
 
