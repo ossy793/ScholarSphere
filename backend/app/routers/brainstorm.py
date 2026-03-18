@@ -719,63 +719,146 @@ def brainstorm_chat(
     return {"reply": reply}
 
 
+_SUMMARY_SYSTEM_PROMPT = (
+    "You are an expert academic tutor, educator, and summarizer. "
+    "Your summaries are known for being clear, engaging, well-structured, and deeply useful for students. "
+    "You write in a warm, intelligent, and informative tone — never robotic or vague. "
+    "You faithfully represent the source material without adding information that is not in the document. "
+    "You use plain text with clear ALL-CAPS section headers, numbered lists, and dashes. "
+    "No markdown, no asterisks, no hashtags, no bullet symbols — use numbers and dashes only."
+)
+
+_SHORT_DOC_PROMPT = """\
+You are summarizing a SHORT document (1–5 pages). Because the document is concise, your summary must be thorough and capture every meaningful idea, definition, and example the author included.
+
+Use EXACTLY these section headers in this exact order (write each header in ALL CAPS on its own line):
+
+DOCUMENT TITLE
+Extract or infer the document title. Write it on one line.
+
+OVERVIEW
+Write 3–4 sentences describing the main topic, purpose, and who the document is written for. Make it engaging — like you are introducing the topic to a student for the first time.
+
+KEY CONCEPTS
+Identify every major concept discussed. For each one, write:
+  [Number]. [Concept Name] - [Clear explanation in 1–2 simple sentences]
+Aim for all significant concepts, not just the first few.
+
+DEFINITIONS AND KEY TERMS
+List every important term, definition, formula, or technical vocabulary item. Format:
+  [Term] - [Definition]
+Do not skip any defined terms.
+
+IMPORTANT POINTS
+List all the important ideas, arguments, facts, or findings from the document as numbered points. Be specific — include figures, names, dates, or conditions where relevant.
+
+EXAMPLES OR APPLICATIONS
+Summarize any examples, analogies, or real-world applications given. If none exist, write: None provided in this document.
+
+STEP-BY-STEP PROCESSES
+If the document explains any method, procedure, algorithm, or process, break it down step by step. If not applicable, write: Not applicable.
+
+EXAM AND REVISION HIGHLIGHTS
+List the most exam-worthy facts, concepts, definitions, or principles. These are the things a student absolutely must remember. Number each one.
+
+TL;DR - KEY TAKEAWAYS
+Provide 4–6 concise takeaways — the core lessons a student should walk away with after reading this document. Start each with a dash.
+
+IMPORTANT KEYWORDS
+List 8–12 important keywords or phrases from the document, separated by commas.
+
+Quality rules:
+- Be thorough — short documents deserve full coverage, not a one-paragraph gloss.
+- Preserve the logical flow and original meaning of the material.
+- Use plain text only. No markdown. No asterisks. No hashtags.
+- Write at a level suitable for a university or senior secondary student.
+- Avoid fluff, repetition, and vague statements. Every sentence must add value.
+
+Document:
+{content}"""
+
+_LONG_DOC_PROMPT = """\
+You are summarizing a LONG document (10+ pages). The document is extensive, so your job is to intelligently prioritize and organize the most important content — not repeat everything, but ensure no major idea is missed.
+
+Use EXACTLY these section headers in this exact order (write each header in ALL CAPS on its own line):
+
+DOCUMENT TITLE
+Extract or infer the document title. Write it on one line.
+
+OVERVIEW
+Write 4–5 sentences describing the main topic, purpose, scope, and intended audience. Capture the big picture clearly and engagingly.
+
+MAIN TOPICS AND STRUCTURE
+Identify the major sections or chapters in the document and briefly describe what each one covers. Format:
+  [Number]. [Section/Topic Name] - [1–2 sentence description]
+
+KEY CONCEPTS
+Identify and explain the most important concepts from across the entire document. For each one:
+  [Number]. [Concept Name] - [Clear explanation in 2–3 simple sentences]
+Cover all significant concepts, not just early ones.
+
+IMPORTANT POINTS
+Extract the most important arguments, findings, rules, principles, or facts from across all sections. Number each point. Be specific — include figures, criteria, conditions, or names where relevant.
+
+DEFINITIONS AND KEY TERMS
+List all important terms, definitions, formulas, laws, or technical vocabulary. Format:
+  [Term] - [Definition]
+
+EXAMPLES OR APPLICATIONS
+Summarize significant examples, case studies, scenarios, or real-world applications discussed. If none exist, write: None provided in this document.
+
+STEP-BY-STEP PROCESSES
+If the document describes any methods, procedures, or processes, break each one down into numbered steps. If not applicable, write: Not applicable.
+
+EXAM AND REVISION HIGHLIGHTS
+List the most exam-critical facts, definitions, concepts, and principles from the document. These are what a student must memorize or deeply understand. Number each one.
+
+TL;DR - KEY TAKEAWAYS
+Provide 6–10 concise takeaways — the essential lessons and conclusions from the entire document. Start each with a dash.
+
+IMPORTANT KEYWORDS
+List 12–20 important keywords or phrases from the document, separated by commas.
+
+Quality rules:
+- Cover the ENTIRE document — not just the first few pages or chapters.
+- Prioritize academically and practically relevant content.
+- Preserve original meaning; never fabricate or infer beyond what is written.
+- Use plain text only. No markdown. No asterisks. No hashtags.
+- Write at a level suitable for a university student.
+- Be comprehensive but not repetitive. Every sentence must earn its place.
+
+Document:
+{content}"""
+
+
 @router.post("/summary")
 def generate_summary(
     payload: SummaryRequest,
     current_user: User = Depends(get_current_user),
 ):
     """
-    Generate a structured summary of the uploaded document text.
-    Returns plain text divided into clear sections.
+    Generate a structured, study-ready summary of the uploaded document.
+    Automatically selects short-doc or long-doc prompt based on content length.
     """
     if not payload.context.strip():
         raise HTTPException(status_code=400, detail="No document context provided.")
 
-    truncated = truncate_text(payload.context, max_chars=30000)
+    truncated = truncate_text(payload.context, max_chars=60000)
 
-    prompt = (
-        f"Analyze the ENTIRE document below and produce a comprehensive, structured, study-ready summary.\n\n"
-        f"You MUST cover the full document — not just the beginning. Prioritize major sections, key concepts, and academically relevant content.\n\n"
-        f"Use EXACTLY these section headers in this order:\n\n"
-        f"DOCUMENT TITLE\n"
-        f"Extract or infer the title of the document. Write it on one line.\n\n"
-        f"OVERVIEW\n"
-        f"Write 3-5 sentences explaining the main topic, purpose, and scope of the document.\n\n"
-        f"KEY CONCEPTS\n"
-        f"Identify and explain the major concepts discussed. For each concept, write its name followed by a brief explanation in simple terms. Number each one.\n\n"
-        f"IMPORTANT POINTS\n"
-        f"List the most important ideas, arguments, or findings from across the entire document as numbered points.\n\n"
-        f"DEFINITIONS AND KEY TERMS\n"
-        f"Extract important terms, definitions, formulas, or technical vocabulary. Format as: Term - Definition.\n\n"
-        f"EXAMPLES OR APPLICATIONS\n"
-        f"Summarize any examples, case studies, or real-world applications mentioned. If none exist, write 'None provided in document.'\n\n"
-        f"STEP-BY-STEP PROCESSES\n"
-        f"If the document describes any method, procedure, or process, break it down into clear numbered steps. If not applicable, write 'Not applicable.'\n\n"
-        f"EXAM AND REVISION HIGHLIGHTS\n"
-        f"List the most exam-relevant facts, concepts, formulas, or points that students must remember. Number each one.\n\n"
-        f"KEY TAKEAWAYS\n"
-        f"Provide 5-8 core lessons or conclusions a student should walk away with after reading this document.\n\n"
-        f"Quality rules:\n"
-        f"- Cover the entire document, not just the introduction.\n"
-        f"- Preserve original meaning and context.\n"
-        f"- Use plain text only. No markdown. No asterisks. No bullet symbols (use numbers or dashes).\n"
-        f"- Write enough detail that a student can revise from this summary alone.\n\n"
-        f"Document:\n{truncated}"
-    )
+    # ~1500 chars per page → short = under ~7500 chars (5 pages), long = above
+    is_long = len(truncated) > 7500
+    template = _LONG_DOC_PROMPT if is_long else _SHORT_DOC_PROMPT
+    prompt = template.format(content=truncated)
+    temperature = 0.25 if is_long else 0.35  # more precise for long, slightly warmer for short
 
     try:
         response = get_groq_client().chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": (
-                    "You are an expert academic tutor and summarizer. "
-                    "Your job is to create deep, structured, study-ready summaries that help students understand, revise, and remember material. "
-                    "Always cover the full document. Never produce short or shallow summaries. "
-                    "Use plain text with clear section headers and numbered lists."
-                )},
+                {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            temperature=temperature,
             max_tokens=4096,
         )
         summary = response.choices[0].message.content.strip()
