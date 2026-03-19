@@ -137,9 +137,17 @@
         display: none !important;
       }
 
-      /* doc-viewer-scroll: scrollable for PDF.js canvases */
+      /* PDF iframe fills the full viewer area */
       .doc-viewer-scroll {
-        overflow-y: auto;
+        overflow: hidden;
+      }
+      .doc-viewer-scroll iframe {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
       }
     }
 

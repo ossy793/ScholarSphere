@@ -384,10 +384,17 @@ function _isMobile() {
 
 function _renderPdfInScroll(scroll, blobUrl, extractedText) {
   scroll.style.padding = '0';
-  scroll.style.height  = '';
+  if (!_isMobile()) {
+    // Desktop: native iframe PDF viewer
+    scroll.style.height = '';
+    scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
+      title="Document viewer"></iframe>`;
+    return;
+  }
 
-  // Use PDF.js for both desktop and mobile — gives page counter + no UUID clutter
+  // Mobile: render via PDF.js if available
   if (typeof pdfjsLib !== 'undefined') {
+    scroll.style.height = '';
     scroll.innerHTML = `
       <div style="padding:40px;text-align:center;color:var(--text-muted)">
         <div class="spinner spinner-dark" style="margin:0 auto 14px"></div>
