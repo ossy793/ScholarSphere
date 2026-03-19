@@ -137,17 +137,9 @@
         display: none !important;
       }
 
-      /* PDF iframe fills the full viewer area */
+      /* doc-viewer-scroll: scrollable for PDF.js canvases */
       .doc-viewer-scroll {
-        overflow: hidden;
-      }
-      .doc-viewer-scroll iframe {
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        width: 100%;
-        height: 100%;
-        border: none;
-        display: block;
+        overflow-y: auto;
       }
     }
 
@@ -713,8 +705,10 @@
                   <polyline points="14 2 14 8 20 8"/>
                 </svg>
                 Document
-                <span id="desktop-file-badge" style="display:none;font-weight:400;color:var(--text-muted);font-size:0.75rem;margin-left:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                <span id="desktop-file-badge" style="display:none;font-weight:400;color:var(--text-muted);font-size:0.75rem;margin-left:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
               </div>
+              <!-- Page counter — updated by PDF.js as user scrolls -->
+              <span id="pdf-page-counter" style="display:none;font-size:0.78rem;font-weight:600;color:var(--primary);background:rgba(0,119,255,0.09);border:1px solid rgba(0,119,255,0.18);border-radius:20px;padding:1px 10px;white-space:nowrap;letter-spacing:0.02em"></span>
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="history-btn" onclick="openHistory()" id="history-btn" title="View past brainstorm sessions">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

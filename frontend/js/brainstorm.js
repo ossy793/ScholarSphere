@@ -384,17 +384,10 @@ function _isMobile() {
 
 function _renderPdfInScroll(scroll, blobUrl, extractedText) {
   scroll.style.padding = '0';
-  if (!_isMobile()) {
-    // Desktop: native iframe PDF viewer — CSS handles sizing via position:absolute
-    scroll.style.height = '';
-    scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
-      title="Document viewer"></iframe>`;
-    return;
-  }
+  scroll.style.height  = '';
 
-  // Mobile: render via PDF.js if available
+  // Use PDF.js for both desktop and mobile — gives page counter + no UUID clutter
   if (typeof pdfjsLib !== 'undefined') {
-    scroll.style.height = '';
     scroll.innerHTML = `
       <div style="padding:40px;text-align:center;color:var(--text-muted)">
         <div class="spinner spinner-dark" style="margin:0 auto 14px"></div>
@@ -404,6 +397,13 @@ function _renderPdfInScroll(scroll, blobUrl, extractedText) {
   } else {
     _renderPdfTextFallback(scroll, blobUrl, extractedText);
   }
+}
+
+function _updatePageCounter(current, total) {
+  const el = document.getElementById('pdf-page-counter');
+  if (!el) return;
+  el.style.display = '';
+  el.textContent = `${current} / ${total}`;
 }
 
 async function _renderPdfPages(scroll, blobUrl, extractedText) {
@@ -442,6 +442,9 @@ async function _renderPdfPages(scroll, blobUrl, extractedText) {
       wrappers.push(wrapper);
     }
 
+    // Show initial count as soon as we know total pages
+    _updatePageCounter(1, total);
+
     // Lazy-render each page only when it scrolls into view (+ 400 px pre-load margin)
     const observer = new IntersectionObserver(
       (entries) => {
@@ -457,6 +460,19 @@ async function _renderPdfPages(scroll, blobUrl, extractedText) {
       { root: scroll, rootMargin: '400px' }
     );
     wrappers.forEach(w => observer.observe(w));
+
+    // Track current page as user scrolls — update panel-head counter
+    const pageTracker = new IntersectionObserver(
+      (entries) => {
+        let best = null, bestRatio = 0;
+        entries.forEach(e => {
+          if (e.intersectionRatio > bestRatio) { bestRatio = e.intersectionRatio; best = e.target; }
+        });
+        if (best) _updatePageCounter(parseInt(best.dataset.page), total);
+      },
+      { root: scroll, threshold: [0.1, 0.5, 1.0] }
+    );
+    wrappers.forEach(w => pageTracker.observe(w));
 
   } catch {
     // PDF.js failed — fall back to extracted text
