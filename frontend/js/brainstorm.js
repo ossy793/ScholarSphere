@@ -371,10 +371,10 @@ function _isMobile() {
 function _renderPdfInScroll(scroll, blobUrl, extractedText) {
   scroll.style.padding = '0';
   if (!_isMobile()) {
-    // Desktop: native iframe PDF viewer
-    scroll.style.height = '100%';
+    // Desktop: native iframe PDF viewer — CSS handles sizing via position:absolute
+    scroll.style.height = '';
     scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
-      title="Document viewer" style="width:100%;height:100%;border:none;display:block;"></iframe>`;
+      title="Document viewer"></iframe>`;
     return;
   }
 
