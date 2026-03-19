@@ -382,6 +382,28 @@ function _isMobile() {
   return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+let _pageCounterTimer = null;
+
+function _startDesktopPageCounter(iframe, blobUrl) {
+  // Get total pages via PDF.js metadata (no rendering)
+  if (typeof pdfjsLib === 'undefined') return;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  pdfjsLib.getDocument(blobUrl).promise.then(pdf => {
+    const total = pdf.numPages;
+    _updatePageCounter(1, total);
+    // Poll iframe URL hash for current page (Chrome native PDF updates #page=N)
+    if (_pageCounterTimer) clearInterval(_pageCounterTimer);
+    _pageCounterTimer = setInterval(() => {
+      try {
+        const hash = iframe.contentWindow.location.hash || '';
+        const m = hash.match(/page=(\d+)/);
+        _updatePageCounter(m ? parseInt(m[1]) : 1, total);
+      } catch (_) {}
+    }, 800);
+  }).catch(() => {});
+}
+
 function _renderPdfInScroll(scroll, blobUrl, extractedText) {
   scroll.style.padding = '0';
   if (!_isMobile()) {
@@ -389,6 +411,9 @@ function _renderPdfInScroll(scroll, blobUrl, extractedText) {
     scroll.style.height = '';
     scroll.innerHTML = `<iframe src="${blobUrl}#toolbar=1&navpanes=0"
       title="Document viewer"></iframe>`;
+    // Attach page counter to panel-head
+    const iframe = scroll.querySelector('iframe');
+    if (iframe) _startDesktopPageCounter(iframe, blobUrl);
     return;
   }
 
