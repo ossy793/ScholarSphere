@@ -93,8 +93,53 @@
       position: relative;
     }
 
-    /* PDF iframe: absolutely fills the scroll container on desktop */
+    /* ── Desktop: overlay panel-head so viewer fills full doc-panel ── */
     @media (min-width: 769px) {
+
+      /* doc-panel becomes a positioning context */
+      .doc-panel {
+        position: relative;
+      }
+
+      /* panel-head floats over content — takes zero layout height */
+      .panel-head {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 20;
+        background: rgba(255,255,255,0.88);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+        min-height: 36px;
+      }
+
+      /* All content areas fill the full panel height from top */
+      .doc-upload-area,
+      .doc-viewer-area,
+      .doc-history-area {
+        position: absolute !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        height: 100% !important;
+      }
+
+      /* Upload area: push content below the floating panel-head */
+      .doc-upload-area {
+        overflow-y: auto;
+        padding-top: 44px;
+      }
+
+      /* History area: push content below the floating panel-head */
+      .doc-history-area {
+        overflow-y: auto;
+        padding-top: 44px;
+      }
+
+      /* doc-meta-bar hidden on desktop — info moved to panel-head via JS */
+      .doc-meta-bar {
+        display: none !important;
+      }
+
+      /* PDF iframe: absolutely fills the scroll container */
       .doc-viewer-scroll {
         overflow: hidden;
       }
@@ -670,6 +715,7 @@
                   <polyline points="14 2 14 8 20 8"/>
                 </svg>
                 Document
+                <span id="desktop-file-badge" style="display:none;font-weight:400;color:var(--text-muted);font-size:0.75rem;margin-left:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="history-btn" onclick="openHistory()" id="history-btn" title="View past brainstorm sessions">

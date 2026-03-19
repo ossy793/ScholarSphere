@@ -12,6 +12,17 @@ let currentBlobUrl   = null; // revoke on next upload
 let currentSessionId = null; // DB session ID (null = unsaved)
 let currentFilename  = 'Document'; // used for summary PDF filename
 
+function _setDesktopFileBadge(name, extLabel) {
+  const badge = document.getElementById('desktop-file-badge');
+  if (!badge) return;
+  if (name) {
+    badge.textContent = `— ${name}${extLabel ? ' · ' + extLabel : ''}`;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function _docControlsHtml(changeLabel = 'Change') {
   return `
     <button class="btn btn-outline btn-sm" id="summary-btn" onclick="generateSummary()"
@@ -180,6 +191,7 @@ async function _bsRestore() {
       <strong>Pasted Text</strong>
       <span class="badge-sm">TEXT</span>
       <span style="margin-left:auto">${pasteText.length.toLocaleString()} chars</span>`;
+    _setDesktopFileBadge('Pasted Text', 'TEXT');
   } else {
     const isPdf  = meta?.extLabel === 'PDF';
     if (isPdf) {
@@ -210,6 +222,7 @@ async function _bsRestore() {
         <strong>${escHtml(meta.name)}</strong>
         <span class="badge-sm">${meta.extLabel}</span>
         <span style="margin-left:auto">${meta.sizeLabel}</span>`;
+      _setDesktopFileBadge(meta.name, meta.extLabel);
     }
   }
 
@@ -290,6 +303,7 @@ function handlePastedText(text) {
     <strong>Pasted Text</strong>
     <span class="badge-sm">TEXT</span>
     <span style="margin-left:auto">${text.length.toLocaleString()} chars</span>`;
+  _setDesktopFileBadge('Pasted Text', 'TEXT');
   document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change');
 
   enableChat();
@@ -798,6 +812,7 @@ function showViewerArea(filename, extLabel, sizeBytes) {
     <strong>${escHtml(filename)}</strong>
     <span class="badge-sm">${extLabel}</span>
     <span style="margin-left:auto">${kb} KB</span>`;
+  _setDesktopFileBadge(filename, extLabel);
   document.getElementById('doc-controls').innerHTML = _docControlsHtml('Change File');
 
   _bsSaveMeta(filename, extLabel, kb + ' KB');
@@ -1274,6 +1289,7 @@ async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
       <strong>${escHtml(session.document.filename)}</strong>
       <span class="badge-sm">${session.document.file_type.toUpperCase()}</span>
       <span style="margin-left:auto">${sizeLabel}</span>`;
+    _setDesktopFileBadge(session.document.filename, session.document.file_type.toUpperCase());
 
     currentFilename = session.document?.filename || 'Document';
     document.getElementById('doc-upload-area').style.display = 'none';
