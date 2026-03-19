@@ -18,6 +18,8 @@ from ..utils.file_parser import (
     extract_text_from_pptx,
     extract_text_from_image,
     truncate_text,
+    _GROQ_VISION_MODELS,
+    _render_pdf_page_range,
 )
 from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
 from ..utils.chunker import chunk_text
@@ -84,6 +86,7 @@ class ChatRequest(BaseModel):
     context: str
     history: List[HistoryItem] = []
     session_id: Optional[str] = None
+    current_page: int = 1   # PDF viewer's current page — used for visual Q&A page selection
 
 
 class SummaryRequest(BaseModel):
@@ -612,6 +615,122 @@ async def upload_document(
     }
 
 
+# ── Visual Q&A helpers ────────────────────────────────────────────────────────
+
+def _is_scanned_doc(doc_record) -> bool:
+    """
+    Detect whether a PDF has little/no extractable text (i.e. it is scanned).
+    Uses text length vs file size as a simple heuristic.
+    """
+    if not doc_record or doc_record.file_type.lower() != "pdf":
+        return False
+    text_len = len(doc_record.extracted_text or "")
+    if text_len < 300:
+        return True
+    size_bytes = doc_record.file_size_bytes or 0
+    if size_bytes > 200_000 and text_len / size_bytes < 0.003:
+        return True
+    return False
+
+
+def _visual_qa_chat(doc_record, question: str, history: list, current_page: int = 1) -> str | None:
+    """
+    Visual Q&A for scanned PDFs:
+    - Renders up to 5 pages centred on current_page from the stored file bytes.
+    - Sends the page images + question to a Groq vision model.
+    - Returns the AI reply, or None if vision Q&A is unavailable.
+    """
+    import os, base64 as b64
+
+    if not doc_record or not doc_record.file_content:
+        return None
+
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        return None
+
+    # Page window: up to 5 pages centred on current_page (1-indexed → 0-indexed)
+    try:
+        import fitz
+        pdf_doc = fitz.open(stream=doc_record.file_content, filetype="pdf")
+        total = len(pdf_doc)
+        pdf_doc.close()
+    except Exception as exc:
+        logger.warning("Visual Q&A: could not open PDF: %s", exc)
+        return None
+
+    p0 = max(0, current_page - 3)
+    p1 = min(total, p0 + 5)
+    p0 = max(0, p1 - 5)   # adjust start if near end of doc
+    pages_label = f"pages {p0 + 1}–{p1}" if p1 > p0 + 1 else f"page {p0 + 1}"
+
+    try:
+        page_images = _render_pdf_page_range(doc_record.file_content, p0, p1)
+    except Exception as exc:
+        logger.warning("Visual Q&A: page render failed: %s", exc)
+        return None
+
+    if not page_images:
+        return None
+
+    # Build image content blocks
+    image_blocks = []
+    for img_bytes in page_images:
+        img_b64 = b64.b64encode(img_bytes).decode()
+        image_blocks.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
+        del img_b64
+
+    # Include recent chat history as text
+    history_text = ""
+    if history:
+        recent = [f"{'User' if h['role'] == 'user' else 'UrPadi'}: {h['content']}" for h in history[-6:]]
+        history_text = "\nPrevious conversation:\n" + "\n".join(recent) + "\n\n"
+
+    text_block = {
+        "type": "text",
+        "text": (
+            f"You are UrPadi, an AI academic tutor. The images show {pages_label} "
+            f"from the student's uploaded document '{doc_record.filename}'."
+            f"{history_text}"
+            f"Student's question: {question}\n\n"
+            f"Read the pages carefully and answer accurately. "
+            f"If the answer is visible on these pages, give a detailed response. "
+            f"If the relevant content is on a different page, tell the student which page to navigate to."
+        ),
+    }
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+    except Exception:
+        return None
+
+    for model in _GROQ_VISION_MODELS:
+        try:
+            # Llama 3.2 supports only 1 image — send just the current page
+            if "3.2" in model:
+                mid = len(image_blocks) // 2
+                content = [image_blocks[mid], text_block]
+            else:
+                content = image_blocks + [text_block]
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": content}],
+                max_tokens=1024,
+                temperature=0.3,
+            )
+            reply = response.choices[0].message.content.strip()
+            if reply:
+                logger.info("Visual Q&A answered with %s (%s)", model, pages_label)
+                return reply
+        except Exception as exc:
+            logger.warning("Visual Q&A failed with %s: %s", model, exc)
+            continue
+
+    return None
+
+
 # ── Chat ──────────────────────────────────────────────────────────────────────
 
 @router.post("/chat")
@@ -687,6 +806,40 @@ def brainstorm_chat(
     # Last resort: use whatever the frontend sent
     if not context:
         context = payload.context.strip()
+
+    # ── Visual Q&A for scanned documents ──────────────────────────────────────
+    # If context is still too short (scanned PDF with no extractable text),
+    # skip the text pipeline and answer directly from rendered page images.
+    if len(context) < 300 and session_uuid:
+        try:
+            doc_record = db.query(BrainstormDocument).filter(
+                BrainstormDocument.session_id == session_uuid
+            ).first()
+            if _is_scanned_doc(doc_record):
+                logger.info("Scanned doc detected — attempting visual Q&A for session %s", session_uuid)
+                visual_reply = _visual_qa_chat(
+                    doc_record,
+                    payload.message,
+                    [h.dict() for h in payload.history],
+                    payload.current_page,
+                )
+                if visual_reply:
+                    # Persist messages and return immediately
+                    if active_session:
+                        try:
+                            db.add(BrainstormMessage(session_id=active_session.id, role="user", content=payload.message))
+                            db.add(BrainstormMessage(session_id=active_session.id, role="assistant", content=visual_reply))
+                            active_session.updated_at = datetime.utcnow()
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                    return {"reply": visual_reply}
+        except Exception as exc:
+            logger.warning("Visual Q&A pipeline error: %s", exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     if not context:
         raise HTTPException(status_code=400, detail="No document loaded.")

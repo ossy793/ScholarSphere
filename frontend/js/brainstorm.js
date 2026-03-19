@@ -1111,11 +1111,18 @@ window.sendMessage = async function () {
   input.disabled = true;
 
   try {
+    // Read current PDF page so the AI reads the right pages for scanned docs
+    const _pageEl = document.getElementById('pdf-page-counter');
+    const _currentPage = _pageEl
+      ? (parseInt(_pageEl.textContent.split('/')[0].trim()) || 1)
+      : 1;
+
     const res = await api.post('/brainstorm/chat', {
-      message:    text,
-      context:    documentContext,
-      history:    chatHistory.slice(0, -1),
-      session_id: currentSessionId || undefined,
+      message:      text,
+      context:      documentContext,
+      history:      chatHistory.slice(0, -1),
+      session_id:   currentSessionId || undefined,
+      current_page: _currentPage,
     });
     removeTyping(typingId);
     appendBubble('assistant', res.reply);

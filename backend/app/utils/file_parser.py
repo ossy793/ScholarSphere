@@ -54,9 +54,46 @@ def _render_pdf_pages(file_bytes: bytes, max_pages: int = _OCR_PAGE_LIMIT) -> li
     return images
 
 
+def _preprocess_image_for_ocr(img_bytes: bytes) -> bytes:
+    """
+    Enhance a page image for better OCR accuracy.
+    Converts to grayscale, boosts contrast, and sharpens edges.
+    Returns original bytes unchanged if preprocessing fails.
+    """
+    try:
+        from PIL import Image, ImageEnhance, ImageFilter
+        img = Image.open(io.BytesIO(img_bytes))
+        img = img.convert('L')                          # grayscale — Tesseract reads this best
+        img = ImageEnhance.Contrast(img).enhance(2.0)   # punch up contrast on faint prints
+        img = ImageEnhance.Sharpness(img).enhance(2.0)  # sharpen blurry scan edges
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=95)
+        return buf.getvalue()
+    except Exception:
+        return img_bytes  # original unchanged if PIL unavailable
+
+
+def _render_pdf_page_range(file_bytes: bytes, start: int, end: int) -> list:
+    """
+    Render a specific range of pages (0-indexed, exclusive end) as JPEG images.
+    Used by visual Q&A to render only the pages the user is currently viewing.
+    """
+    import fitz
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    mat = fitz.Matrix(2, 2)   # 2× zoom — good quality, smaller payload than 3×
+    images = []
+    for page_num in range(max(0, start), min(len(doc), end)):
+        pix = doc[page_num].get_pixmap(matrix=mat)
+        images.append(pix.tobytes("jpeg", jpg_quality=85))
+        del pix
+    doc.close()
+    return images
+
+
 def _ocr_with_tesseract(page_images: list) -> str:
     """
     Try pytesseract OCR on pre-rendered page images.
+    Images are preprocessed (grayscale + contrast + sharpen) before OCR.
     Returns '' if Tesseract is not installed or pytesseract is missing.
     """
     try:
@@ -72,8 +109,9 @@ def _ocr_with_tesseract(page_images: list) -> str:
     parts = []
     for i, img_bytes in enumerate(page_images):
         try:
-            img = Image.open(io.BytesIO(img_bytes))
-            text = pytesseract.image_to_string(img)
+            enhanced = _preprocess_image_for_ocr(img_bytes)
+            img = Image.open(io.BytesIO(enhanced))
+            text = pytesseract.image_to_string(img, config='--psm 6')
             img.close()
             if text.strip():
                 parts.append(text.strip())
