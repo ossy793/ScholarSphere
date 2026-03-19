@@ -101,8 +101,8 @@
         position: relative;
       }
 
-      /* panel-head floats over content — takes zero layout height */
-      .panel-head {
+      /* Only the DOC panel-head floats as an overlay — NOT the chat panel-head */
+      .doc-panel > .panel-head {
         position: absolute;
         top: 0; left: 0; right: 0;
         z-index: 20;
@@ -112,14 +112,14 @@
         border-bottom: 1px solid rgba(255,255,255,0.08);
         min-height: 36px;
       }
-      /* Light text on dark panel-head */
-      .panel-head .panel-head-title { color: #e8f0ff; }
-      .panel-head .panel-head-title svg { color: #5ba3ff; }
-      .panel-head #desktop-file-badge { color: #7aaae8; }
-      .panel-head .history-btn { color: #ccd9f0; border-color: rgba(255,255,255,0.18); }
-      .panel-head .history-btn:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.35); }
-      .panel-head .btn-outline { color: #ccd9f0; border-color: rgba(255,255,255,0.22); }
-      .panel-head .btn-outline:hover { background: rgba(255,255,255,0.1); color: #fff; }
+      /* Light text on dark doc panel-head */
+      .doc-panel > .panel-head .panel-head-title { color: #e8f0ff; }
+      .doc-panel > .panel-head .panel-head-title svg { color: #5ba3ff; }
+      .doc-panel > .panel-head #desktop-file-badge { color: #7aaae8; }
+      .doc-panel > .panel-head .history-btn { color: #ccd9f0; border-color: rgba(255,255,255,0.18); }
+      .doc-panel > .panel-head .history-btn:hover { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.35); }
+      .doc-panel > .panel-head .btn-outline { color: #ccd9f0; border-color: rgba(255,255,255,0.22); }
+      .doc-panel > .panel-head .btn-outline:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
       /* All content areas fill the full panel height from top */
       .doc-upload-area,
