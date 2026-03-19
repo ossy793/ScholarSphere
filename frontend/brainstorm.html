@@ -114,33 +114,30 @@
         box-shadow: 0 1px 8px rgba(0, 119, 255, 0.06);
       }
 
-      /* All content areas fill the full panel height from top */
+      /* Upload / history areas: below the floating panel-head */
       .doc-upload-area,
-      .doc-viewer-area,
       .doc-history-area {
         position: absolute !important;
         top: 0; left: 0; right: 0; bottom: 0;
         height: 100% !important;
-      }
-
-      /* Upload area: push content below the floating panel-head */
-      .doc-upload-area {
         overflow-y: auto;
         padding-top: 44px;
       }
 
-      /* History area: push content below the floating panel-head */
-      .doc-history-area {
-        overflow-y: auto;
-        padding-top: 44px;
+      /* Viewer area starts BELOW the panel-head (36px) so native PDF
+         toolbar (with page numbers) is visible immediately after it */
+      .doc-viewer-area {
+        position: absolute !important;
+        top: 36px; left: 0; right: 0; bottom: 0;
+        height: calc(100% - 36px) !important;
       }
 
-      /* doc-meta-bar hidden on desktop — info moved to panel-head via JS */
+      /* doc-meta-bar hidden on desktop — info is in panel-head via JS */
       .doc-meta-bar {
         display: none !important;
       }
 
-      /* PDF iframe: absolutely fills the scroll container */
+      /* PDF iframe fills the full viewer area */
       .doc-viewer-scroll {
         overflow: hidden;
       }
