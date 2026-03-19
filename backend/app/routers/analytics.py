@@ -1,10 +1,16 @@
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from uuid import UUID
 
 from ..database import get_db
 from ..models.user import User
+from ..models.quiz import Quiz
+from ..models.attempt import Attempt
+from ..models.course import Course
+from ..models.brainstorm import BrainstormSession
 from ..services import analytics_service
 from ..services.ai_service import generate_recommendations
 from ..utils.security import get_current_user
@@ -52,6 +58,42 @@ def get_brainstorm_streak(
 ) -> Dict[str, Any]:
     streak = analytics_service.get_brainstorm_streak(current_user.id, db)
     return {"streak": streak}
+
+
+@router.get("/update-token")
+def get_update_token(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, str]:
+    """
+    Returns a lightweight token representing the user's latest activity state.
+    The frontend polls this endpoint and shows a 'new update' alert when the
+    token changes compared to what it last saw (stored in sessionStorage).
+    """
+    # Collect the latest updated_at / created_at timestamps across all user data
+    timestamps = []
+
+    latest_quiz = db.query(func.max(Quiz.updated_at)).filter(Quiz.user_id == current_user.id).scalar()
+    if latest_quiz:
+        timestamps.append(str(latest_quiz))
+
+    latest_attempt = db.query(func.max(Attempt.completed_at)).filter(Attempt.user_id == current_user.id).scalar()
+    if latest_attempt:
+        timestamps.append(str(latest_attempt))
+
+    latest_course = db.query(func.max(Course.updated_at)).filter(Course.user_id == current_user.id).scalar()
+    if latest_course:
+        timestamps.append(str(latest_course))
+
+    latest_session = db.query(func.max(BrainstormSession.updated_at)).filter(
+        BrainstormSession.user_id == current_user.id
+    ).scalar()
+    if latest_session:
+        timestamps.append(str(latest_session))
+
+    raw = "|".join(timestamps) or "empty"
+    token = hashlib.md5(raw.encode()).hexdigest()[:12]
+    return {"token": token}
 
 
 @router.get("/recommendations")
