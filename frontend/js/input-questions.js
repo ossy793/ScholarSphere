@@ -6,6 +6,7 @@ renderLayout('Input Questions', 'Input Questions');
 
 let currentQuizId = null;
 let reviewItems = []; // [{ question_text, question_type, options, correct_answer, explanation }]
+let _scannedPdfFile = null; // stored when a scanned PDF is uploaded (text < threshold)
 
 // ── State persistence ──────────────────────────────────────────────────────────
 const _IQ_KEYS = ['pritis_iq_quiz_id','pritis_iq_step','pritis_iq_course',
@@ -135,6 +136,7 @@ window.clearUploadedFile = function () {
   document.getElementById('content-file-input').value = '';
   document.getElementById('file-badge').classList.add('hidden');
   document.getElementById('content-textarea').value = '';
+  _scannedPdfFile = null;
 };
 
 window.handleContentFileInput = async function (e) {
@@ -154,6 +156,8 @@ window.handleContentFileInput = async function (e) {
   document.getElementById('file-reading').classList.remove('hidden');
   document.getElementById('file-badge').classList.add('hidden');
 
+  _scannedPdfFile = null; // reset on each new file
+
   try {
     let text = '';
     if (ext === '.txt') {
@@ -162,6 +166,16 @@ window.handleContentFileInput = async function (e) {
       text = await readDocxFile(file);
     } else if (ext === '.pdf' || ext === '.pptx') {
       text = await uploadFileForText(file);
+    }
+
+    // For scanned PDFs: text will be very short — store the file for visual parsing
+    if (ext === '.pdf' && text.trim().length < 300) {
+      _scannedPdfFile = file;
+      document.getElementById('content-textarea').value =
+        '[Scanned PDF detected — questions will be extracted visually from the document pages]';
+      document.getElementById('file-name-label').textContent = `📄 ${file.name} (scanned)`;
+      document.getElementById('file-badge').classList.remove('hidden');
+      return;
     }
 
     if (!text.trim()) {
@@ -321,7 +335,16 @@ window.analyzeAndGenerate = async function () {
   });
 
   try {
-    const generated = await api.post('/generate/parse', { content, answer_hint: _buildAnswerHint() });
+    let generated;
+    if (_scannedPdfFile) {
+      // Scanned PDF — send file to visual parsing endpoint
+      const formData = new FormData();
+      formData.append('file', _scannedPdfFile);
+      formData.append('answer_hint', _buildAnswerHint());
+      generated = await api.postForm('/generate/parse-pdf', formData);
+    } else {
+      generated = await api.post('/generate/parse', { content, answer_hint: _buildAnswerHint() });
+    }
     clearInterval(simTimer);
     setAnalyzeProgress(100, 'Done!');
 
@@ -649,8 +672,9 @@ window.saveAllQuestions = async function () {
 // ── Reset ─────────────────────────────────────────────────────────────────────
 window.resetAll = function () {
   _iqClear();
-  currentQuizId = null;
-  reviewItems   = [];
+  currentQuizId  = null;
+  reviewItems    = [];
+  _scannedPdfFile = null;
 
   document.getElementById('review-section').classList.add('hidden');
   document.getElementById('bulk-input-section').classList.add('hidden');

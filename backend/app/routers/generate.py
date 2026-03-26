@@ -8,8 +8,20 @@ from ..models.quiz import SourceType
 from ..models.user import User
 from ..schemas.quiz import QuizResponse
 from ..services import quiz_service
-from ..services.ai_service import generate_questions, generate_options_for_questions, parse_and_generate_from_content
-from ..utils.file_parser import extract_text_from_pdf, extract_text_from_docx, extract_text_from_pptx, truncate_text
+from ..services.ai_service import (
+    generate_questions,
+    generate_options_for_questions,
+    parse_and_generate_from_content,
+    generate_questions_from_images,
+    parse_questions_from_images,
+)
+from ..utils.file_parser import (
+    extract_text_from_pdf,
+    extract_text_from_docx,
+    extract_text_from_pptx,
+    truncate_text,
+    _render_pdf_pages,
+)
 from ..utils.security import get_current_user
 
 router = APIRouter(prefix="/generate", tags=["generate"])
@@ -37,6 +49,9 @@ def _parse_types(raw: str) -> list[str]:
     return [t.strip() for t in raw.split(",") if t.strip()]
 
 
+_SCANNED_TEXT_THRESHOLD = 300   # chars — below this we treat the doc as scanned
+
+
 def _run_ai(text: str, num_questions: int, allowed_types: list[str] | None = None) -> list:
     """Truncate input and call the AI service; raises 500 on failure."""
     truncated = truncate_text(text, max_chars=60000)
@@ -46,6 +61,32 @@ def _run_ai(text: str, num_questions: int, allowed_types: list[str] | None = Non
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI generation failed: {exc}",
+        )
+
+
+def _run_ai_visual(file_bytes: bytes, num_questions: int, allowed_types: list[str] | None = None) -> list:
+    """
+    Visual fallback for scanned PDFs: render pages → generate questions from images.
+    Raises 500 on failure.
+    """
+    try:
+        page_images = _render_pdf_pages(file_bytes, max_pages=20)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not render PDF pages: {exc}")
+
+    if not page_images:
+        raise HTTPException(status_code=422, detail="No pages could be rendered from this PDF.")
+
+    try:
+        return generate_questions_from_images(
+            page_images,
+            num_questions,
+            allowed_types or ["mcq", "short_answer", "essay"],
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Visual AI generation failed: {exc}",
         )
 
 
@@ -89,6 +130,43 @@ def parse_content_and_generate(
         )
 
 
+@router.post("/parse-pdf", status_code=status.HTTP_200_OK)
+async def parse_pdf_and_generate(
+    answer_hint: str = Form(""),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Input Questions — visual fallback for scanned PDFs.
+    Renders pages as images and uses Groq vision to detect and extract existing
+    questions directly from what the AI sees, bypassing text extraction entirely.
+    """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
+
+    try:
+        page_images = _render_pdf_pages(file_bytes, max_pages=20)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not render PDF pages: {exc}")
+
+    if not page_images:
+        raise HTTPException(status_code=422, detail="No pages could be rendered from this PDF.")
+
+    try:
+        return parse_questions_from_images(page_images, answer_hint=answer_hint)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Visual question parsing failed: {exc}",
+        )
+
+
 @router.post("/from-text", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
 def generate_from_text(
     payload: TextGenerateRequest,
@@ -118,6 +196,9 @@ async def generate_from_pdf(
     file_bytes = await file.read()
     if len(file_bytes) > 50 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
+
+    # Try text extraction first; fall back to visual if too little text (scanned PDF)
+    text = ""
     try:
         text = extract_text_from_pdf(file_bytes)
     except ValueError as exc:
@@ -125,7 +206,13 @@ async def generate_from_pdf(
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not read PDF: {exc}")
 
-    raw_questions = _run_ai(text, num_questions, _parse_types(question_types))
+    allowed = _parse_types(question_types)
+    if len(text.strip()) >= _SCANNED_TEXT_THRESHOLD:
+        raw_questions = _run_ai(text, num_questions, allowed)
+    else:
+        # Scanned PDF — generate questions directly from page images
+        raw_questions = _run_ai_visual(file_bytes, num_questions, allowed)
+
     return quiz_service.save_generated_quiz(
         db, current_user.id, course_id,
         quiz_title, SourceType.ai_pdf, raw_questions,

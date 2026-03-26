@@ -548,3 +548,186 @@ def grade_short_answers(questions: list[dict]) -> list[bool]:
             q["user_answer"].strip().lower() == q["expected"].strip().lower()
             for q in questions
         ]
+
+
+# ── Visual question generation (scanned / image-based PDFs) ───────────────────
+
+def _build_vision_image_blocks(page_images: list) -> list:
+    """Convert a list of JPEG image bytes into Groq vision content blocks."""
+    import base64
+    blocks = []
+    for img_bytes in page_images:
+        b64 = base64.b64encode(img_bytes).decode()
+        blocks.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+        del b64
+    return blocks
+
+
+def _run_vision_request(content: list, max_tokens: int = 4096) -> str:
+    """
+    Send a multi-image + text message to the best available Groq vision model.
+    Falls back through models in _GROQ_VISION_MODELS order.
+    Raises ValueError if all models fail.
+    """
+    import os
+    from ..utils.file_parser import _GROQ_VISION_MODELS
+
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not set — visual processing unavailable.")
+
+    from groq import Groq
+    client = Groq(api_key=api_key)
+
+    image_blocks = [b for b in content if b.get("type") == "image_url"]
+    text_block   = next((b for b in content if b.get("type") == "text"), None)
+
+    for model in _GROQ_VISION_MODELS:
+        try:
+            # Llama 3.2 only supports 1 image — send the middle page
+            if "3.2" in model and len(image_blocks) > 1:
+                mid = len(image_blocks) // 2
+                msg_content = [image_blocks[mid]] + ([text_block] if text_block else [])
+            else:
+                msg_content = content
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": msg_content}],
+                max_tokens=max_tokens,
+                temperature=0.4,
+            )
+            raw = response.choices[0].message.content.strip()
+            if raw:
+                logger.info("Vision request succeeded with model %s", model)
+                return raw
+        except Exception as exc:
+            logger.warning("Vision request failed with %s: %s", model, exc)
+            continue
+
+    raise ValueError("All Groq vision models failed. Please try again.")
+
+
+def generate_questions_from_images(
+    page_images: list,
+    num_questions: int = 10,
+    allowed_types: List[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Generate quiz questions directly from rendered PDF page images (no text extraction).
+    Used as a fallback for scanned / image-based PDFs in the AI Generate feature.
+
+    Processes pages in batches of 5 (Llama 4 multi-image limit) and combines results.
+    """
+    if not page_images:
+        raise ValueError("No page images provided for visual question generation.")
+
+    if not allowed_types:
+        allowed_types = ["mcq", "short_answer", "essay"]
+
+    type_instruction = _build_type_instruction(allowed_types)
+    BATCH = 5   # max images per Groq vision request
+
+    all_validated: List[Dict[str, Any]] = []
+    total_pages = len(page_images)
+    num_batches = max(1, (total_pages + BATCH - 1) // BATCH)
+    questions_per_batch = max(2, num_questions // num_batches)
+
+    for i in range(0, total_pages, BATCH):
+        batch = page_images[i:i + BATCH]
+        page_range = f"pages {i + 1}–{min(i + BATCH, total_pages)}"
+
+        image_blocks = _build_vision_image_blocks(batch)
+        text_block = {
+            "type": "text",
+            "text": (
+                f"The images show {page_range} from a student's academic document (scanned PDF). "
+                f"Read the content carefully and generate exactly {questions_per_batch} quiz questions "
+                f"based on what you can see on these pages. "
+                f"{type_instruction} "
+                f"Each question must test a DIFFERENT concept from the document. "
+                f"Output ONLY a JSON array. Each element must have: "
+                f"'question_text' (string), 'question_type' (mcq/true_false/short_answer), "
+                f"'options' (array for mcq/true_false; null for short_answer), "
+                f"'correct_answer' (string), 'explanation' (one sentence). "
+                f"MCQ must have exactly 4 options. true_false options must be [\"True\",\"False\"]. "
+                f"Start your response with [ and end with ]."
+            ),
+        }
+
+        try:
+            raw = _run_vision_request(image_blocks + [text_block])
+            items = _extract_json_array(raw)
+            validated = _validate_questions(items)
+            all_validated.extend(validated)
+        except Exception as exc:
+            logger.warning("Visual question generation failed for %s: %s", page_range, exc)
+            continue
+
+    if not all_validated:
+        raise ValueError(
+            "Could not generate questions from this scanned document. "
+            "The document may be too blurry or low-resolution. Please try a clearer scan."
+        )
+
+    # Deduplicate across batches then trim to requested count
+    final = _validate_questions(all_validated)   # re-runs dedup across all batches
+    return final[:num_questions]
+
+
+def parse_questions_from_images(
+    page_images: list,
+    answer_hint: str = "",
+) -> List[Dict[str, Any]]:
+    """
+    Extract existing questions from rendered PDF page images (Input Questions feature).
+    Used as a fallback for scanned past-paper PDFs where text extraction is poor.
+
+    Processes pages in batches of 5 and combines all detected questions.
+    """
+    if not page_images:
+        raise ValueError("No page images provided for visual question parsing.")
+
+    BATCH = 5
+    hint_line = f"\nUSER INSTRUCTION: {answer_hint.strip()}" if answer_hint and answer_hint.strip() else ""
+    all_validated: List[Dict[str, Any]] = []
+
+    for i in range(0, len(page_images), BATCH):
+        batch = page_images[i:i + BATCH]
+        page_range = f"pages {i + 1}–{min(i + BATCH, len(page_images))}"
+
+        image_blocks = _build_vision_image_blocks(batch)
+        text_block = {
+            "type": "text",
+            "text": (
+                f"The images show {page_range} from a scanned academic exam paper or question document. "
+                f"Extract ALL questions you can read from these pages. "
+                f"For each question, generate a complete quiz entry with type, options, and correct answer. "
+                f"Use any answer keys, markings, or annotations visible on the pages to detect correct answers. "
+                f"{hint_line}"
+                f"Do NOT generate duplicate questions — each question must test a different concept. "
+                f"Output ONLY a JSON array. Each element must have: "
+                f"'question_text' (string), 'question_type' (mcq/true_false/short_answer), "
+                f"'options' (array for mcq/true_false; null for short_answer), "
+                f"'correct_answer' (string), 'explanation' (one sentence). "
+                f"MCQ: preserve the original number of options (2–6). "
+                f"Start with [ and end with ]."
+            ),
+        }
+
+        try:
+            raw = _run_vision_request(image_blocks + [text_block], max_tokens=8192)
+            items = _extract_json_array(raw)
+            validated = _validate_questions(items)
+            all_validated.extend(validated)
+        except Exception as exc:
+            logger.warning("Visual question parsing failed for %s: %s", page_range, exc)
+            continue
+
+    if not all_validated:
+        raise ValueError(
+            "Could not detect any questions in this scanned document. "
+            "Please ensure the document contains readable questions and try again."
+        )
+
+    return _validate_questions(all_validated)   # final dedup across all batches

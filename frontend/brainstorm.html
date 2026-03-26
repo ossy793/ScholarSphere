@@ -640,64 +640,95 @@
       color: var(--text);
     }
 
+    /* ── Mobile tab bar (hidden on desktop) ── */
+    .mobile-tab-bar { display: none; }
+
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
       .bs-layout { flex-direction: column; }
 
+      /* Tab switcher */
+      .mobile-tab-bar {
+        display: flex;
+        flex-shrink: 0;
+        height: 42px;
+        background: var(--bg-card);
+        border-bottom: 2px solid var(--border);
+        z-index: 10;
+      }
+      .mobile-tab {
+        flex: 1;
+        border: none;
+        border-bottom: 2.5px solid transparent;
+        margin-bottom: -2px;
+        background: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .mobile-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+      /* Unread badge on UrPadi tab */
+      .mobile-tab-badge {
+        background: var(--danger);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        border-radius: 10px;
+        padding: 1px 5px;
+        min-width: 16px;
+        text-align: center;
+        display: none;
+      }
+      .mobile-tab-badge.visible { display: inline-block; }
+
+      /* Each panel fills remaining height */
       .doc-panel {
         width: 100% !important;
-        min-width: 0;
-        height: 58vh;
-        flex-shrink: 0;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .bs-layout.chat-collapsed .doc-panel {
-        height: calc(100vh - var(--header-h));
+        min-width: 0 !important;
+        height: calc(100% - 42px) !important;
         flex: 1;
+        flex-shrink: 0;
+        border-right: none !important;
+        border-bottom: none !important;
+        transition: none !important;
       }
-
       .chat-panel {
         width: 100% !important;
-        min-width: 0;
+        min-width: 0 !important;
+        height: calc(100% - 42px) !important;
         flex: 1;
-        transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
-        min-height: 0;
-      }
-      .bs-layout.chat-collapsed .chat-panel {
-        height: 0 !important;
-        flex: 0 !important;
         min-height: 0 !important;
-        width: 100% !important;
-        opacity: 0;
+        transition: none !important;
+        display: none !important;
       }
 
+      /* Show chat panel when user switches to UrPadi tab */
+      .bs-layout.mobile-chat-active .doc-panel  { display: none !important; }
+      .bs-layout.mobile-chat-active .chat-panel { display: flex !important; }
+
+      /* chat-collapsed / restored classes don't apply on mobile */
+      .bs-layout.chat-collapsed .doc-panel  { height: calc(100% - 42px) !important; }
+      .bs-layout.chat-collapsed .chat-panel { height: calc(100% - 42px) !important; opacity: 1 !important; width: 100% !important; min-width: 0 !important; }
+
+      /* Hide FAB — tabs replace it */
+      .chat-restore-btn { display: none !important; }
       .resize-bar { display: none !important; }
-
-      /* FAB on mobile */
-      .chat-restore-btn {
-        right: 16px;
-        bottom: 24px;
-        top: auto;
-        transform: none;
-        border-radius: 50%;
-        width: 52px; height: 52px;
-        padding: 0;
-        justify-content: center;
-        align-items: center;
-      }
-      .chat-restore-btn.visible { animation: fadeInUp 0.3s ease; }
-      .chat-restore-btn-label { display: none; }
-      .chat-restore-btn span:first-child { font-size: 1rem; font-weight: 900; }
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(12px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
 
       .chat-input-bar { padding: 10px 12px; }
       .chat-messages { padding: 14px 14px; }
       .doc-upload-area { padding: 14px; }
+
+      /* Hide desktop-only controls in chat header on mobile */
+      .chat-collapse-btn { display: none !important; }
     }
     /* ── PPTX text-card fallback ── */
     .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
@@ -737,6 +768,17 @@
 
       <main class="page-body">
         <div class="bs-layout chat-collapsed" id="bs-layout">
+
+          <!-- Mobile tab bar (hidden on desktop via CSS) -->
+          <div class="mobile-tab-bar" id="mobile-tab-bar">
+            <button class="mobile-tab active" id="mobile-tab-doc" onclick="switchMobileTab('doc')">
+              📄 Document
+            </button>
+            <button class="mobile-tab" id="mobile-tab-chat" onclick="switchMobileTab('chat')">
+              💬 UrPadi
+              <span class="mobile-tab-badge" id="mobile-chat-badge"></span>
+            </button>
+          </div>
 
           <!-- ── Left: Document Panel ── -->
           <div class="doc-panel" id="doc-panel">

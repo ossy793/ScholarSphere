@@ -67,7 +67,15 @@ function _injectProactiveMessage(msg) {
   // Only show if the chat panel is open and there's a document loaded
   if (!documentContext) return;
   const layout = document.getElementById('bs-layout');
-  if (layout?.classList.contains('chat-collapsed')) return;
+  if (window.innerWidth > 768 && layout?.classList.contains('chat-collapsed')) return;
+  if (window.innerWidth <= 768 && !layout?.classList.contains('mobile-chat-active')) {
+    // Mobile: show badge on UrPadi tab instead of injecting silently
+    const badge = document.getElementById('mobile-chat-badge');
+    if (badge) badge.classList.add('visible');
+    appendBubble('assistant', msg);
+    chatHistory.push({ role: 'assistant', content: msg });
+    return;
+  }
   appendBubble('assistant', msg);
   chatHistory.push({ role: 'assistant', content: msg });
 }
@@ -1129,6 +1137,14 @@ window.sendMessage = async function () {
     chatHistory.push({ role: 'assistant', content: res.reply });
     _resetReadingTimers(); // user interacted — restart the inactivity clock
     _bsSave();
+    // On mobile: show badge on UrPadi tab if user is on Document tab
+    if (window.innerWidth <= 768) {
+      const layout = document.getElementById('bs-layout');
+      if (!layout.classList.contains('mobile-chat-active')) {
+        const badge = document.getElementById('mobile-chat-badge');
+        if (badge) badge.classList.add('visible');
+      }
+    }
   } catch (err) {
     removeTyping(typingId);
     appendBubble('assistant', `⚠️ ${err.message || 'Something went wrong. Please try again.'}`);
@@ -1201,14 +1217,39 @@ window.startResize = function (e) {
   document.addEventListener('mouseup', onUp);
 };
 
+// ── Mobile tab switching ──────────────────────────────────────────────────────
+window.switchMobileTab = function (tab) {
+  if (window.innerWidth > 768) return;
+  const layout  = document.getElementById('bs-layout');
+  const docTab  = document.getElementById('mobile-tab-doc');
+  const chatTab = document.getElementById('mobile-tab-chat');
+  const badge   = document.getElementById('mobile-chat-badge');
+  if (tab === 'chat') {
+    layout.classList.add('mobile-chat-active');
+    docTab?.classList.remove('active');
+    chatTab?.classList.add('active');
+    if (badge) badge.classList.remove('visible');
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
+  } else {
+    layout.classList.remove('mobile-chat-active');
+    docTab?.classList.add('active');
+    chatTab?.classList.remove('active');
+  }
+};
+
 // ── Chat panel collapse / restore ────────────────────────────────────────────
 window.toggleChatPanel = function () {
+  if (window.innerWidth <= 768) {
+    // Mobile: toggle between tabs
+    const layout = document.getElementById('bs-layout');
+    switchMobileTab(layout.classList.contains('mobile-chat-active') ? 'doc' : 'chat');
+    return;
+  }
   const layout      = document.getElementById('bs-layout');
   const restoreBtn  = document.getElementById('chat-restore-btn');
   const isCollapsed = layout.classList.toggle('chat-collapsed');
   restoreBtn.classList.toggle('visible', isCollapsed);
   if (!isCollapsed) {
-    // Focus chat input when panel opens
     setTimeout(() => document.getElementById('chat-input')?.focus(), 350);
   }
 };
