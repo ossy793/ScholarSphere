@@ -34,12 +34,12 @@
     /* ── Document panel ── */
     .doc-panel {
       width: 60%;
-      min-width: 320px;
+      min-width: 300px;
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       background: #f8fafc;
-      flex-shrink: 0;
+      flex-shrink: 1;          /* allow shrinking on narrow viewports */
       transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
     /* When chat is collapsed, doc panel fills everything */
@@ -331,8 +331,8 @@
     /* ── Chat panel ── */
     .chat-panel {
       width: 40%;
-      min-width: 260px;
-      flex-shrink: 0;
+      min-width: 240px;
+      flex-shrink: 1;          /* allow shrinking on narrow viewports */
       display: flex;
       flex-direction: column;
       background: var(--bg);
@@ -642,109 +642,157 @@
       color: var(--text);
     }
 
-    /* ── Mobile tab bar (hidden on desktop) ── */
-    .mobile-tab-bar { display: none; }
+    /* ── Mobile FAB + backdrop (hidden on desktop) ── */
+    .mobile-chat-backdrop { display: none; }
+    .mobile-fab           { display: none; }
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
-      /* Use dvh so layout fits the actual visible viewport (excludes browser chrome).
-         Fallback to vh for older browsers — last declaration wins when dvh is supported. */
+      /* bs-layout: full height, use dvh for accurate viewport accounting */
       .bs-layout {
-        flex-direction: column;
         height: calc(100vh - 40px);
         height: calc(100dvh - 40px);
+        position: relative;
+        overflow: hidden;
       }
 
-      /* Tab switcher */
-      .mobile-tab-bar {
+      /* Doc panel: always full-screen on mobile — use absolute so it fills bs-layout */
+      .doc-panel {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        border-right: none !important;
+        transition: none !important;
+        overflow: hidden;
         display: flex;
-        flex-shrink: 0;
-        height: 42px;
-        background: var(--bg-card);
-        border-bottom: 2px solid var(--border);
-        z-index: 10;
+        flex-direction: column;
       }
-      .mobile-tab {
-        flex: 1;
+
+      /* doc-viewer fills the remaining space inside doc-panel */
+      .doc-viewer-area { flex: 1 !important; min-height: 0 !important; }
+      .doc-viewer-scroll { flex: 1 !important; min-height: 0; overflow-y: auto; }
+      .doc-viewer-scroll iframe { height: 100%; display: block; border: none; }
+
+      /* Chat panel: fixed bottom-sheet that slides up */
+      .chat-panel {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 72vh !important;
+        height: 72dvh !important;
+        min-height: 0 !important;
+        z-index: 400 !important;
+        border-radius: 18px 18px 0 0 !important;
+        box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.22) !important;
+        transform: translateY(105%) !important;
+        transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        display: flex !important;
+        flex-direction: column;
+        opacity: 1 !important;
+        overflow: hidden;
+      }
+
+      /* Slide up when chat is active */
+      .bs-layout.mobile-chat-active .chat-panel {
+        transform: translateY(0) !important;
+      }
+
+      /* Drag-handle pill on chat panel header */
+      .chat-panel > .panel-head {
+        position: relative;
+        padding-top: 18px !important;
+        border-radius: 18px 18px 0 0;
+      }
+      .chat-panel > .panel-head::before {
+        content: '';
+        position: absolute;
+        top: 7px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 38px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+      }
+
+      /* Backdrop overlay behind bottom sheet */
+      .mobile-chat-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.42);
+        z-index: 399;
+        backdrop-filter: blur(1px);
+        -webkit-backdrop-filter: blur(1px);
+        display: none;
+      }
+      .mobile-chat-backdrop.visible { display: block; }
+
+      /* Floating UrPadi button (FAB) */
+      .mobile-fab {
+        position: fixed;
+        bottom: 22px;
+        right: 18px;
+        z-index: 401;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
         border: none;
-        border-bottom: 2.5px solid transparent;
-        margin-bottom: -2px;
-        background: none;
         cursor: pointer;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-muted);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        transition: color 0.15s, border-color 0.15s;
+        box-shadow: 0 4px 20px rgba(0, 119, 255, 0.48);
+        transition: background 0.15s, transform 0.18s, box-shadow 0.15s;
+        -webkit-tap-highlight-color: transparent;
+        outline: none;
       }
-      .mobile-tab.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-      }
-      /* Unread badge on UrPadi tab */
-      .mobile-tab-badge {
+      .mobile-fab:active { transform: scale(0.91); box-shadow: 0 2px 10px rgba(0,119,255,0.3); }
+      .mobile-fab svg { width: 24px; height: 24px; }
+      .mobile-fab .fab-chat-icon  { display: flex; align-items: center; }
+      .mobile-fab .fab-close-icon { display: none;  align-items: center; }
+      .mobile-fab.chat-open .fab-chat-icon  { display: none; }
+      .mobile-fab.chat-open .fab-close-icon { display: flex; }
+
+      /* Unread badge on FAB */
+      .mobile-fab-badge {
+        position: absolute;
+        top: -3px;
+        right: -3px;
         background: var(--danger);
         color: #fff;
-        font-size: 0.65rem;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        font-size: 0.6rem;
         font-weight: 700;
-        border-radius: 10px;
-        padding: 1px 5px;
-        min-width: 16px;
-        text-align: center;
+        padding: 0 4px;
+        border: 2px solid #fff;
         display: none;
+        align-items: center;
+        justify-content: center;
       }
-      .mobile-tab-badge.visible { display: inline-block; }
+      .mobile-fab-badge.visible { display: flex; }
 
-      /* Each panel uses flex: 1 to fill remaining height after the tab bar.
-         Avoid explicit height: calc(100% - 42px) which breaks when dvh differs from vh. */
-      .doc-panel {
-        width: 100% !important;
-        min-width: 0 !important;
-        flex: 1 !important;
-        min-height: 0 !important;
-        height: auto !important;
-        border-right: none !important;
-        border-bottom: none !important;
-        transition: none !important;
-        overflow: hidden;
-      }
-      .chat-panel {
-        width: 100% !important;
-        min-width: 0 !important;
-        flex: 1 !important;
-        min-height: 0 !important;
-        height: auto !important;
-        transition: none !important;
-        display: none !important;
-        overflow: hidden;
-      }
+      /* chat-collapsed class is a desktop concept — neutralise on mobile */
+      .bs-layout.chat-collapsed .chat-panel  { transform: translateY(105%) !important; }
+      .bs-layout.chat-collapsed .doc-panel   { position: absolute !important; inset: 0 !important; }
 
-      /* Show chat panel when user switches to UrPadi tab */
-      .bs-layout.mobile-chat-active .doc-panel  { display: none !important; }
-      .bs-layout.mobile-chat-active .chat-panel { display: flex !important; }
+      /* Hide desktop-specific controls */
+      .chat-collapse-btn  { display: none !important; }
+      .chat-restore-btn   { display: none !important; }
+      .resize-bar         { display: none !important; }
 
-      /* chat-collapsed / restored classes don't apply on mobile */
-      .bs-layout.chat-collapsed .doc-panel  { flex: 1 !important; height: auto !important; }
-      .bs-layout.chat-collapsed .chat-panel { flex: 1 !important; height: auto !important; opacity: 1 !important; width: 100% !important; min-width: 0 !important; }
-
-      /* Hide FAB — tabs replace it */
-      .chat-restore-btn { display: none !important; }
-      .resize-bar { display: none !important; }
-
-      .chat-input-bar { padding: 10px 12px; }
-      .chat-messages { padding: 14px 14px; }
+      .chat-input-bar  { padding: 10px 12px; }
+      .chat-messages   { padding: 14px; }
       .doc-upload-area { padding: 14px; }
-
-      /* doc-viewer fills the remaining space inside doc-panel on mobile */
-      .doc-viewer-area { flex: 1 !important; min-height: 0 !important; }
-      .doc-viewer-scroll { flex: 1; min-height: 0; }
-      .doc-viewer-scroll iframe { height: 100%; display: block; }
-
-      /* Hide desktop-only controls in chat header on mobile */
-      .chat-collapse-btn { display: none !important; }
     }
     /* ── PPTX text-card fallback ── */
     .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
@@ -785,16 +833,23 @@
       <main class="page-body">
         <div class="bs-layout chat-collapsed" id="bs-layout">
 
-          <!-- Mobile tab bar (hidden on desktop via CSS) -->
-          <div class="mobile-tab-bar" id="mobile-tab-bar">
-            <button class="mobile-tab active" id="mobile-tab-doc" onclick="switchMobileTab('doc')">
-              📄 Document
-            </button>
-            <button class="mobile-tab" id="mobile-tab-chat" onclick="switchMobileTab('chat')">
-              💬 UrPadi
-              <span class="mobile-tab-badge" id="mobile-chat-badge"></span>
-            </button>
-          </div>
+          <!-- Mobile: backdrop + floating UrPadi button (hidden on desktop) -->
+          <div class="mobile-chat-backdrop" id="mobile-chat-backdrop" onclick="toggleMobileChat()"></div>
+          <button class="mobile-fab" id="mobile-fab" onclick="toggleMobileChat()" aria-label="Open UrPadi AI chat">
+            <span class="fab-chat-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
+            </span>
+            <span class="fab-close-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </span>
+            <span class="mobile-fab-badge" id="mobile-fab-badge"></span>
+          </button>
 
           <!-- ── Left: Document Panel ── -->
           <div class="doc-panel" id="doc-panel">

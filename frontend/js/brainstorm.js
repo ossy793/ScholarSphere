@@ -70,7 +70,7 @@ function _injectProactiveMessage(msg) {
   if (window.innerWidth > 768 && layout?.classList.contains('chat-collapsed')) return;
   if (window.innerWidth <= 768 && !layout?.classList.contains('mobile-chat-active')) {
     // Mobile: show badge on UrPadi tab instead of injecting silently
-    const badge = document.getElementById('mobile-chat-badge');
+    const badge = document.getElementById('mobile-fab-badge');
     if (badge) badge.classList.add('visible');
     appendBubble('assistant', msg);
     chatHistory.push({ role: 'assistant', content: msg });
@@ -1141,7 +1141,7 @@ window.sendMessage = async function () {
     if (window.innerWidth <= 768) {
       const layout = document.getElementById('bs-layout');
       if (!layout.classList.contains('mobile-chat-active')) {
-        const badge = document.getElementById('mobile-chat-badge');
+        const badge = document.getElementById('mobile-fab-badge');
         if (badge) badge.classList.add('visible');
       }
     }
@@ -1217,32 +1217,36 @@ window.startResize = function (e) {
   document.addEventListener('mouseup', onUp);
 };
 
-// ── Mobile tab switching ──────────────────────────────────────────────────────
+// ── Mobile chat toggle (FAB + bottom-sheet) ───────────────────────────────────
 window.switchMobileTab = function (tab) {
   if (window.innerWidth > 768) return;
-  const layout  = document.getElementById('bs-layout');
-  const docTab  = document.getElementById('mobile-tab-doc');
-  const chatTab = document.getElementById('mobile-tab-chat');
-  const badge   = document.getElementById('mobile-chat-badge');
+  const layout   = document.getElementById('bs-layout');
+  const fab      = document.getElementById('mobile-fab');
+  const badge    = document.getElementById('mobile-fab-badge');
+  const backdrop = document.getElementById('mobile-chat-backdrop');
   if (tab === 'chat') {
     layout.classList.add('mobile-chat-active');
-    docTab?.classList.remove('active');
-    chatTab?.classList.add('active');
+    fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
-    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
+    if (backdrop) backdrop.classList.add('visible');
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 380);
   } else {
     layout.classList.remove('mobile-chat-active');
-    docTab?.classList.add('active');
-    chatTab?.classList.remove('active');
+    fab?.classList.remove('chat-open');
+    if (backdrop) backdrop.classList.remove('visible');
   }
 };
 
-// ── Chat panel collapse / restore ────────────────────────────────────────────
+window.toggleMobileChat = function () {
+  if (window.innerWidth > 768) return;
+  const layout = document.getElementById('bs-layout');
+  switchMobileTab(layout.classList.contains('mobile-chat-active') ? 'doc' : 'chat');
+};
+
+// ── Chat panel collapse / restore (desktop) ───────────────────────────────────
 window.toggleChatPanel = function () {
   if (window.innerWidth <= 768) {
-    // Mobile: toggle between tabs
-    const layout = document.getElementById('bs-layout');
-    switchMobileTab(layout.classList.contains('mobile-chat-active') ? 'doc' : 'chat');
+    toggleMobileChat();
     return;
   }
   const layout      = document.getElementById('bs-layout');
