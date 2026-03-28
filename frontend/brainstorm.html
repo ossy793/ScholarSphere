@@ -698,10 +698,7 @@
         overflow: hidden;
       }
 
-      /* Slide up when chat is active */
-      .bs-layout.mobile-chat-active .chat-panel {
-        transform: translateY(0) !important;
-      }
+      /* (open state rule moved below chat-collapsed so it wins on source order) */
 
       /* Drag-handle pill on chat panel header */
       .chat-panel > .panel-head {
@@ -781,9 +778,20 @@
       }
       .mobile-fab-badge.visible { display: flex; }
 
-      /* chat-collapsed class is a desktop concept — neutralise on mobile */
-      .bs-layout.chat-collapsed .chat-panel  { transform: translateY(105%) !important; }
-      .bs-layout.chat-collapsed .doc-panel   { position: absolute !important; inset: 0 !important; }
+      /* chat-collapsed is a desktop concept — neutralise it on mobile.
+         Also override the base rule's width:0 and opacity:0 (!important match, higher specificity). */
+      .bs-layout.chat-collapsed .chat-panel {
+        transform: translateY(105%) !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        opacity: 1 !important;
+      }
+      .bs-layout.chat-collapsed .doc-panel { position: absolute !important; inset: 0 !important; }
+
+      /* OPEN state — must be AFTER chat-collapsed rule so it wins on equal specificity + source order */
+      .bs-layout.mobile-chat-active .chat-panel {
+        transform: translateY(0) !important;
+      }
 
       /* Hide desktop-specific controls */
       .chat-collapse-btn  { display: none !important; }
