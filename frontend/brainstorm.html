@@ -645,8 +645,6 @@
     /* ── Mobile FAB + backdrop (hidden on desktop) ── */
     .mobile-chat-backdrop  { display: none; }
     .mobile-fab            { display: none; }
-    /* Mobile-only close button inside chat header (hidden on desktop) */
-    .mobile-chat-close-btn { display: none; }
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
@@ -776,23 +774,6 @@
       }
       .mobile-fab-badge.visible { display: flex; }
 
-      /* Mobile close button — visible only on mobile */
-      .mobile-chat-close-btn {
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        border: 1.5px solid var(--border);
-        border-radius: 8px;
-        background: var(--bg);
-        cursor: pointer;
-        color: var(--text-muted);
-        flex-shrink: 0;
-        -webkit-tap-highlight-color: transparent;
-      }
-      .mobile-chat-close-btn:active { background: var(--border); }
-      .mobile-chat-close-btn svg { width: 18px; height: 18px; }
 
       /* Hide desktop-only elements */
       .chat-collapse-btn { display: none !important; }
@@ -985,13 +966,6 @@
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="9 18 15 12 9 6"/>
-                  </svg>
-                </button>
-                <!-- Mobile: close bottom sheet -->
-                <button class="mobile-chat-close-btn" onclick="toggleMobileChat()" aria-label="Close chat">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="18 15 12 9 6 15"/>
                   </svg>
                 </button>
               </div>
