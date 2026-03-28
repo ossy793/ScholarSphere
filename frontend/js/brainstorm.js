@@ -25,10 +25,7 @@ function _setDesktopFileBadge(name, extLabel) {
 
 function _docControlsHtml(changeLabel = 'Change') {
   return `
-    <button class="btn btn-outline btn-sm" id="summary-btn" onclick="generateSummary()"
-      style="display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:0.78rem;font-weight:600">
-      📄 Summary
-    </button>
+    <button class="btn btn-outline btn-sm" id="summary-btn" onclick="generateSummary()">📄 Summary</button>
     <button class="btn btn-secondary btn-sm" onclick="changeDocument()">${changeLabel}</button>
   `;
 }
@@ -1250,7 +1247,6 @@ function _setMobileChatOpen(open) {
   if (!window.matchMedia('(max-width: 768px)').matches) return;
   _mobileChatOpen = open;
   const chatPanel = document.getElementById('chat-panel');
-  const fab       = document.getElementById('mobile-fab');
   const badge     = document.getElementById('mobile-fab-badge');
   const backdrop  = document.getElementById('mobile-chat-backdrop');
   const layout    = document.getElementById('bs-layout');
@@ -1259,14 +1255,12 @@ function _setMobileChatOpen(open) {
     if (chatPanel) chatPanel.setAttribute('style', _CHAT_OPEN_STYLE);
     if (backdrop)  backdrop.setAttribute('style',  _BACKDROP_OPEN_STYLE);
     layout?.classList.add('mobile-chat-active');
-    fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
   } else {
     // Instant hide — set display:none inline (overrides any CSS display:flex)
     if (chatPanel) chatPanel.setAttribute('style', 'display:none');
     if (backdrop)  backdrop.setAttribute('style',  'display:none');
     layout?.classList.remove('mobile-chat-active');
-    fab?.classList.remove('chat-open');
   }
 }
 

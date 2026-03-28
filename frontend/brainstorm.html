@@ -803,10 +803,11 @@
       }
       .mobile-fab:active { transform: scale(0.92); }
       .mobile-fab svg { width: 24px; height: 24px; }
-      .mobile-fab .fab-chat-icon  { display: flex; align-items: center; }
-      .mobile-fab .fab-close-icon { display: none;  align-items: center; }
-      .mobile-fab.chat-open .fab-chat-icon  { display: none !important; }
-      .mobile-fab.chat-open .fab-close-icon { display: flex !important; }
+
+      /* Mobile-only Close button inside chat header */
+      .mobile-chat-close-btn {
+        display: none;
+      }
 
       /* FAB unread badge */
       .mobile-fab-badge {
@@ -829,6 +830,22 @@
       .chat-collapse-btn { display: none !important; }
       .chat-restore-btn  { display: none !important; }
       .resize-bar        { display: none !important; }
+
+      /* Show Close button only on mobile */
+      .mobile-chat-close-btn {
+        display: inline-flex !important;
+        align-items: center;
+        padding: 3px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--text-muted);
+        cursor: pointer;
+        white-space: nowrap;
+        -webkit-tap-highlight-color: transparent;
+      }
 
       .chat-input-bar  { padding: 10px 12px; }
       .chat-messages   { padding: 14px; }
@@ -880,18 +897,10 @@
           <!-- Mobile: backdrop + floating UrPadi button (hidden on desktop) -->
           <div class="mobile-chat-backdrop" id="mobile-chat-backdrop" onclick="toggleMobileChat()"></div>
           <button class="mobile-fab" id="mobile-fab" onclick="toggleMobileChat()" aria-label="Open UrPadi AI chat">
-            <span class="fab-chat-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-              </svg>
-            </span>
-            <span class="fab-close-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
             <span class="mobile-fab-badge" id="mobile-fab-badge"></span>
           </button>
 
@@ -1010,6 +1019,8 @@
               </div>
               <div style="display:flex;align-items:center;gap:7px">
                 <button class="btn btn-secondary btn-sm" onclick="clearChat()">Clear Chat</button>
+                <!-- Mobile: close bottom sheet -->
+                <button class="mobile-chat-close-btn" onclick="toggleMobileChat()">Close</button>
                 <!-- Desktop: collapse side panel -->
                 <button class="chat-collapse-btn" id="chat-collapse-btn"
                   onclick="toggleChatPanel()" title="Collapse UrPadi">
