@@ -1246,6 +1246,8 @@ const _BACKDROP_OPEN_STYLE = [
 ].join(';');
 
 function _setMobileChatOpen(open) {
+  // No-op on desktop — inline styles set here would override desktop CSS
+  if (!window.matchMedia('(max-width: 768px)').matches) return;
   _mobileChatOpen = open;
   const chatPanel = document.getElementById('chat-panel');
   const fab       = document.getElementById('mobile-fab');
@@ -1282,6 +1284,10 @@ window.toggleChatPanel = function () {
     toggleMobileChat();
     return;
   }
+  // Remove any inline styles left by the mobile toggle so desktop CSS takes over
+  document.getElementById('chat-panel')?.removeAttribute('style');
+  document.getElementById('mobile-chat-backdrop')?.removeAttribute('style');
+
   const layout      = document.getElementById('bs-layout');
   const restoreBtn  = document.getElementById('chat-restore-btn');
   const isCollapsed = layout.classList.toggle('chat-collapsed');
