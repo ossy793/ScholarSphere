@@ -1068,7 +1068,8 @@ function enableChat(ocrWarning) {
     input.disabled    = false;
     input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
     document.getElementById('send-btn').disabled = false;
-    input.focus();
+    // Don't auto-focus on mobile — it scrolls the off-screen chat panel into view
+    if (!window.matchMedia('(max-width: 768px)').matches) input.focus();
     _startReadingTimers(); // begin proactive engagement countdown
   }
 }
@@ -1218,33 +1219,36 @@ window.startResize = function (e) {
 };
 
 // ── Mobile chat toggle (FAB + bottom-sheet) ───────────────────────────────────
-window.switchMobileTab = function (tab) {
-  if (!window.matchMedia('(max-width: 768px)').matches) return;
-  const layout    = document.getElementById('bs-layout');
+let _mobileChatOpen = false;
+
+function _setMobileChatOpen(open) {
+  _mobileChatOpen = open;
   const chatPanel = document.getElementById('chat-panel');
   const fab       = document.getElementById('mobile-fab');
   const badge     = document.getElementById('mobile-fab-badge');
   const backdrop  = document.getElementById('mobile-chat-backdrop');
-  if (tab === 'chat') {
+  const layout    = document.getElementById('bs-layout');
+
+  if (open) {
+    if (chatPanel) { chatPanel.style.transform = 'translateY(0)'; chatPanel.style.pointerEvents = ''; }
+    if (backdrop)  backdrop.style.display = 'block';
     layout?.classList.add('mobile-chat-active');
-    if (chatPanel) chatPanel.style.transform = 'translateY(0)';
     fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
-    if (backdrop) backdrop.style.display = 'block';
-    setTimeout(() => document.getElementById('chat-input')?.focus(), 380);
   } else {
+    if (chatPanel) { chatPanel.style.transform = 'translateY(110%)'; chatPanel.style.pointerEvents = 'none'; }
+    if (backdrop)  backdrop.style.display = 'none';
     layout?.classList.remove('mobile-chat-active');
-    if (chatPanel) chatPanel.style.transform = 'translateY(100%)';
     fab?.classList.remove('chat-open');
-    if (backdrop) backdrop.style.display = 'none';
   }
+}
+
+window.switchMobileTab = function (tab) {
+  _setMobileChatOpen(tab === 'chat');
 };
 
 window.toggleMobileChat = function () {
-  // No width guard — FAB is CSS-hidden on desktop so this only fires on mobile
-  const layout = document.getElementById('bs-layout');
-  if (!layout) return;
-  switchMobileTab(layout.classList.contains('mobile-chat-active') ? 'doc' : 'chat');
+  _setMobileChatOpen(!_mobileChatOpen);
 };
 
 // ── Chat panel collapse / restore (desktop) ───────────────────────────────────
@@ -1555,15 +1559,6 @@ function escHtml(str) {
 window.addEventListener('beforeunload', _bsSave);
 
 // Ensure mobile chat is closed on every page load (never auto-open)
-(function _initMobileState() {
-  const layout    = document.getElementById('bs-layout');
-  const chatPanel = document.getElementById('chat-panel');
-  const fab       = document.getElementById('mobile-fab');
-  const backdrop  = document.getElementById('mobile-chat-backdrop');
-  if (layout)    layout.classList.remove('mobile-chat-active');
-  if (chatPanel) chatPanel.style.transform = 'translateY(100%)';
-  if (fab)       fab.classList.remove('chat-open');
-  if (backdrop)  backdrop.style.display = 'none';
-})();
+_setMobileChatOpen(false);
 
 _bsRestore().catch(console.error);
