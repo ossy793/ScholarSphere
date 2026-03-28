@@ -1230,33 +1230,32 @@ function _setMobileChatOpen(open) {
   const layout    = document.getElementById('bs-layout');
 
   if (open) {
-    // Make visible, animate slide-up
     if (chatPanel) {
-      chatPanel.style.display    = 'flex';
+      // Use setProperty with 'important' so we beat any CSS !important rule
+      chatPanel.style.setProperty('display', 'flex', 'important');
       chatPanel.style.transition = 'none';
       chatPanel.style.transform  = 'translateY(100%)';
-      void chatPanel.offsetHeight; // force reflow so transition fires
+      void chatPanel.offsetHeight; // force reflow
       chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
       chatPanel.style.transform  = 'translateY(0)';
     }
-    if (backdrop)  backdrop.style.display = 'block';
+    if (backdrop) backdrop.style.setProperty('display', 'block', 'important');
     layout?.classList.add('mobile-chat-active');
     fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
   } else {
-    // Animate slide-down, then hide completely
     if (chatPanel) {
       chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
       chatPanel.style.transform  = 'translateY(100%)';
       setTimeout(() => {
         if (!_mobileChatOpen) {
-          chatPanel.style.display    = 'none';
+          chatPanel.style.setProperty('display', 'none', 'important');
           chatPanel.style.transform  = '';
           chatPanel.style.transition = '';
         }
       }, 340);
     }
-    if (backdrop)  backdrop.style.display = 'none';
+    if (backdrop) backdrop.style.setProperty('display', 'none', 'important');
     layout?.classList.remove('mobile-chat-active');
     fab?.classList.remove('chat-open');
   }

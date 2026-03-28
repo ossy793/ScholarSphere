@@ -650,18 +650,18 @@
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
-      /* bs-layout: sizing + positioning context for all absolute children */
+      /* bs-layout: fills viewport below header; no overflow:hidden (chat uses position:fixed) */
       .bs-layout {
         height: calc(100vh - 40px);
         height: calc(100dvh - 40px);
         position: relative !important;
-        overflow: hidden !important;
-        /* Remove flex so absolute children control their own layout */
         display: block !important;
+        overflow: visible !important;
       }
 
       /* Doc panel: fills bs-layout completely */
-      .doc-panel {
+      .doc-panel,
+      .bs-layout.chat-collapsed .doc-panel {
         position: absolute !important;
         inset: 0 !important;
         width: 100% !important;
@@ -676,25 +676,27 @@
       }
 
       /* doc-viewer fills remaining space inside doc-panel */
-      .doc-viewer-area  { flex: 1 !important; min-height: 0 !important; }
+      .doc-viewer-area   { flex: 1 !important; min-height: 0 !important; }
       .doc-viewer-scroll { flex: 1 !important; min-height: 0 !important; overflow-y: auto !important; }
       .doc-viewer-scroll iframe { height: 100% !important; display: block !important; border: none !important; }
 
-      /* Backdrop: absolute inside bs-layout, behind chat panel */
-      .mobile-chat-backdrop {
-        position: absolute !important;
-        inset: 0 !important;
-        background: rgba(0, 0, 0, 0.45);
-        z-index: 10;
-        display: none !important;
-      }
-      .mobile-chat-backdrop.visible { display: block !important; }
+      /* ── Chat overlay: position:fixed so parent overflow can't clip it ── */
 
-      /* Chat panel: hidden by default; JS shows/hides via display + transform */
+      /* Backdrop: fixed, covers entire viewport */
+      .mobile-chat-backdrop {
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9000;
+        display: none;   /* JS sets display via inline style — no !important here */
+      }
+
+      /* Chat panel: fixed bottom sheet.
+         display:none has NO !important so JS inline style display:flex wins. */
       .chat-panel,
       .bs-layout.chat-collapsed .chat-panel {
-        display: none !important;
-        position: absolute !important;
+        display: none;            /* no !important — JS overrides with inline style */
+        position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
@@ -703,12 +705,13 @@
         min-width: 0 !important;
         height: 74% !important;
         min-height: 0 !important;
-        z-index: 20 !important;
+        z-index: 9100 !important;
         border-radius: 18px 18px 0 0 !important;
-        box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.25) !important;
+        box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.3) !important;
         flex-direction: column !important;
         opacity: 1 !important;
         overflow: hidden !important;
+        background: var(--bg) !important;
       }
 
       /* Drag-handle pill */
@@ -729,12 +732,12 @@
         border-radius: 2px;
       }
 
-      /* FAB: absolute, bottom-right of bs-layout */
+      /* FAB: fixed, always visible above chat panel */
       .mobile-fab {
-        position: absolute !important;
-        bottom: 20px !important;
-        right: 16px !important;
-        z-index: 30 !important;
+        position: fixed !important;
+        bottom: 24px !important;
+        right: 18px !important;
+        z-index: 9200 !important;   /* above chat panel */
         width: 56px;
         height: 56px;
         border-radius: 50%;
@@ -750,7 +753,7 @@
         -webkit-tap-highlight-color: transparent;
         outline: none;
       }
-      .mobile-fab:active { transform: scale(0.9); }
+      .mobile-fab:active { transform: scale(0.92); }
       .mobile-fab svg { width: 24px; height: 24px; }
       .mobile-fab .fab-chat-icon  { display: flex; align-items: center; }
       .mobile-fab .fab-close-icon { display: none;  align-items: center; }
@@ -772,8 +775,6 @@
         align-items: center; justify-content: center;
       }
       .mobile-fab-badge.visible { display: flex; }
-
-      .bs-layout.chat-collapsed .doc-panel { position: absolute !important; inset: 0 !important; }
 
       /* Mobile close button — visible only on mobile */
       .mobile-chat-close-btn {
