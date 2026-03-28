@@ -1230,13 +1230,32 @@ function _setMobileChatOpen(open) {
   const layout    = document.getElementById('bs-layout');
 
   if (open) {
-    if (chatPanel) { chatPanel.style.transform = 'translateY(0)'; chatPanel.style.pointerEvents = ''; }
+    // Make visible, animate slide-up
+    if (chatPanel) {
+      chatPanel.style.display    = 'flex';
+      chatPanel.style.transition = 'none';
+      chatPanel.style.transform  = 'translateY(100%)';
+      void chatPanel.offsetHeight; // force reflow so transition fires
+      chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
+      chatPanel.style.transform  = 'translateY(0)';
+    }
     if (backdrop)  backdrop.style.display = 'block';
     layout?.classList.add('mobile-chat-active');
     fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
   } else {
-    if (chatPanel) { chatPanel.style.transform = 'translateY(110%)'; chatPanel.style.pointerEvents = 'none'; }
+    // Animate slide-down, then hide completely
+    if (chatPanel) {
+      chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
+      chatPanel.style.transform  = 'translateY(100%)';
+      setTimeout(() => {
+        if (!_mobileChatOpen) {
+          chatPanel.style.display    = 'none';
+          chatPanel.style.transform  = '';
+          chatPanel.style.transition = '';
+        }
+      }, 340);
+    }
     if (backdrop)  backdrop.style.display = 'none';
     layout?.classList.remove('mobile-chat-active');
     fab?.classList.remove('chat-open');

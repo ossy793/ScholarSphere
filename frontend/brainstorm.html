@@ -690,8 +690,10 @@
       }
       .mobile-chat-backdrop.visible { display: block !important; }
 
-      /* Chat panel: absolute bottom-sheet, hidden below viewport via translateY */
-      .chat-panel {
+      /* Chat panel: hidden by default; JS shows/hides via display + transform */
+      .chat-panel,
+      .bs-layout.chat-collapsed .chat-panel {
+        display: none !important;
         position: absolute !important;
         bottom: 0 !important;
         left: 0 !important;
@@ -704,8 +706,6 @@
         z-index: 20 !important;
         border-radius: 18px 18px 0 0 !important;
         box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.25) !important;
-        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        display: flex !important;
         flex-direction: column !important;
         opacity: 1 !important;
         overflow: hidden !important;
@@ -773,16 +773,7 @@
       }
       .mobile-fab-badge.visible { display: flex; }
 
-      /* Neutralise desktop chat-collapsed side-effects on mobile */
-      .bs-layout.chat-collapsed .chat-panel,
-      .bs-layout .chat-panel {
-        width: 100% !important;
-        min-width: 0 !important;
-        opacity: 1 !important;
-      }
       .bs-layout.chat-collapsed .doc-panel { position: absolute !important; inset: 0 !important; }
-
-      /* transform is controlled entirely by JS inline styles — no CSS transform rules here */
 
       /* Mobile close button — visible only on mobile */
       .mobile-chat-close-btn {
@@ -971,7 +962,7 @@
             onmousedown="startResize(event)" title="Drag to resize"></div>
 
           <!-- ── Right: UrPadi Chat Panel ── -->
-          <div class="chat-panel" id="chat-panel" style="transform:translateY(110%);pointer-events:none;">
+          <div class="chat-panel" id="chat-panel">
 
             <div class="panel-head">
               <div class="panel-head-title">
