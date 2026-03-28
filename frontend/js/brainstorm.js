@@ -1219,21 +1219,24 @@ window.startResize = function (e) {
 
 // ── Mobile chat toggle (FAB + bottom-sheet) ───────────────────────────────────
 window.switchMobileTab = function (tab) {
-  if (window.innerWidth > 768) return;
-  const layout   = document.getElementById('bs-layout');
-  const fab      = document.getElementById('mobile-fab');
-  const badge    = document.getElementById('mobile-fab-badge');
-  const backdrop = document.getElementById('mobile-chat-backdrop');
+  if (!window.matchMedia('(max-width: 768px)').matches) return;
+  const layout    = document.getElementById('bs-layout');
+  const chatPanel = document.getElementById('chat-panel');
+  const fab       = document.getElementById('mobile-fab');
+  const badge     = document.getElementById('mobile-fab-badge');
+  const backdrop  = document.getElementById('mobile-chat-backdrop');
   if (tab === 'chat') {
-    layout.classList.add('mobile-chat-active');
+    layout?.classList.add('mobile-chat-active');
+    if (chatPanel) chatPanel.style.transform = 'translateY(0)';
     fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
-    if (backdrop) backdrop.classList.add('visible');
+    if (backdrop) backdrop.style.display = 'block';
     setTimeout(() => document.getElementById('chat-input')?.focus(), 380);
   } else {
-    layout.classList.remove('mobile-chat-active');
+    layout?.classList.remove('mobile-chat-active');
+    if (chatPanel) chatPanel.style.transform = 'translateY(100%)';
     fab?.classList.remove('chat-open');
-    if (backdrop) backdrop.classList.remove('visible');
+    if (backdrop) backdrop.style.display = 'none';
   }
 };
 
@@ -1553,12 +1556,14 @@ window.addEventListener('beforeunload', _bsSave);
 
 // Ensure mobile chat is closed on every page load (never auto-open)
 (function _initMobileState() {
-  const layout = document.getElementById('bs-layout');
-  if (layout) layout.classList.remove('mobile-chat-active');
-  const fab      = document.getElementById('mobile-fab');
-  const backdrop = document.getElementById('mobile-chat-backdrop');
-  if (fab)      fab.classList.remove('chat-open');
-  if (backdrop) backdrop.classList.remove('visible');
+  const layout    = document.getElementById('bs-layout');
+  const chatPanel = document.getElementById('chat-panel');
+  const fab       = document.getElementById('mobile-fab');
+  const backdrop  = document.getElementById('mobile-chat-backdrop');
+  if (layout)    layout.classList.remove('mobile-chat-active');
+  if (chatPanel) chatPanel.style.transform = 'translateY(100%)';
+  if (fab)       fab.classList.remove('chat-open');
+  if (backdrop)  backdrop.style.display = 'none';
 })();
 
 _bsRestore().catch(console.error);
