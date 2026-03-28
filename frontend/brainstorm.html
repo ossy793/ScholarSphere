@@ -648,15 +648,17 @@
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
-      /* bs-layout: full height, use dvh for accurate viewport accounting */
+      /* bs-layout: sizing + positioning context for all absolute children */
       .bs-layout {
         height: calc(100vh - 40px);
         height: calc(100dvh - 40px);
-        position: relative;
-        overflow: hidden;
+        position: relative !important;
+        overflow: hidden !important;
+        /* Remove flex so absolute children control their own layout */
+        display: block !important;
       }
 
-      /* Doc panel: always full-screen on mobile — use absolute so it fills bs-layout */
+      /* Doc panel: fills bs-layout completely */
       .doc-panel {
         position: absolute !important;
         inset: 0 !important;
@@ -665,46 +667,54 @@
         min-width: 0 !important;
         border-right: none !important;
         transition: none !important;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        z-index: 1;
       }
 
-      /* doc-viewer fills the remaining space inside doc-panel */
-      .doc-viewer-area { flex: 1 !important; min-height: 0 !important; }
-      .doc-viewer-scroll { flex: 1 !important; min-height: 0; overflow-y: auto; }
-      .doc-viewer-scroll iframe { height: 100%; display: block; border: none; }
+      /* doc-viewer fills remaining space inside doc-panel */
+      .doc-viewer-area  { flex: 1 !important; min-height: 0 !important; }
+      .doc-viewer-scroll { flex: 1 !important; min-height: 0 !important; overflow-y: auto !important; }
+      .doc-viewer-scroll iframe { height: 100% !important; display: block !important; border: none !important; }
 
-      /* Chat panel: fixed bottom-sheet that slides up */
+      /* Backdrop: absolute inside bs-layout, behind chat panel */
+      .mobile-chat-backdrop {
+        position: absolute !important;
+        inset: 0 !important;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 10;
+        display: none !important;
+      }
+      .mobile-chat-backdrop.visible { display: block !important; }
+
+      /* Chat panel: absolute bottom-sheet, hidden below viewport via translateY */
       .chat-panel {
-        position: fixed !important;
+        position: absolute !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
         top: auto !important;
         width: 100% !important;
         min-width: 0 !important;
-        height: 72vh !important;
-        height: 72dvh !important;
+        height: 74% !important;
         min-height: 0 !important;
-        z-index: 400 !important;
+        z-index: 20 !important;
         border-radius: 18px 18px 0 0 !important;
-        box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.22) !important;
-        transform: translateY(105%) !important;
-        transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.25) !important;
+        transform: translateY(100%) !important;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: flex !important;
-        flex-direction: column;
+        flex-direction: column !important;
         opacity: 1 !important;
-        overflow: hidden;
+        overflow: hidden !important;
       }
 
-      /* (open state rule moved below chat-collapsed so it wins on source order) */
-
-      /* Drag-handle pill on chat panel header */
+      /* Drag-handle pill */
       .chat-panel > .panel-head {
-        position: relative;
+        position: relative !important;
         padding-top: 18px !important;
-        border-radius: 18px 18px 0 0;
+        border-radius: 18px 18px 0 0 !important;
       }
       .chat-panel > .panel-head::before {
         content: '';
@@ -718,24 +728,12 @@
         border-radius: 2px;
       }
 
-      /* Backdrop overlay behind bottom sheet */
-      .mobile-chat-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.42);
-        z-index: 399;
-        backdrop-filter: blur(1px);
-        -webkit-backdrop-filter: blur(1px);
-        display: none;
-      }
-      .mobile-chat-backdrop.visible { display: block; }
-
-      /* Floating UrPadi button (FAB) */
+      /* FAB: absolute, bottom-right of bs-layout */
       .mobile-fab {
-        position: fixed;
-        bottom: 22px;
-        right: 18px;
-        z-index: 401;
+        position: absolute !important;
+        bottom: 20px !important;
+        right: 16px !important;
+        z-index: 30 !important;
         width: 56px;
         height: 56px;
         border-radius: 50%;
@@ -743,60 +741,56 @@
         color: #fff;
         border: none;
         cursor: pointer;
-        display: flex;
+        display: flex !important;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 20px rgba(0, 119, 255, 0.48);
-        transition: background 0.15s, transform 0.18s, box-shadow 0.15s;
+        box-shadow: 0 4px 20px rgba(0, 119, 255, 0.5);
+        transition: background 0.15s, transform 0.18s;
         -webkit-tap-highlight-color: transparent;
         outline: none;
       }
-      .mobile-fab:active { transform: scale(0.91); box-shadow: 0 2px 10px rgba(0,119,255,0.3); }
+      .mobile-fab:active { transform: scale(0.9); }
       .mobile-fab svg { width: 24px; height: 24px; }
       .mobile-fab .fab-chat-icon  { display: flex; align-items: center; }
       .mobile-fab .fab-close-icon { display: none;  align-items: center; }
-      .mobile-fab.chat-open .fab-chat-icon  { display: none; }
-      .mobile-fab.chat-open .fab-close-icon { display: flex; }
+      .mobile-fab.chat-open .fab-chat-icon  { display: none !important; }
+      .mobile-fab.chat-open .fab-close-icon { display: flex !important; }
 
-      /* Unread badge on FAB */
+      /* FAB unread badge */
       .mobile-fab-badge {
         position: absolute;
-        top: -3px;
-        right: -3px;
+        top: -3px; right: -3px;
         background: var(--danger);
         color: #fff;
-        min-width: 18px;
-        height: 18px;
+        min-width: 18px; height: 18px;
         border-radius: 9px;
-        font-size: 0.6rem;
-        font-weight: 700;
+        font-size: 0.6rem; font-weight: 700;
         padding: 0 4px;
         border: 2px solid #fff;
         display: none;
-        align-items: center;
-        justify-content: center;
+        align-items: center; justify-content: center;
       }
       .mobile-fab-badge.visible { display: flex; }
 
-      /* chat-collapsed is a desktop concept — neutralise it on mobile.
-         Also override the base rule's width:0 and opacity:0 (!important match, higher specificity). */
-      .bs-layout.chat-collapsed .chat-panel {
-        transform: translateY(105%) !important;
+      /* Neutralise desktop chat-collapsed side-effects on mobile */
+      .bs-layout.chat-collapsed .chat-panel,
+      .bs-layout .chat-panel {
+        transform: translateY(100%) !important;
         width: 100% !important;
         min-width: 0 !important;
         opacity: 1 !important;
       }
       .bs-layout.chat-collapsed .doc-panel { position: absolute !important; inset: 0 !important; }
 
-      /* OPEN state — must be AFTER chat-collapsed rule so it wins on equal specificity + source order */
+      /* OPEN — must be last so it wins over chat-collapsed rule above */
       .bs-layout.mobile-chat-active .chat-panel {
         transform: translateY(0) !important;
       }
 
-      /* Hide desktop-specific controls */
-      .chat-collapse-btn  { display: none !important; }
-      .chat-restore-btn   { display: none !important; }
-      .resize-bar         { display: none !important; }
+      /* Hide desktop-only elements */
+      .chat-collapse-btn { display: none !important; }
+      .chat-restore-btn  { display: none !important; }
+      .resize-bar        { display: none !important; }
 
       .chat-input-bar  { padding: 10px 12px; }
       .chat-messages   { padding: 14px; }
