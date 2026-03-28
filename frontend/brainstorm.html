@@ -21,10 +21,12 @@
     .top-header { height: 40px; min-height: 40px; padding: 0 16px; }
     .top-header h1 { font-size: 1rem; }
 
-    .page-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .page-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; flex: 1; }
 
     .bs-layout {
       display: flex;
+      flex: 1;
+      min-height: 0;
       height: calc(100vh - 40px);
       overflow: hidden;
     }
@@ -645,7 +647,13 @@
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
-      .bs-layout { flex-direction: column; }
+      /* Use dvh so layout fits the actual visible viewport (excludes browser chrome).
+         Fallback to vh for older browsers — last declaration wins when dvh is supported. */
+      .bs-layout {
+        flex-direction: column;
+        height: calc(100vh - 40px);
+        height: calc(100dvh - 40px);
+      }
 
       /* Tab switcher */
       .mobile-tab-bar {
@@ -690,25 +698,28 @@
       }
       .mobile-tab-badge.visible { display: inline-block; }
 
-      /* Each panel fills remaining height */
+      /* Each panel uses flex: 1 to fill remaining height after the tab bar.
+         Avoid explicit height: calc(100% - 42px) which breaks when dvh differs from vh. */
       .doc-panel {
         width: 100% !important;
         min-width: 0 !important;
-        height: calc(100% - 42px) !important;
-        flex: 1;
-        flex-shrink: 0;
+        flex: 1 !important;
+        min-height: 0 !important;
+        height: auto !important;
         border-right: none !important;
         border-bottom: none !important;
         transition: none !important;
+        overflow: hidden;
       }
       .chat-panel {
         width: 100% !important;
         min-width: 0 !important;
-        height: calc(100% - 42px) !important;
-        flex: 1;
+        flex: 1 !important;
         min-height: 0 !important;
+        height: auto !important;
         transition: none !important;
         display: none !important;
+        overflow: hidden;
       }
 
       /* Show chat panel when user switches to UrPadi tab */
@@ -716,8 +727,8 @@
       .bs-layout.mobile-chat-active .chat-panel { display: flex !important; }
 
       /* chat-collapsed / restored classes don't apply on mobile */
-      .bs-layout.chat-collapsed .doc-panel  { height: calc(100% - 42px) !important; }
-      .bs-layout.chat-collapsed .chat-panel { height: calc(100% - 42px) !important; opacity: 1 !important; width: 100% !important; min-width: 0 !important; }
+      .bs-layout.chat-collapsed .doc-panel  { flex: 1 !important; height: auto !important; }
+      .bs-layout.chat-collapsed .chat-panel { flex: 1 !important; height: auto !important; opacity: 1 !important; width: 100% !important; min-width: 0 !important; }
 
       /* Hide FAB — tabs replace it */
       .chat-restore-btn { display: none !important; }
@@ -726,6 +737,11 @@
       .chat-input-bar { padding: 10px 12px; }
       .chat-messages { padding: 14px 14px; }
       .doc-upload-area { padding: 14px; }
+
+      /* doc-viewer fills the remaining space inside doc-panel on mobile */
+      .doc-viewer-area { flex: 1 !important; min-height: 0 !important; }
+      .doc-viewer-scroll { flex: 1; min-height: 0; }
+      .doc-viewer-scroll iframe { height: 100%; display: block; }
 
       /* Hide desktop-only controls in chat header on mobile */
       .chat-collapse-btn { display: none !important; }
