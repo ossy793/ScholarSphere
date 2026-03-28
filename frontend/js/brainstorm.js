@@ -1238,8 +1238,9 @@ window.switchMobileTab = function (tab) {
 };
 
 window.toggleMobileChat = function () {
-  if (window.innerWidth > 768) return;
+  // No width guard — FAB is CSS-hidden on desktop so this only fires on mobile
   const layout = document.getElementById('bs-layout');
+  if (!layout) return;
   switchMobileTab(layout.classList.contains('mobile-chat-active') ? 'doc' : 'chat');
 };
 
@@ -1549,4 +1550,15 @@ function escHtml(str) {
 
 // ── Restore saved state on page load ──────────────────────────────────────────
 window.addEventListener('beforeunload', _bsSave);
+
+// Ensure mobile chat is closed on every page load (never auto-open)
+(function _initMobileState() {
+  const layout = document.getElementById('bs-layout');
+  if (layout) layout.classList.remove('mobile-chat-active');
+  const fab      = document.getElementById('mobile-fab');
+  const backdrop = document.getElementById('mobile-chat-backdrop');
+  if (fab)      fab.classList.remove('chat-open');
+  if (backdrop) backdrop.classList.remove('visible');
+})();
+
 _bsRestore().catch(console.error);
