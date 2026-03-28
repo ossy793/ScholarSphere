@@ -1221,6 +1221,30 @@ window.startResize = function (e) {
 // ── Mobile chat toggle (FAB + bottom-sheet) ───────────────────────────────────
 let _mobileChatOpen = false;
 
+// CSS open-panel style — setAttribute overwrites the whole inline style attribute,
+// so NO CSS rule (including !important) can interfere.
+const _CHAT_OPEN_STYLE = [
+  'display:flex',
+  'position:fixed',
+  'bottom:0', 'left:0', 'right:0', 'top:auto',
+  'width:100%', 'height:74%',
+  'z-index:9999',
+  'flex-direction:column',
+  'overflow:hidden',
+  'border-radius:18px 18px 0 0',
+  'box-shadow:0 -8px 40px rgba(0,0,0,0.3)',
+  'background:#F0F6FF',
+  'animation:bs-chat-slide-up 0.3s cubic-bezier(0.4,0,0.2,1) both',
+].join(';');
+
+const _BACKDROP_OPEN_STYLE = [
+  'display:block',
+  'position:fixed',
+  'inset:0',
+  'background:rgba(0,0,0,0.5)',
+  'z-index:9000',
+].join(';');
+
 function _setMobileChatOpen(open) {
   _mobileChatOpen = open;
   const chatPanel = document.getElementById('chat-panel');
@@ -1230,32 +1254,15 @@ function _setMobileChatOpen(open) {
   const layout    = document.getElementById('bs-layout');
 
   if (open) {
-    if (chatPanel) {
-      // Use setProperty with 'important' so we beat any CSS !important rule
-      chatPanel.style.setProperty('display', 'flex', 'important');
-      chatPanel.style.transition = 'none';
-      chatPanel.style.transform  = 'translateY(100%)';
-      void chatPanel.offsetHeight; // force reflow
-      chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
-      chatPanel.style.transform  = 'translateY(0)';
-    }
-    if (backdrop) backdrop.style.setProperty('display', 'block', 'important');
+    if (chatPanel) chatPanel.setAttribute('style', _CHAT_OPEN_STYLE);
+    if (backdrop)  backdrop.setAttribute('style',  _BACKDROP_OPEN_STYLE);
     layout?.classList.add('mobile-chat-active');
     fab?.classList.add('chat-open');
     if (badge) badge.classList.remove('visible');
   } else {
-    if (chatPanel) {
-      chatPanel.style.transition = 'transform 0.32s cubic-bezier(0.4,0,0.2,1)';
-      chatPanel.style.transform  = 'translateY(100%)';
-      setTimeout(() => {
-        if (!_mobileChatOpen) {
-          chatPanel.style.setProperty('display', 'none', 'important');
-          chatPanel.style.transform  = '';
-          chatPanel.style.transition = '';
-        }
-      }, 340);
-    }
-    if (backdrop) backdrop.style.setProperty('display', 'none', 'important');
+    // Instant hide — set display:none inline (overrides any CSS display:flex)
+    if (chatPanel) chatPanel.setAttribute('style', 'display:none');
+    if (backdrop)  backdrop.setAttribute('style',  'display:none');
     layout?.classList.remove('mobile-chat-active');
     fab?.classList.remove('chat-open');
   }
