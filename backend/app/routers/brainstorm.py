@@ -25,6 +25,7 @@ from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
 from ..utils.chunker import chunk_text
 from ..utils.rag import store_chunks, retrieve_chunks, chunks_exist
 from ..services.ai_service import get_groq_client
+from ..services.model_service import chat_with_model, get_available_models
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
@@ -87,6 +88,7 @@ class ChatRequest(BaseModel):
     history: List[HistoryItem] = []
     session_id: Optional[str] = None
     current_page: int = 1   # PDF viewer's current page — used for visual Q&A page selection
+    model: str = "groq"     # AI model to use: "groq" | "openai" | "gemini"
 
 
 class SummaryRequest(BaseModel):
@@ -215,6 +217,14 @@ def _chunk_and_embed(session_id_str: str, document_id_str: str, text: str) -> No
         logger.warning("RAG chunking/embedding failed for session %s: %s", session_id_str, exc)
     finally:
         db.close()
+
+
+# ── Available models ─────────────────────────────────────────────────────────
+
+@router.get("/models")
+def list_models():
+    """Return AI models that have API keys configured."""
+    return get_available_models()
 
 
 # ── Session CRUD ──────────────────────────────────────────────────────────────
@@ -871,15 +881,14 @@ def brainstorm_chat(
             messages_to_send.append({"role": item.role, "content": item.content})
     messages_to_send.append({"role": "user", "content": payload.message})
 
-    # ── Call Groq ─────────────────────────────────────────────────────────────
+    # ── Call AI model (Groq / OpenAI / Gemini) ────────────────────────────────
     try:
-        response = get_groq_client().chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages_to_send,
-            temperature=0.3,
-            max_tokens=1024,
+        reply = chat_with_model(
+            model_id    = payload.model,
+            messages    = messages_to_send,
+            temperature = 0.3,
+            max_tokens  = 1024,
         )
-        reply = response.choices[0].message.content.strip()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

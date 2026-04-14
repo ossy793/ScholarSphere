@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     GROQ_API_KEY: str
+    OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_DAYS: int = 30
 
     # CORS — allowed frontend origins
@@ -73,8 +75,8 @@ class Settings(BaseSettings):
 
 
 @lru_cache()
-def get_settings() -> Settings:
+def get_setting() -> Settings:
     return Settings()
 
 
-settings = get_settings()
+settings = get_setting()

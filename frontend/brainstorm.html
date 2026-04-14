@@ -512,6 +512,65 @@
     .msg.assistant .msg-bubble p { margin: 0 0 6px; }
     .msg.assistant .msg-bubble p:last-child { margin-bottom: 0; }
 
+    /* ── Model selector ── */
+    .model-powered-label {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .model-selector-wrap { position: relative; }
+    .model-selector-btn {
+      display: flex; align-items: center; gap: 5px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 0.73rem; font-weight: 600;
+      padding: 3px 8px; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .model-selector-btn:hover { border-color: var(--primary); background: rgba(0,119,255,0.04); }
+    .model-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .model-picker {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+      min-width: 200px;
+      z-index: 200;
+      overflow: hidden;
+      padding: 4px 0;
+    }
+    .model-option {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border: none; background: none;
+      width: 100%; text-align: left;
+    }
+    .model-option:hover { background: rgba(0,119,255,0.06); }
+    .model-option.active { background: rgba(0,119,255,0.09); }
+    .model-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .model-option-info { display: flex; flex-direction: column; gap: 1px; }
+    .model-option-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .model-option-provider { font-size: 0.68rem; color: var(--text-muted); }
+    .model-option-badge {
+      margin-left: auto;
+      font-size: 0.6rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 4px;
+      background: rgba(0,119,255,0.1); color: var(--primary);
+    }
+
     /* Guided Study Mode prompt buttons */
     .guided-prompt-btns {
       display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
@@ -1156,14 +1215,28 @@
           <div class="chat-panel" id="chat-panel">
 
             <div class="panel-head">
-              <div class="panel-head-title">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                </svg>
-                UrPadi
+              <div class="panel-head-title" style="flex-direction:column;align-items:flex-start;gap:1px">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                  </svg>
+                  UrPadi
+                </div>
+                <div class="model-powered-label" id="model-powered-label">powered by Groq · Llama 3.3</div>
               </div>
               <div style="display:flex;align-items:center;gap:7px">
+                <!-- Model selector -->
+                <div class="model-selector-wrap" id="model-selector-wrap">
+                  <button class="model-selector-btn" id="model-selector-btn" onclick="toggleModelPicker()" title="Switch AI model">
+                    <span class="model-dot" id="model-dot" style="background:#f97316"></span>
+                    <span id="model-btn-label">Groq</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="model-picker" id="model-picker" style="display:none">
+                    <!-- Populated by JS -->
+                  </div>
+                </div>
                 <button class="btn btn-secondary btn-sm" onclick="clearChat()">Clear Chat</button>
                 <!-- Mobile: close bottom sheet -->
                 <button class="mobile-chat-close-btn" onclick="toggleMobileChat()">Close</button>

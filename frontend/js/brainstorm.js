@@ -12,6 +12,77 @@ let currentBlobUrl   = null; // revoke on next upload
 let currentSessionId = null; // DB session ID (null = unsaved)
 let currentFilename  = 'Document'; // used for summary PDF filename
 
+// ── Model selection ───────────────────────────────────────────────────────────
+const _MODEL_COLORS = { groq: '#f97316', openai: '#10a37f', gemini: '#4285f4' };
+let _selectedModel  = localStorage.getItem('sz_model') || 'groq';
+let _availableModels = [];
+
+async function _loadModels() {
+  try {
+    _availableModels = await api.get('/brainstorm/models');
+  } catch (_) {
+    _availableModels = [{ id: 'groq', name: 'Llama 3.3', provider: 'Groq' }];
+  }
+  // If saved model is no longer available, fall back to first available
+  if (!_availableModels.find(m => m.id === _selectedModel)) {
+    _selectedModel = _availableModels[0]?.id || 'groq';
+  }
+  _renderModelPicker();
+  _updateModelUI();
+}
+
+function _renderModelPicker() {
+  const picker = document.getElementById('model-picker');
+  if (!picker) return;
+  picker.innerHTML = _availableModels.map(m => `
+    <button class="model-option${m.id === _selectedModel ? ' active' : ''}"
+      onclick="selectModel('${m.id}')">
+      <span class="model-option-dot" style="background:${_MODEL_COLORS[m.id] || '#888'}"></span>
+      <span class="model-option-info">
+        <span class="model-option-name">${m.name}</span>
+        <span class="model-option-provider">${m.provider}</span>
+      </span>
+      ${m.id === _selectedModel ? '<span class="model-option-badge">Active</span>' : ''}
+    </button>`).join('');
+}
+
+function _updateModelUI() {
+  const m = _availableModels.find(x => x.id === _selectedModel);
+  if (!m) return;
+  const dot   = document.getElementById('model-dot');
+  const label = document.getElementById('model-btn-label');
+  const power = document.getElementById('model-powered-label');
+  if (dot)   dot.style.background = _MODEL_COLORS[m.id] || '#888';
+  if (label) label.textContent = m.provider;
+  if (power) power.textContent = `powered by ${m.provider} · ${m.name}`;
+}
+
+window.selectModel = function (modelId) {
+  _selectedModel = modelId;
+  localStorage.setItem('sz_model', modelId);
+  _renderModelPicker();
+  _updateModelUI();
+  document.getElementById('model-picker').style.display = 'none';
+};
+
+window.toggleModelPicker = function () {
+  const picker = document.getElementById('model-picker');
+  if (!picker) return;
+  const isOpen = picker.style.display !== 'none';
+  picker.style.display = isOpen ? 'none' : 'block';
+};
+
+// Close model picker when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('model-selector-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const picker = document.getElementById('model-picker');
+    if (picker) picker.style.display = 'none';
+  }
+});
+
+_loadModels();
+
 function _setDesktopFileBadge(name, extLabel) {
   const badge = document.getElementById('desktop-file-badge');
   if (!badge) return;
@@ -1133,6 +1204,7 @@ window.sendMessage = async function () {
       history:      chatHistory.slice(0, -1),
       session_id:   currentSessionId || undefined,
       current_page: _currentPage,
+      model:        _selectedModel,
     });
     removeTyping(typingId);
     appendBubble('assistant', res.reply);
