@@ -34,11 +34,11 @@ const _MODEL_LOGOS = {
 
 let _selectedModel  = localStorage.getItem('sz_model') || 'groq';
 
-// All models always shown — availability updated from backend
+// All models always shown and selectable — backend merge updates availability
 let _availableModels = [
-  { id: 'groq',   name: 'Llama 3.3 70B',    provider: 'Groq',   display_name: 'Groq',    available: true  },
-  { id: 'openai', name: 'GPT-4o mini',       provider: 'OpenAI', display_name: 'ChatGPT', available: false },
-  { id: 'gemini', name: 'Gemini 2.0 Flash',  provider: 'Google', display_name: 'Gemini',  available: false },
+  { id: 'groq',   name: 'Llama 3.3 70B',    provider: 'Groq',   display_name: 'Groq',    available: true },
+  { id: 'openai', name: 'GPT-4o mini',       provider: 'OpenAI', display_name: 'ChatGPT', available: true },
+  { id: 'gemini', name: 'Gemini 2.0 Flash',  provider: 'Google', display_name: 'Gemini',  available: true },
 ];
 
 async function _loadModels() {
