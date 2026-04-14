@@ -155,8 +155,8 @@ def _build_type_instruction(allowed_types: List[str]) -> str:
     desc_parts: List[str] = []
 
     if has_mcq:
-        db_types.extend(["mcq", "true_false"])
-        desc_parts.append("multiple choice (mcq) and true/false questions")
+        db_types.extend(["mcq"])
+        desc_parts.append("multiple choice (mcq)")
 
     if has_short or has_essay:
         if "short_answer" not in db_types:
@@ -185,13 +185,80 @@ def _build_type_instruction(allowed_types: List[str]) -> str:
     return instruction
 
 
+# ── Function-calling tool definition ─────────────────────────────────────────
+# Groq's Llama 3.3 supports OpenAI-compatible function calling.
+# Forcing the model to call submit_quiz_questions guarantees the output is
+# valid JSON with the correct schema — no fragile text parsing needed.
+
+_QUIZ_FC_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "submit_quiz_questions",
+        "description": "Submit the complete list of generated quiz questions.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "description": "All generated quiz questions",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question_text":  {"type": "string"},
+                            "question_type":  {"type": "string", "enum": ["mcq", "true_false", "short_answer"]},
+                            "options":        {"type": "array",  "items": {"type": "string"}},
+                            "correct_answer": {"type": "string"},
+                            "explanation":    {"type": "string"},
+                        },
+                        "required": ["question_text", "question_type", "correct_answer", "explanation"],
+                    },
+                }
+            },
+            "required": ["questions"],
+        },
+    },
+}
+
+
+def _call_with_fc(client, messages: list, temperature: float, max_tokens: int) -> list:
+    """
+    Call Groq with function-calling forced to submit_quiz_questions.
+    Returns the raw questions list from the tool arguments.
+    Falls back to text-based extraction if the tool call is missing.
+    """
+    response = client.chat.completions.create(
+        model      = "llama-3.3-70b-versatile",
+        messages   = messages,
+        tools      = [_QUIZ_FC_TOOL],
+        tool_choice= {"type": "function", "name": "submit_quiz_questions"},
+        temperature= temperature,
+        max_tokens = max_tokens,
+    )
+    choice = response.choices[0]
+
+    # Primary path: tool call with guaranteed-valid JSON arguments
+    if choice.message.tool_calls:
+        tc = choice.message.tool_calls[0]
+        if tc.function.name == "submit_quiz_questions":
+            args = json.loads(tc.function.arguments)
+            questions = args.get("questions", [])
+            if questions:
+                logger.debug("FC: received %d questions via tool call", len(questions))
+                return questions
+
+    # Fallback: model returned plain text instead of calling the tool
+    raw = choice.message.content or ""
+    logger.warning("FC: tool call absent — falling back to text extraction")
+    return _extract_json_array(raw)
+
+
 def generate_questions(
     content: str,
     num_questions: int = 10,
     allowed_types: List[str] | None = None,
 ) -> List[Dict[str, Any]]:
     """
-    Generate quiz questions from text content using Groq.
+    Generate quiz questions from text content using Groq function calling.
     allowed_types: list of "mcq", "short_answer", "essay". Defaults to all three.
     Returns a validated list of question dicts.
     """
@@ -207,38 +274,32 @@ def generate_questions(
     user_prompt = (
         f"Generate exactly {num_questions} quiz questions from the content below. "
         f"{type_instruction} "
-        f"IMPORTANT: Each question must cover a DIFFERENT concept — no two questions should test the same idea or fact. "
+        f"Each question must cover a DIFFERENT concept — no two questions should test the same idea. "
         f"Spread questions across the full content, not just the beginning. "
-        f"Output ONLY the JSON array.\n\n"
+        f"Call submit_quiz_questions with all questions.\n\n"
         f"Content:\n{content}"
     )
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    questions = _call_with_fc(
+        client,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
+            {"role": "user",   "content": user_prompt},
         ],
         temperature=0.5,
         max_tokens=4096,
     )
 
-    raw = response.choices[0].message.content.strip()
-    logger.debug("Groq raw response (first 300 chars): %s", raw[:300])
-
-    questions = _extract_json_array(raw)
     validated = _validate_questions(questions)
-
     if not validated:
         raise ValueError("AI returned questions in an unexpected format. Please try again.")
-
     return validated
 
 
 def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]:
     """
-    Given a plain list of question strings, use Groq to detect types,
-    generate options, and pick correct answers for each one.
+    Given a plain list of question strings, use Groq function calling to detect
+    types, generate options, and pick correct answers for each one.
     Returns a list of question dicts in the same order as the input.
     """
     if not questions:
@@ -248,24 +309,23 @@ def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]
     questions_text = "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions))
 
     user_prompt = (
-        f"For each of the following {len(questions)} questions, generate appropriate "
-        f"options and correct answers. Return a JSON array with exactly {len(questions)} "
-        f"elements in the same order.\n\nQuestions:\n{questions_text}"
+        f"For each of the following {len(questions)} questions, detect the best type, "
+        f"generate options, and pick the correct answer. "
+        f"Call submit_quiz_questions with exactly {len(questions)} entries in the same order.\n\n"
+        f"Questions:\n{questions_text}"
     )
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    items = _call_with_fc(
+        client,
         messages=[
             {"role": "system", "content": OPTIONS_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
+            {"role": "user",   "content": user_prompt},
         ],
         temperature=0.4,
         max_tokens=4096,
     )
 
-    raw = response.choices[0].message.content.strip()
-    logger.debug("generate_options raw (first 300): %s", raw[:300])
-    items = _extract_json_array(raw)
+    logger.debug("generate_options FC: %d items returned", len(items))
 
     # Map back 1-to-1, padding with fallbacks for any missing entries
     result = []
@@ -317,25 +377,23 @@ def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List
     all_validated = []
     for chunk in chunks:
         chunk_prompt = (
-            "Extract all questions from the following content and generate complete quiz entries "
-            "(with options and correct answers) for each. "
+            "Extract ALL questions from the content below and generate complete quiz entries "
+            "(with options and correct answers). "
             "Use existing answers from the document wherever possible. "
-            "Do NOT generate duplicate questions — each question must test a different concept. "
-            "Return ONLY the JSON array."
+            "Do NOT generate duplicate questions — each must test a different concept. "
+            "Call submit_quiz_questions with every question found."
             f"{hint_line}\n\nContent:\n{chunk}"
         )
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        items = _call_with_fc(
+            client,
             messages=[
                 {"role": "system", "content": PARSE_GENERATE_SYSTEM_PROMPT},
-                {"role": "user", "content": chunk_prompt},
+                {"role": "user",   "content": chunk_prompt},
             ],
             temperature=0.4,
             max_tokens=8192,
         )
-        raw = response.choices[0].message.content.strip()
-        logger.debug("parse_and_generate chunk raw (first 300): %s", raw[:300])
-        items = _extract_json_array(raw)
+        logger.debug("parse_and_generate FC chunk: %d items", len(items))
         validated = _validate_questions(items)
         all_validated.extend(validated)
 
