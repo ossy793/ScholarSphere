@@ -2,14 +2,15 @@
 RAG (Retrieval-Augmented Generation) pipeline for the Brainstorm feature.
 
 Responsibilities:
-  - Generate embeddings using fastembed (ONNX — no PyTorch required)
+  - Generate embeddings using OpenAI text-embedding-3-small (1536-dim)
   - Store chunk text + embeddings in the brainstorm_chunks PostgreSQL table
   - Retrieve top-k relevant chunks via hybrid search:
       primary  → pgvector cosine similarity
       fallback → PostgreSQL full-text search (ts_rank)
 
-The embedding model (BAAI/bge-small-en-v1.5) is downloaded once on first use
-and cached at ~/.cache/fastembed.  All subsequent calls are local / offline.
+Note: sessions embedded before the OpenAI switch used BAAI/bge-small-en-v1.5
+(384-dim, different vector space).  Those chunks automatically fall back to
+keyword search since cosine similarity across different spaces is meaningless.
 """
 
 from __future__ import annotations
@@ -25,24 +26,35 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── Embedding model — lazy-loaded once per worker process ─────────────────────
+# ── OpenAI embedding client — lazy-loaded ─────────────────────────────────────
 
-_embed_model = None
+_openai_client = None
+
+_EMBED_MODEL      = "text-embedding-3-small"
+_EMBED_DIMENSIONS = 1536
 
 
-def _get_model():
-    global _embed_model
-    if _embed_model is None:
-        from fastembed import TextEmbedding
-        _embed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
-        logger.info("fastembed model loaded: BAAI/bge-small-en-v1.5")
-    return _embed_model
+def _get_openai():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        from ..config import settings
+        _openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        logger.info("OpenAI embedding client initialised (%s, %d-dim)",
+                    _EMBED_MODEL, _EMBED_DIMENSIONS)
+    return _openai_client
 
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    """Return a float vector for each text in *texts*."""
-    model = _get_model()
-    return [e.tolist() for e in model.embed(texts)]
+    """Return a 1536-dim float vector for each text using OpenAI embeddings."""
+    client = _get_openai()
+    response = client.embeddings.create(
+        input      = texts,
+        model      = _EMBED_MODEL,
+        dimensions = _EMBED_DIMENSIONS,
+    )
+    # Response items are ordered the same as input
+    return [item.embedding for item in response.data]
 
 
 def _vec_literal(vec: list[float]) -> str:

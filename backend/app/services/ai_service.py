@@ -8,6 +8,7 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 _client = None
+_openai_client = None
 
 
 def get_groq_client() -> Groq:
@@ -15,6 +16,15 @@ def get_groq_client() -> Groq:
     if _client is None:
         _client = Groq(api_key=settings.GROQ_API_KEY)
     return _client
+
+
+def _get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        logger.info("OpenAI client initialised for quiz generation (gpt-4o-mini)")
+    return _openai_client
 
 
 PARSE_GENERATE_SYSTEM_PROMPT = """You are an expert quiz creator. You will receive educational content in any format — numbered lists, bullet points, exam papers, lecture notes, mixed Q&A, or unstructured prose.
@@ -220,14 +230,15 @@ _QUIZ_FC_TOOL = {
 }
 
 
-def _call_with_fc(client, messages: list, temperature: float, max_tokens: int) -> list:
+def _call_with_fc(messages: list, temperature: float, max_tokens: int) -> list:
     """
-    Call Groq with function-calling forced to submit_quiz_questions.
+    Call OpenAI gpt-4o-mini with function-calling forced to submit_quiz_questions.
     Returns the raw questions list from the tool arguments.
     Falls back to text-based extraction if the tool call is missing.
     """
+    client = _get_openai_client()
     response = client.chat.completions.create(
-        model      = "llama-3.3-70b-versatile",
+        model      = "gpt-4o-mini",
         messages   = messages,
         tools      = [_QUIZ_FC_TOOL],
         tool_choice= {"type": "function", "name": "submit_quiz_questions"},
@@ -269,7 +280,6 @@ def generate_questions(
         allowed_types = ["mcq", "short_answer", "essay"]
 
     type_instruction = _build_type_instruction(allowed_types)
-    client = get_groq_client()
 
     user_prompt = (
         f"Generate exactly {num_questions} quiz questions from the content below. "
@@ -281,7 +291,6 @@ def generate_questions(
     )
 
     questions = _call_with_fc(
-        client,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": user_prompt},
@@ -305,7 +314,6 @@ def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]
     if not questions:
         raise ValueError("No questions provided.")
 
-    client = get_groq_client()
     questions_text = "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions))
 
     user_prompt = (
@@ -316,7 +324,6 @@ def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]
     )
 
     items = _call_with_fc(
-        client,
         messages=[
             {"role": "system", "content": OPTIONS_SYSTEM_PROMPT},
             {"role": "user",   "content": user_prompt},
@@ -367,7 +374,6 @@ def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List
     if not content or not content.strip():
         raise ValueError("Content is empty — nothing to analyze.")
 
-    client = get_groq_client()
     hint_line = f"\n\nUSER INSTRUCTION ABOUT ANSWER FORMAT: {answer_hint.strip()}" if answer_hint and answer_hint.strip() else ""
 
     # Split large content into batches of ~15,000 chars to avoid token limits
@@ -385,7 +391,6 @@ def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List
             f"{hint_line}\n\nContent:\n{chunk}"
         )
         items = _call_with_fc(
-            client,
             messages=[
                 {"role": "system", "content": PARSE_GENERATE_SYSTEM_PROMPT},
                 {"role": "user",   "content": chunk_prompt},
