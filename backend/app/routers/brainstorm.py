@@ -224,11 +224,12 @@ def list_sessions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return all brainstorm sessions for the current user, newest-updated first."""
+    """Return the 5 most recent study sessions for the current user."""
     sessions = (
         db.query(BrainstormSession)
         .filter(BrainstormSession.user_id == current_user.id)
         .order_by(BrainstormSession.updated_at.desc())
+        .limit(5)
         .all()
     )
     return [_session_list_item(s) for s in sessions]
@@ -263,6 +264,18 @@ def create_session(
     db.commit()
     db.refresh(session)
     db.refresh(doc)
+
+    # Keep only the 5 most recent sessions — delete oldest beyond that limit
+    _MAX_SESSIONS = 5
+    all_sessions = (
+        db.query(BrainstormSession)
+        .filter(BrainstormSession.user_id == current_user.id)
+        .order_by(BrainstormSession.updated_at.desc())
+        .all()
+    )
+    for old in all_sessions[_MAX_SESSIONS:]:
+        db.delete(old)
+    db.commit()
 
     # Kick off RAG chunking in the background
     background_tasks.add_task(

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brainstorm – Pritis</title>
+  <title>Study Zone – Pritis</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0077FF">
@@ -512,6 +512,48 @@
     .msg.assistant .msg-bubble p { margin: 0 0 6px; }
     .msg.assistant .msg-bubble p:last-child { margin-bottom: 0; }
 
+    /* Guided Study Mode prompt buttons */
+    .guided-prompt-btns {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+    }
+    .guided-yes-btn, .guided-no-btn {
+      padding: 7px 14px; border-radius: 8px; font-size: 0.82rem;
+      font-weight: 600; cursor: pointer; border: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .guided-yes-btn:active, .guided-no-btn:active { transform: scale(0.97); }
+    .guided-yes-btn {
+      background: var(--primary); color: #fff;
+    }
+    .guided-yes-btn:hover { background: #005fd4; }
+    .guided-no-btn {
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .guided-no-btn:hover { background: var(--border); }
+
+    /* Copy button on assistant messages */
+    .msg.assistant { align-items: flex-start; }
+    .msg-copy-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 4px 5px;
+      border-radius: 6px; display: flex; flex-direction: column;
+      align-items: center; gap: 2px; flex-shrink: 0;
+      margin-top: 6px; opacity: 0;
+      transition: opacity 0.15s, background 0.15s, color 0.15s;
+    }
+    .msg.assistant:hover .msg-copy-btn { opacity: 1; }
+    .msg-copy-btn:hover { background: var(--border); color: var(--primary); }
+    .msg-copy-btn.copied { color: #16a34a; opacity: 1; }
+    .msg-copy-btn svg { width: 15px; height: 15px; }
+    .copy-tooltip {
+      font-size: 0.6rem; font-weight: 600; white-space: nowrap;
+      color: inherit; letter-spacing: 0.02em;
+    }
+    @media (max-width: 768px) {
+      .msg-copy-btn { opacity: 1; }
+    }
+
     /* Typing */
     .typing-indicator { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
     .typing-indicator span {
@@ -691,6 +733,76 @@
       outline: none;
       color: var(--text);
     }
+
+    /* ── Study Timer bar ── */
+    .study-timer-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .timer-left {
+      display: flex; align-items: center; gap: 5px;
+      color: var(--text-muted); font-size: 0.78rem;
+    }
+    .timer-display {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text);
+      letter-spacing: 0.04em;
+      min-width: 42px;
+    }
+    .timer-display.running { color: var(--primary); }
+    .timer-display.warning { color: #f59e0b; }
+    .timer-display.done    { color: #16a34a; }
+    .timer-controls { display: flex; align-items: center; gap: 5px; }
+    .timer-select {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text);
+      font-size: 0.73rem;
+      padding: 2px 4px;
+      cursor: pointer;
+      height: 24px;
+    }
+    .timer-btn {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .timer-btn:hover { background: #005fd4; }
+    .timer-btn-stop { background: var(--bg-card); border-color: var(--border); color: var(--danger); }
+    .timer-btn-stop:hover { background: #fee2e2; }
+    .timer-progress-wrap {
+      flex: 1;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      min-width: 40px;
+    }
+    .timer-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      border-radius: 2px;
+      transition: width 1s linear, background 0.5s;
+    }
+    .timer-progress-bar.warning { background: #f59e0b; }
+    .timer-progress-bar.done    { background: #16a34a; width: 100% !important; }
 
     /* ── Mobile FAB + backdrop (hidden on desktop) ── */
     .mobile-chat-backdrop  { display: none; }
@@ -884,7 +996,7 @@
 
     <div class="main-content">
       <header class="top-header">
-        <h1 id="page-title">Brainstorm</h1>
+        <h1 id="page-title">Study Zone</h1>
         <div class="user-badge">
           <span id="user-name"></span>
           <div class="avatar" id="user-avatar"></div>
@@ -920,13 +1032,47 @@
               <!-- Page counter — updated by PDF.js as user scrolls -->
               <span id="pdf-page-counter" style="display:none;font-size:0.78rem;font-weight:600;color:var(--primary);background:rgba(0,119,255,0.09);border:1px solid rgba(0,119,255,0.18);border-radius:20px;padding:1px 10px;white-space:nowrap;letter-spacing:0.02em"></span>
               <div style="display:flex;align-items:center;gap:8px">
-                <button class="history-btn" onclick="openHistory()" id="history-btn" title="View past brainstorm sessions">
+                <button class="history-btn" onclick="openHistory()" id="history-btn" title="View recent study sessions">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
-                  History
+                  Sessions
                 </button>
                 <div id="doc-controls"></div>
+              </div>
+            </div>
+
+            <!-- ── Study Timer bar (hidden until document loaded) ── -->
+            <div class="study-timer-bar" id="study-timer-bar" style="display:none">
+              <div class="timer-left">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span class="timer-display" id="timer-display">00:00</span>
+              </div>
+              <div class="timer-controls">
+                <select id="timer-preset" class="timer-select" onchange="onTimerPresetChange(this.value)" title="Set study duration">
+                  <option value="">Set timer</option>
+                  <option value="900">15 min</option>
+                  <option value="1800">30 min</option>
+                  <option value="2700">45 min</option>
+                  <option value="3600">1 hr</option>
+                  <option value="5400">1.5 hr</option>
+                  <option value="7200">2 hr</option>
+                </select>
+                <button class="timer-btn" id="timer-start-btn" onclick="timerStartPause()" title="Start timer" style="display:none">
+                  <svg id="timer-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </button>
+                <button class="timer-btn timer-btn-stop" id="timer-stop-btn" onclick="timerStop()" title="Stop timer" style="display:none">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="timer-progress-wrap">
+                <div class="timer-progress-bar" id="timer-progress-bar"></div>
               </div>
             </div>
 
@@ -986,7 +1132,7 @@
             <div class="doc-history-area" id="doc-history-area">
               <div class="history-toolbar">
                 <button class="btn btn-secondary btn-sm" onclick="closeHistory()">← Back</button>
-                <span class="history-toolbar-title">Past Sessions</span>
+                <span class="history-toolbar-title">Recent Sessions</span>
                 <button class="btn btn-primary btn-sm" onclick="startNewSession()">+ New</button>
               </div>
               <div class="history-list" id="history-list">

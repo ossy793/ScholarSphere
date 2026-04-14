@@ -2,7 +2,7 @@ import { api, requireAuth, getUser } from './api.js';
 import { renderLayout } from './layout.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
-renderLayout('Brainstorm', 'Brainstorm');
+renderLayout('Study Zone', 'Study Zone');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let documentContext  = '';   // plain text sent to AI
@@ -237,6 +237,7 @@ async function _bsRestore() {
 
   enableChat();
   clearChat(false);
+  setTimeout(_guidedStudyWelcome, 800);
 }
 
 // ── Session management ────────────────────────────────────────────────────────
@@ -313,6 +314,7 @@ function handlePastedText(text) {
 
   enableChat();
   clearChat(false);
+  setTimeout(_guidedStudyWelcome, 800);
   _bsSave();
   createSession('Pasted Text', 'paste', truncated, null);
 }
@@ -1068,6 +1070,7 @@ function enableChat(ocrWarning) {
     // Don't auto-focus on mobile — it scrolls the off-screen chat panel into view
     if (!window.matchMedia('(max-width: 768px)').matches) input.focus();
     _startReadingTimers(); // begin proactive engagement countdown
+    _showTimerBar(true);
   }
 }
 
@@ -1077,6 +1080,7 @@ function disableChat() {
   input.placeholder = 'Upload a document to start chatting with UrPadi…';
   document.getElementById('send-btn').disabled = true;
   _clearReadingTimers(); // stop timers when no document is active
+  _showTimerBar(false);
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
@@ -1159,9 +1163,24 @@ function appendBubble(role, content) {
   const html = role === 'assistant' ? renderMarkdown(content) : escHtml(content);
   const el   = document.createElement('div');
   el.className = `msg ${role}`;
+  const copyBtn = role === 'assistant' ? `
+    <button class="msg-copy-btn" title="Copy message" onclick="
+      navigator.clipboard.writeText(this.closest('.msg').querySelector('.msg-bubble').innerText).then(() => {
+        const t = this.querySelector('.copy-tooltip');
+        t.textContent = 'Copied!';
+        this.classList.add('copied');
+        setTimeout(() => { t.textContent = 'Copy'; this.classList.remove('copied'); }, 2000);
+      });
+    ">
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+        <rect x='9' y='9' width='13' height='13' rx='2' ry='2'/>
+        <path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/>
+      </svg>
+      <span class="copy-tooltip">Copy</span>
+    </button>` : '';
   el.innerHTML = `
     <div class="msg-avatar">${role === 'user' ? _initials : 'UP'}</div>
-    <div class="msg-bubble">${html}</div>`;
+    <div class="msg-bubble">${html}</div>${copyBtn}`;
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
 }
@@ -1214,6 +1233,253 @@ window.startResize = function (e) {
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 };
+
+// ── Study Timer ───────────────────────────────────────────────────────────────
+let _timerDuration  = 0;    // total seconds
+let _timerRemaining = 0;    // seconds left
+let _timerInterval  = null;
+let _timerRunning   = false;
+let _timerChecksDone = new Set(); // which % checkpoints have fired
+
+function _timerTick() {
+  if (_timerRemaining <= 0) {
+    _timerFinish();
+    return;
+  }
+  _timerRemaining--;
+  _timerRender();
+  _timerCheckpoint();
+}
+
+function _timerRender() {
+  const display  = document.getElementById('timer-display');
+  const bar      = document.getElementById('timer-progress-bar');
+  if (!display) return;
+
+  const m = String(Math.floor(_timerRemaining / 60)).padStart(2, '0');
+  const s = String(_timerRemaining % 60).padStart(2, '0');
+  display.textContent = `${m}:${s}`;
+
+  const pct = _timerDuration > 0
+    ? ((_timerDuration - _timerRemaining) / _timerDuration) * 100
+    : 0;
+  if (bar) bar.style.width = pct + '%';
+
+  // Colour states
+  const ratio = _timerRemaining / _timerDuration;
+  display.className = 'timer-display ' + (_timerRunning
+    ? ratio <= 0.1 ? 'warning' : 'running'
+    : '');
+  if (bar) {
+    bar.className = 'timer-progress-bar' + (ratio <= 0.1 ? ' warning' : '');
+  }
+
+  // Update start/pause icon
+  const icon = document.getElementById('timer-btn-icon');
+  if (icon) {
+    icon.innerHTML = _timerRunning
+      ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+      : '<polygon points="5 3 19 12 5 21 5 3"/>';
+  }
+}
+
+function _timerCheckpoint() {
+  const elapsed = _timerDuration - _timerRemaining;
+  const pct = elapsed / _timerDuration;
+
+  if (!_timerChecksDone.has(25) && pct >= 0.25) {
+    _timerChecksDone.add(25);
+    _injectProactiveMessage(
+      "⏱️ You're 25% through your study session — great start! Keep your focus and ask me if anything is unclear."
+    );
+  }
+  if (!_timerChecksDone.has(50) && pct >= 0.5) {
+    _timerChecksDone.add(50);
+    _injectProactiveMessage(
+      "📚 Halfway there! Take a moment to reflect — what are the 2–3 most important ideas you've covered so far?"
+    );
+  }
+  if (!_timerChecksDone.has(80) && pct >= 0.8) {
+    _timerChecksDone.add(80);
+    _injectProactiveMessage(
+      "🏁 Almost done! You have about " + Math.ceil(_timerRemaining / 60) + " minutes left. " +
+      "Consider doing a quick quiz to test what you've learned. " +
+      '<a href="ai-generate.html" style="color:var(--primary);font-weight:600;text-decoration:underline">Generate a quiz →</a>'
+    );
+  }
+}
+
+function _timerFinish() {
+  clearInterval(_timerInterval);
+  _timerInterval = null;
+  _timerRunning  = false;
+  _timerRemaining = 0;
+
+  const display = document.getElementById('timer-display');
+  const bar     = document.getElementById('timer-progress-bar');
+  if (display) { display.textContent = 'Done!'; display.className = 'timer-display done'; }
+  if (bar)     { bar.className = 'timer-progress-bar done'; }
+
+  const startBtn = document.getElementById('timer-start-btn');
+  const stopBtn  = document.getElementById('timer-stop-btn');
+  if (startBtn) startBtn.style.display = 'none';
+  if (stopBtn)  stopBtn.style.display  = 'none';
+
+  _injectProactiveMessage(
+    "⏰ Your study session is complete! Great work. Ready to test your knowledge? " +
+    '<a href="ai-generate.html" style="color:var(--primary);font-weight:600;text-decoration:underline">Take a quiz →</a>'
+  );
+}
+
+window.onTimerPresetChange = function (val) {
+  if (!val) return;
+  _timerDuration  = parseInt(val, 10);
+  _timerRemaining = _timerDuration;
+  _timerRunning   = false;
+  _timerChecksDone.clear();
+  clearInterval(_timerInterval);
+  _timerInterval = null;
+
+  const startBtn = document.getElementById('timer-start-btn');
+  const stopBtn  = document.getElementById('timer-stop-btn');
+  if (startBtn) startBtn.style.display = '';
+  if (stopBtn)  stopBtn.style.display  = '';
+
+  _timerRender();
+};
+
+window.timerStartPause = function () {
+  if (!_timerDuration || _timerRemaining <= 0) return;
+  if (_timerRunning) {
+    clearInterval(_timerInterval);
+    _timerInterval = null;
+    _timerRunning  = false;
+  } else {
+    _timerRunning  = true;
+    _timerInterval = setInterval(_timerTick, 1000);
+  }
+  _timerRender();
+};
+
+window.timerStop = function () {
+  clearInterval(_timerInterval);
+  _timerInterval  = null;
+  _timerRunning   = false;
+  _timerRemaining = 0;
+  _timerDuration  = 0;
+  _timerChecksDone.clear();
+
+  const display  = document.getElementById('timer-display');
+  const bar      = document.getElementById('timer-progress-bar');
+  const preset   = document.getElementById('timer-preset');
+  const startBtn = document.getElementById('timer-start-btn');
+  const stopBtn  = document.getElementById('timer-stop-btn');
+  if (display)  { display.textContent = '00:00'; display.className = 'timer-display'; }
+  if (bar)      { bar.style.width = '0%'; bar.className = 'timer-progress-bar'; }
+  if (preset)   preset.value = '';
+  if (startBtn) startBtn.style.display = 'none';
+  if (stopBtn)  stopBtn.style.display  = 'none';
+};
+
+// Show/hide the timer bar whenever a document is loaded / cleared
+function _showTimerBar(show) {
+  const bar = document.getElementById('study-timer-bar');
+  if (bar) bar.style.display = show ? '' : 'none';
+  if (!show) timerStop();
+}
+
+// ── Guided Study Mode ─────────────────────────────────────────────────────────
+let _guidedModeActive = false;
+let _guidedStep       = 0;
+let _guidedTimer      = null;
+
+function _guidedStudyWelcome() {
+  if (!documentContext) return;
+  const welcomeMsg =
+    "👋 Welcome to your study session! I've loaded your document.\n\n" +
+    "**Would you like me to guide your study session?**\n" +
+    "I'll walk you through the material step-by-step, set mini checkpoints, and check your understanding along the way.";
+
+  const el = document.createElement('div');
+  el.className = 'msg assistant guided-prompt';
+  el.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble">
+      ${renderMarkdown(welcomeMsg)}
+      <div class="guided-prompt-btns" id="guided-prompt-btns">
+        <button class="guided-yes-btn" onclick="startGuidedMode()">✅ Yes, guide me</button>
+        <button class="guided-no-btn"  onclick="dismissGuidedPrompt()">📖 I'll study on my own</button>
+      </div>
+    </div>`;
+  const container = document.getElementById('chat-messages');
+  document.getElementById('chat-empty')?.remove();
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+
+  // Open chat panel automatically so user sees the message
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    setTimeout(() => _setMobileChatOpen(true), 400);
+  } else {
+    const layout = document.getElementById('bs-layout');
+    if (layout?.classList.contains('chat-collapsed')) toggleChatPanel();
+  }
+}
+
+window.startGuidedMode = function () {
+  _guidedModeActive = true;
+  _guidedStep = 0;
+  document.getElementById('guided-prompt-btns')?.remove();
+  _runGuidedStep();
+};
+
+window.dismissGuidedPrompt = function () {
+  document.getElementById('guided-prompt-btns')?.remove();
+  appendBubble('assistant', "No problem! I'm here whenever you have a question. Happy studying! 📚");
+  chatHistory.push({ role: 'assistant', content: "No problem! I'm here whenever you have a question. Happy studying! 📚" });
+};
+
+function _runGuidedStep() {
+  const steps = [
+    { mins: 5,  prompt: "Let's start! **Read the first section** of your document. I'll check in with you in 5 minutes." },
+    { mins: 10, prompt: "Great progress! **Continue reading** — take your time. I'll check back in 10 minutes." },
+    { mins: 10, prompt: "You're doing well! Keep going with the next section. Check in coming up in 10 minutes." },
+  ];
+
+  const step = steps[Math.min(_guidedStep, steps.length - 1)];
+  appendBubble('assistant', step.prompt);
+  chatHistory.push({ role: 'assistant', content: step.prompt });
+
+  if (_guidedTimer) clearTimeout(_guidedTimer);
+  _guidedTimer = setTimeout(() => {
+    _guidedStep++;
+    _guidedCheckIn();
+  }, step.mins * 60 * 1000);
+}
+
+function _guidedCheckIn() {
+  if (!_guidedModeActive) return;
+  const questions = [
+    "⏱️ Check-in time! **What is the main idea** you've read so far? Type your answer below.",
+    "💡 Quick check: **Name one key concept** from what you just read.",
+    "🧠 Reflection: **In your own words**, summarise what you've covered so far.",
+  ];
+  const q = questions[Math.min(_guidedStep - 1, questions.length - 1)];
+  appendBubble('assistant', q);
+  chatHistory.push({ role: 'assistant', content: q });
+
+  // Schedule next step only if more remain
+  if (_guidedStep < 5) {
+    setTimeout(_runGuidedStep, 2000);
+  } else {
+    _guidedModeActive = false;
+    setTimeout(() => {
+      appendBubble('assistant',
+        "🎓 Excellent study session! You've worked through the material thoroughly.\n\n" +
+        'Ready to test yourself? **[Generate a quiz →](ai-generate.html)**'
+      );
+    }, 3000);
+  }
+}
 
 // ── Mobile chat toggle (FAB + bottom-sheet) ───────────────────────────────────
 let _mobileChatOpen = false;
@@ -1326,7 +1592,7 @@ async function loadHistory() {
       list.innerHTML = `
         <div class="history-empty">
           <div class="empty-icon">🕐</div>
-          <p>No past sessions yet.<br>Upload a document or paste text to start!</p>
+          <p>No recent sessions yet.<br>Upload a document or paste text to start!</p>
         </div>`;
       return;
     }
@@ -1471,7 +1737,7 @@ window.deleteSession = async function (sessionId, btn) {
       list.innerHTML = `
         <div class="history-empty">
           <div class="empty-icon">🕐</div>
-          <p>No past sessions yet.<br>Upload a document or paste text to start!</p>
+          <p>No recent sessions yet.<br>Upload a document or paste text to start!</p>
         </div>`;
     }
   } catch (e) {

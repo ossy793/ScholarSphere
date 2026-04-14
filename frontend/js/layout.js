@@ -24,7 +24,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     { href: basePath + 'input-questions.html', icon: svgEdit(),       label: 'Input Questions' },
     { href: basePath + 'ai-generate.html',     icon: svgAI(),         label: 'AI Generate' },
     { href: basePath + 'my-questions.html',    icon: svgQuiz(),       label: 'My Questions' },
-    { href: basePath + 'brainstorm.html',      icon: svgBrainstorm(), label: 'Brainstorm' },
+    { href: basePath + 'brainstorm.html',      icon: svgBrainstorm(), label: 'Study Zone' },
     { href: basePath + 'performance.html',     icon: svgChart(),      label: 'Performance' },
   ];
 
