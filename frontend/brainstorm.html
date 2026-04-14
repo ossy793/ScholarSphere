@@ -1224,23 +1224,6 @@
     }
     .setup-start-btn:hover { background: var(--primary-dark); }
     .setup-start-btn:active { transform: scale(0.99); }
-    .setup-skip-link {
-      text-align: center;
-      margin-top: 12px;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-    }
-    .setup-skip-link button {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 0.78rem;
-      text-decoration: underline;
-      padding: 0;
-    }
-    .setup-skip-link button:hover { color: var(--text); }
-
     /* ── PPTX text-card fallback ── */
     .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
     .pptx-slide {
@@ -1297,14 +1280,10 @@
 
           <!-- Duration -->
           <div class="setup-section">
-            <div class="setup-section-label">
-              ⏱️ Study Duration
-              <span class="hint">(optional)</span>
-            </div>
+            <div class="setup-section-label">⏱️ Study Duration</div>
             <div class="setup-duration-pills">
-              <button class="setup-duration-pill active" data-secs="0"   onclick="setupPickDuration(0)">No timer</button>
               <button class="setup-duration-pill"        data-secs="900"  onclick="setupPickDuration(900)">15 min</button>
-              <button class="setup-duration-pill"        data-secs="1800" onclick="setupPickDuration(1800)">30 min</button>
+              <button class="setup-duration-pill active" data-secs="1800" onclick="setupPickDuration(1800)">30 min</button>
               <button class="setup-duration-pill"        data-secs="2700" onclick="setupPickDuration(2700)">45 min</button>
               <button class="setup-duration-pill"        data-secs="3600" onclick="setupPickDuration(3600)">1 hr</button>
               <button class="setup-duration-pill"        data-secs="5400" onclick="setupPickDuration(5400)">1.5 hr</button>
@@ -1332,9 +1311,6 @@
             </svg>
           </button>
 
-          <div class="setup-skip-link">
-            <button onclick="dismissSetupOverlay()">Continue without setup</button>
-          </div>
 
         </div>
       </div>

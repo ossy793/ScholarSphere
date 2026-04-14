@@ -138,7 +138,7 @@ document.addEventListener('click', e => {
 _loadModels();
 
 // ── Session Setup ──────────────────────────────────────────────────────────────
-let _setupDuration  = 0;   // seconds chosen in setup (0 = no timer)
+let _setupDuration  = 1800; // seconds chosen in setup — defaults to 30 min
 let _setupGoal      = '';  // optional goal text
 let _setupCompleted = false; // true once user clicked "Start Studying"
 
@@ -218,9 +218,6 @@ window.startStudySession = function () {
   container.scrollTop = container.scrollHeight;
 };
 
-window.dismissSetupOverlay = function () {
-  document.getElementById('session-setup-overlay')?.classList.remove('visible');
-};
 
 function _setDesktopFileBadge(name, extLabel) {
   const badge = document.getElementById('desktop-file-badge');
