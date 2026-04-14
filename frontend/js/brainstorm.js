@@ -33,17 +33,31 @@ const _MODEL_LOGOS = {
 };
 
 let _selectedModel  = localStorage.getItem('sz_model') || 'groq';
-let _availableModels = [];
+
+// All models always shown — availability updated from backend
+let _availableModels = [
+  { id: 'groq',   name: 'Llama 3.3 70B',    provider: 'Groq',   display_name: 'Groq',    available: true  },
+  { id: 'openai', name: 'GPT-4o mini',       provider: 'OpenAI', display_name: 'ChatGPT', available: false },
+  { id: 'gemini', name: 'Gemini 2.0 Flash',  provider: 'Google', display_name: 'Gemini',  available: false },
+];
 
 async function _loadModels() {
   try {
-    _availableModels = await api.get('/brainstorm/models');
+    const fromApi = await api.get('/brainstorm/models');
+    // Merge API availability into our full list
+    _availableModels = _availableModels.map(m => {
+      const api = fromApi.find(a => a.id === m.id);
+      return api ? { ...m, ...api } : m;
+    });
+    // Add any models the backend knows about that we don't have hardcoded
+    fromApi.forEach(a => {
+      if (!_availableModels.find(m => m.id === a.id)) _availableModels.push(a);
+    });
   } catch (_) {
-    _availableModels = [{ id: 'groq', name: 'Llama 3.3 70B', provider: 'Groq', display_name: 'Groq', available: true }];
+    // Keep hardcoded defaults — Groq stays available, others disabled
   }
-  // If saved model is no longer available or not in list, fall back to first available
-  const avail = _availableModels.find(m => m.id === _selectedModel && m.available !== false);
-  if (!avail) {
+  // If selected model is not available, fall back to first available
+  if (!_availableModels.find(m => m.id === _selectedModel && m.available !== false)) {
     _selectedModel = _availableModels.find(m => m.available !== false)?.id || 'groq';
   }
   _renderModelPicker();
