@@ -354,10 +354,9 @@ window.analyzeAndGenerate = async function () {
     }
 
     const items = generated.map(g => {
-      const type = g.question_type || 'mcq';
+      const type = g.question_type === 'short_answer' ? 'short_answer' : 'mcq';
       let opts = g.options || null;
-      if (type === 'mcq')        opts = normaliseMcqOptions(opts);
-      if (type === 'true_false') opts = ['True', 'False'];
+      if (type === 'mcq')          opts = normaliseMcqOptions(opts);
       if (type === 'short_answer') opts = null;
       return {
         question_text:  g.question_text  || '',
@@ -469,16 +468,6 @@ function renderCard(i, item) {
         </select>
       </div>`;
 
-  } else if (item.question_type === 'true_false') {
-    optionsHtml = `
-      <div class="form-group">
-        <label class="form-label">Correct Answer</label>
-        <select class="form-control" onchange="updateReviewField(${i},'correct_answer',this.value)">
-          <option value="True"  ${item.correct_answer === 'True'  ? 'selected' : ''}>True</option>
-          <option value="False" ${item.correct_answer === 'False' ? 'selected' : ''}>False</option>
-        </select>
-      </div>`;
-
   } else {
     optionsHtml = `
       <div class="form-group">
@@ -498,7 +487,6 @@ function renderCard(i, item) {
             style="padding:5px 10px;font-size:0.8rem;width:auto;height:auto;border-radius:var(--radius-sm)"
             onchange="changeReviewType(${i},this.value)">
             <option value="mcq"          ${item.question_type === 'mcq'          ? 'selected' : ''}>Multiple Choice</option>
-            <option value="true_false"   ${item.question_type === 'true_false'   ? 'selected' : ''}>True / False</option>
             <option value="short_answer" ${item.question_type === 'short_answer' ? 'selected' : ''}>Short Answer</option>
           </select>
         </div>
@@ -554,10 +542,7 @@ window.changeReviewType = function (i, type) {
   const item = reviewItems[i];
   item.question_type = type;
 
-  if (type === 'true_false') {
-    item.options        = ['True', 'False'];
-    item.correct_answer = 'True';
-  } else if (type === 'mcq') {
+  if (type === 'mcq') {
     item.options = normaliseMcqOptions(item.options && item.options.length >= 2 ? item.options : null);
     item.correct_answer = item.correct_answer && item.options.includes(item.correct_answer)
       ? item.correct_answer : (item.options[0] || '');

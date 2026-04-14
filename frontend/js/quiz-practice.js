@@ -147,8 +147,8 @@ function renderQuestion() {
 
   let optionsHtml = '';
 
-  if (q.question_type === 'mcq' || q.question_type === 'true_false') {
-    const opts = q.options || (q.question_type === 'true_false' ? ['True', 'False'] : []);
+  if (q.question_type === 'mcq') {
+    const opts = q.options || [];
     optionsHtml = `<div class="options-list">
       ${opts.map((opt, i) => {
         let cls = '';

@@ -36,7 +36,7 @@ Your task:
 Output ONLY a JSON array (no prose, no markdown fences). Each element must have:
 - "question_text": string (the clean, complete question)
 - "question_type": one of "mcq", "true_false", "short_answer"
-- "options": array of strings for mcq — preserve the EXACT number of options from the document (typically 2–6); do NOT pad to 4 if fewer exist, do NOT truncate to 4 if more exist; ["True","False"] for true_false; null for short_answer
+- "options": array of strings for mcq — preserve the EXACT number of options from the document (typically 2–6); do NOT pad to 4 if fewer exist, do NOT truncate to 4 if more exist; null for short_answer
 - "correct_answer": string (exact option text for mcq/true_false; concise answer for short_answer)
 - "explanation": string (one sentence explaining why the answer is correct)
 
@@ -53,8 +53,7 @@ General rules:
 - Extract questions even if they appear mid-paragraph or are mixed with answers.
 - Preserve ALL original options exactly as written; only fill gaps if fewer than 4 options exist for MCQ.
 - If no options exist for an MCQ-style question, generate 4 plausible options.
-- Use "true_false" for yes/no or "is it true that…" style questions.
-- Use "short_answer" for open-ended, definition, or calculation questions.
+- Use "short_answer" for open-ended, definition, or calculation questions, including yes/no style questions.
 - MCQ must preserve the original option count from the document (minimum 2, maximum 6).
 - Start your response with [ and end with ]."""
 
@@ -70,7 +69,7 @@ Each element must be a JSON object with these exact keys:
 Auto-detect the best question type:
 - Use "true_false" for yes/no or is-it-true questions
 - Use "mcq" for factual questions with 4 plausible options
-- Use "short_answer" for open-ended or definition questions
+- Use "short_answer" for open-ended, definition, or yes/no questions
 - MCQ must have exactly 4 options
 Output ONLY the raw JSON array. Start with [ and end with ]."""
 
@@ -78,8 +77,8 @@ SYSTEM_PROMPT = """You are an expert academic quiz question generator. Given lea
 
 Each element in the array must be a JSON object with these exact keys:
 - "question_text": string
-- "question_type": one of "mcq", "true_false", "short_answer"
-- "options": array of strings (required for mcq and true_false; omit for short_answer)
+- "question_type": one of "mcq", "short_answer"
+- "options": array of strings (required for mcq; omit for short_answer)
 - "correct_answer": string — for mcq use the exact option text; for true_false use "True" or "False"; for short_answer use the expected answer
 - "explanation": string — one sentence explaining the correct answer
 
@@ -89,10 +88,9 @@ QUALITY RULES — follow these strictly:
 3. SPREAD COVERAGE: Cover different sections, topics, and difficulty levels across the entire document — not just the beginning.
 4. MCQ DISTRACTORS: Wrong options must be plausible but clearly incorrect. Avoid obviously wrong options like "None of the above" or random unrelated words.
 5. MCQ must have exactly 4 distinct options with only one correct answer.
-6. true_false options must be exactly ["True", "False"].
-7. short_answer questions must have a concise, factually precise expected answer.
-8. Mix question types and difficulty levels (recall, application, analysis) across the set.
-9. Output ONLY the raw JSON array. Start your response with [ and end with ]."""
+6. short_answer questions must have a concise, factually precise expected answer.
+7. Mix question types and difficulty levels (recall, application, analysis) across the set.
+8. Output ONLY the raw JSON array. Start your response with [ and end with ]."""
 
 
 def _extract_json_array(raw: str) -> list:
@@ -215,7 +213,7 @@ _QUIZ_FC_TOOL = {
                         "type": "object",
                         "properties": {
                             "question_text":  {"type": "string"},
-                            "question_type":  {"type": "string", "enum": ["mcq", "true_false", "short_answer"]},
+                            "question_type":  {"type": "string", "enum": ["mcq", "short_answer"]},
                             "options":        {"type": "array",  "items": {"type": "string"}},
                             "correct_answer": {"type": "string"},
                             "explanation":    {"type": "string"},
@@ -341,12 +339,10 @@ def generate_options_for_questions(questions: List[str]) -> List[Dict[str, Any]]
             item = items[i]
             item["question_text"] = q_text          # preserve original phrasing
             q_type = item.get("question_type", "mcq")
-            if q_type not in ("mcq", "true_false", "short_answer"):
+            if q_type not in ("mcq", "short_answer"):
                 q_type = "mcq"
                 item["question_type"] = q_type
-            if q_type == "true_false":
-                item["options"] = ["True", "False"]
-            elif q_type == "mcq":
+            if q_type == "mcq":
                 opts = item.get("options") or []
                 while len(opts) < 4:
                     opts.append("")
@@ -510,14 +506,12 @@ def _validate_questions(questions: list) -> List[Dict[str, Any]]:
             continue
 
         q_type = q.get("question_type", "mcq")
-        if q_type not in ("mcq", "true_false", "short_answer"):
+        if q_type not in ("mcq", "short_answer"):
             q["question_type"] = "mcq"
             q_type = "mcq"
 
-        # Ensure options exist for choice-based questions
-        if q_type == "true_false":
-            q["options"] = ["True", "False"]
-        elif q_type == "mcq" and not q.get("options"):
+        # Ensure options exist for MCQ
+        if q_type == "mcq" and not q.get("options"):
             continue  # skip MCQ with no options
 
         # Deduplicate: skip if question text is too similar to an already-accepted one
