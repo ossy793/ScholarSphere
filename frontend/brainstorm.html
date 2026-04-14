@@ -884,6 +884,149 @@
     .timer-progress-bar.warning { background: #f59e0b; }
     .timer-progress-bar.done    { background: #16a34a; width: 100% !important; }
 
+    /* ── Notification bell in timer bar ── */
+    .timer-notif-btn {
+      position: relative;
+      width: 28px; height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .timer-notif-btn:hover,
+    .timer-notif-btn.has-unread {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: rgba(0,119,255,0.06);
+    }
+    .timer-notif-badge {
+      position: absolute;
+      top: -5px; right: -5px;
+      min-width: 16px; height: 16px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 0.58rem; font-weight: 700;
+      border-radius: 8px;
+      padding: 0 3px;
+      display: none;
+      align-items: center; justify-content: center;
+      border: 2px solid var(--bg-card);
+    }
+    .timer-notif-badge.visible { display: flex; }
+
+    /* ── Notification drawer ── */
+    .notif-drawer {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      width: min(320px, 90vw);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+      z-index: 50;
+      overflow: hidden;
+    }
+    .notif-drawer.open { display: block; }
+    .notif-drawer-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem; font-weight: 700; color: var(--text);
+      background: var(--bg);
+    }
+    .notif-drawer-head button {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.72rem; color: var(--text-muted);
+      padding: 2px 6px; border-radius: 4px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .notif-drawer-head button:hover { background: var(--border); color: var(--text); }
+    .notif-drawer-list {
+      max-height: 280px; overflow-y: auto;
+    }
+    .notif-drawer-item {
+      display: flex; gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem; line-height: 1.5; color: var(--text);
+    }
+    .notif-drawer-item:last-child { border-bottom: none; }
+    .notif-drawer-item-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .notif-drawer-item-time {
+      font-size: 0.66rem; color: var(--text-muted); margin-top: 3px;
+    }
+    .notif-drawer-empty {
+      padding: 24px; text-align: center;
+      font-size: 0.82rem; color: var(--text-muted);
+    }
+
+    /* ── Toast notifications (fixed top-right) ── */
+    .study-notif-toasts {
+      position: fixed;
+      top: 60px;
+      right: 18px;
+      z-index: 20000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .study-notif-toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+      padding: 12px 14px 12px 12px;
+      min-width: 260px; max-width: 320px;
+      display: flex; gap: 10px; align-items: flex-start;
+      pointer-events: all;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .study-notif-toast.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .study-notif-toast.done { border-left-color: #16a34a; }
+    .study-notif-toast.warning { border-left-color: #f59e0b; }
+    .toast-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .toast-body { flex: 1; min-width: 0; font-size: 0.82rem; line-height: 1.5; color: var(--text); }
+    .toast-body strong { font-weight: 700; }
+    .toast-body a { color: var(--primary); font-weight: 600; text-decoration: underline; }
+    .toast-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 1rem; padding: 0;
+      flex-shrink: 0; line-height: 1; transition: color 0.12s;
+    }
+    .toast-close:hover { color: var(--text); }
+    .toast-progress {
+      height: 3px; background: rgba(0,119,255,0.2);
+      border-radius: 0 0 10px 10px;
+      position: absolute; bottom: 0; left: 0; right: 0;
+      overflow: hidden;
+    }
+    .toast-progress-bar {
+      height: 100%; background: var(--primary);
+      animation: toastShrink 6s linear forwards;
+    }
+    @keyframes toastShrink {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+    @media (max-width: 768px) {
+      .study-notif-toasts { top: auto; bottom: 90px; right: 12px; left: 12px; }
+      .study-notif-toast  { min-width: 0; max-width: 100%; }
+    }
+
     /* ── Mobile FAB + backdrop (hidden on desktop) ── */
     .mobile-chat-backdrop  { display: none; }
     .mobile-fab            { display: none; }
@@ -1386,6 +1529,27 @@
               <div class="timer-progress-wrap">
                 <div class="timer-progress-bar" id="timer-progress-bar"></div>
               </div>
+              <!-- Notification bell -->
+              <button class="timer-notif-btn" id="timer-notif-btn" onclick="toggleNotifDrawer()" title="Study notifications">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                  width="15" height="15">
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
+                <span class="timer-notif-badge" id="timer-notif-badge">0</span>
+              </button>
+            </div>
+
+            <!-- ── Notification drawer (slides down from timer bar) ── -->
+            <div class="notif-drawer" id="notif-drawer">
+              <div class="notif-drawer-head">
+                <span>Study Notifications</span>
+                <button onclick="clearNotifications()" title="Clear all">Clear</button>
+              </div>
+              <div class="notif-drawer-list" id="notif-drawer-list">
+                <div class="notif-drawer-empty">No notifications yet</div>
+              </div>
             </div>
 
             <!-- Upload area (shown before any file/text) -->
@@ -1538,6 +1702,9 @@
           <span class="chat-restore-btn-label">UrPadi</span>
         </button>
       </main>
+
+      <!-- ── Study notification toasts (fixed, top-right) ── -->
+      <div id="study-notif-toasts" class="study-notif-toasts"></div>
     </div>
   </div>
 

@@ -1498,22 +1498,18 @@ function _timerCheckpoint() {
 
   if (!_timerChecksDone.has(25) && pct >= 0.25) {
     _timerChecksDone.add(25);
-    _injectProactiveMessage(
-      "⏱️ You're 25% through your study session — great start! Keep your focus and ask me if anything is unclear."
-    );
+    _showTimerNotification("You're 25% through your study session — great start! Keep your focus.");
   }
   if (!_timerChecksDone.has(50) && pct >= 0.5) {
     _timerChecksDone.add(50);
-    _injectProactiveMessage(
-      "📚 Halfway there! Take a moment to reflect — what are the 2–3 most important ideas you've covered so far?"
-    );
+    _showTimerNotification("Halfway there! Pause and reflect — what are the key ideas so far?");
   }
   if (!_timerChecksDone.has(80) && pct >= 0.8) {
     _timerChecksDone.add(80);
-    _injectProactiveMessage(
-      "🏁 Almost done! You have about " + Math.ceil(_timerRemaining / 60) + " minutes left. " +
-      "Consider doing a quick quiz to test what you've learned. " +
-      '<a href="ai-generate.html" style="color:var(--primary);font-weight:600;text-decoration:underline">Generate a quiz →</a>'
+    _showTimerNotification(
+      Math.ceil(_timerRemaining / 60) + ' minutes left. ' +
+      '<a href="ai-generate.html">Generate a quiz →</a>',
+      'warning'
     );
   }
 }
@@ -1534,9 +1530,10 @@ function _timerFinish() {
   if (startBtn) startBtn.style.display = 'none';
   if (stopBtn)  stopBtn.style.display  = 'none';
 
-  _injectProactiveMessage(
-    "⏰ Your study session is complete! Great work. Ready to test your knowledge? " +
-    '<a href="ai-generate.html" style="color:var(--primary);font-weight:600;text-decoration:underline">Take a quiz →</a>'
+  _showTimerNotification(
+    '<strong>Session complete!</strong> Great work. ' +
+    '<a href="ai-generate.html">Take a quiz →</a>',
+    'done'
   );
 }
 
@@ -1596,6 +1593,104 @@ function _showTimerBar(show) {
   if (bar) bar.style.display = show ? '' : 'none';
   if (!show) timerStop();
 }
+
+// ── Study Notifications (toast + bell badge) ──────────────────────────────────
+let _notifItems = [];
+
+function _showTimerNotification(msg, type = '') {
+  // Track for drawer
+  _notifItems.push({ msg, type, time: Date.now() });
+
+  // Bell badge
+  const badge = document.getElementById('timer-notif-badge');
+  const bell  = document.getElementById('timer-notif-btn');
+  if (badge) { badge.textContent = _notifItems.length; badge.classList.add('visible'); }
+  if (bell)  bell.classList.add('has-unread');
+
+  // Update drawer list
+  _renderNotifDrawer();
+
+  // Toast popup
+  const container = document.getElementById('study-notif-toasts');
+  if (!container) return;
+
+  const icons = { done: '✅', warning: '⚠️', '': '⏱️' };
+  const icon  = icons[type] || '⏱️';
+
+  const toast = document.createElement('div');
+  toast.className = `study-notif-toast${type ? ' ' + type : ''}`;
+  toast.style.position = 'relative';
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-body">${msg}</span>
+    <button class="toast-close" onclick="this.closest('.study-notif-toast').remove()">×</button>
+    <div class="toast-progress"><div class="toast-progress-bar"></div></div>
+  `;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('visible'));
+
+  // Auto-dismiss after 6 s
+  const AUTO = 6000;
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, AUTO);
+}
+
+function _renderNotifDrawer() {
+  const list = document.getElementById('notif-drawer-list');
+  if (!list) return;
+  if (!_notifItems.length) {
+    list.innerHTML = '<div class="notif-drawer-empty">No notifications yet</div>';
+    return;
+  }
+  list.innerHTML = [..._notifItems].reverse().map(n => {
+    const age = Math.round((Date.now() - n.time) / 60000);
+    const when = age < 1 ? 'just now' : `${age} min ago`;
+    const icons = { done: '✅', warning: '⚠️', '': '⏱️' };
+    return `
+    <div class="notif-drawer-item">
+      <span class="notif-drawer-item-icon">${icons[n.type] || '⏱️'}</span>
+      <div>
+        <div>${n.msg}</div>
+        <div class="notif-drawer-item-time">${when}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.toggleNotifDrawer = function () {
+  const drawer = document.getElementById('notif-drawer');
+  if (!drawer) return;
+  drawer.classList.toggle('open');
+  if (drawer.classList.contains('open')) {
+    // Mark as read — clear badge
+    const badge = document.getElementById('timer-notif-badge');
+    const bell  = document.getElementById('timer-notif-btn');
+    if (badge) badge.classList.remove('visible');
+    if (bell)  bell.classList.remove('has-unread');
+    _renderNotifDrawer();
+  }
+};
+
+window.clearNotifications = function () {
+  _notifItems = [];
+  _renderNotifDrawer();
+  const badge = document.getElementById('timer-notif-badge');
+  const bell  = document.getElementById('timer-notif-btn');
+  if (badge) { badge.textContent = '0'; badge.classList.remove('visible'); }
+  if (bell)  bell.classList.remove('has-unread');
+  document.getElementById('notif-drawer')?.classList.remove('open');
+};
+
+// Close drawer when clicking outside
+document.addEventListener('click', e => {
+  const bar = document.getElementById('study-timer-bar');
+  const drawer = document.getElementById('notif-drawer');
+  if (bar && drawer && !bar.contains(e.target) && !drawer.contains(e.target)) {
+    drawer.classList.remove('open');
+  }
+});
 
 // ── Guided Study Mode ─────────────────────────────────────────────────────────
 let _guidedModeActive = false;
