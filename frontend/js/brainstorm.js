@@ -62,6 +62,8 @@ async function _loadModels() {
   }
   _renderModelPicker();
   _updateModelUI();
+  // Re-render setup cards in case overlay is already visible
+  _renderSetupModelCards();
 }
 
 function _renderModelPicker() {
@@ -134,6 +136,91 @@ document.addEventListener('click', e => {
 });
 
 _loadModels();
+
+// ── Session Setup ──────────────────────────────────────────────────────────────
+let _setupDuration  = 0;   // seconds chosen in setup (0 = no timer)
+let _setupGoal      = '';  // optional goal text
+let _setupCompleted = false; // true once user clicked "Start Studying"
+
+function _renderSetupModelCards() {
+  const grid = document.getElementById('setup-model-grid');
+  if (!grid) return;
+  grid.innerHTML = _availableModels.map(m => {
+    const logo        = _MODEL_LOGOS[m.id] || '';
+    const displayName = m.display_name || m.provider;
+    const isSelected  = m.id === _selectedModel;
+    return `
+    <button class="setup-model-card${isSelected ? ' selected' : ''}" onclick="setupPickModel('${m.id}')">
+      <span class="setup-model-logo">${logo}</span>
+      <span class="setup-model-name">UrPadi × ${displayName}</span>
+      <span class="setup-model-sub">${m.name}</span>
+    </button>`;
+  }).join('');
+}
+
+function _showSetupOverlay() {
+  _renderSetupModelCards();
+  document.getElementById('session-setup-overlay')?.classList.add('visible');
+}
+
+window.setupPickModel = function (id) {
+  _selectedModel = id;
+  localStorage.setItem('sz_model', id);
+  _renderSetupModelCards();
+  _updateModelUI();
+};
+
+window.setupPickDuration = function (secs) {
+  _setupDuration = secs;
+  document.querySelectorAll('.setup-duration-pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.secs) === secs);
+  });
+};
+
+function _formatDuration(secs) {
+  if (secs >= 7200) return `${secs / 3600} hours`;
+  if (secs >= 3600) return '1 hour';
+  return `${secs / 60} minutes`;
+}
+
+window.startStudySession = function () {
+  _setupGoal      = document.getElementById('setup-goal-input')?.value.trim() || '';
+  _setupCompleted = true;
+
+  document.getElementById('session-setup-overlay')?.classList.remove('visible');
+
+  // Pre-configure timer if duration chosen
+  if (_setupDuration > 0) {
+    window.onTimerPresetChange(String(_setupDuration));
+  }
+
+  // Open chat panel on desktop so welcome message is visible
+  const layout = document.getElementById('bs-layout');
+  if (layout?.classList.contains('chat-collapsed') && !window.matchMedia('(max-width:768px)').matches) {
+    toggleChatPanel();
+  }
+
+  // Send companion welcome BEFORE document is loaded
+  const m           = _availableModels.find(x => x.id === _selectedModel);
+  const displayName = m?.display_name || 'Groq';
+  const goalPart    = _setupGoal
+    ? `\n\nWe're focusing on: **"${_setupGoal}"**.` : '';
+  const timerPart   = _setupDuration > 0
+    ? ` You have **${_formatDuration(_setupDuration)}** on the clock.` : '';
+  const welcome =
+    `👋 Hey! I'm **UrPadi**, your study companion powered by **${displayName}**.${goalPart}${timerPart}\n\n` +
+    `Upload your document or paste some text on the left and let's get to work! 📚`;
+
+  const container = document.getElementById('chat-messages');
+  document.getElementById('chat-empty')?.remove();
+  appendBubble('assistant', welcome);
+  chatHistory.push({ role: 'assistant', content: welcome });
+  container.scrollTop = container.scrollHeight;
+};
+
+window.dismissSetupOverlay = function () {
+  document.getElementById('session-setup-overlay')?.classList.remove('visible');
+};
 
 function _setDesktopFileBadge(name, extLabel) {
   const badge = document.getElementById('desktop-file-badge');
@@ -496,6 +583,7 @@ async function handleFile(file) {
     showViewerArea(file.name, extLabel, file.size);
     enableChat(ocrWarning);
     clearChat(false);
+    if (!ocrWarning) setTimeout(_guidedStudyWelcome, 800);
     if (currentSessionId === sessionIdBefore) {
       createSession(file.name, ext.slice(1), documentContext, file.size);
     }
@@ -1519,6 +1607,23 @@ let _guidedTimer      = null;
 
 function _guidedStudyWelcome() {
   if (!documentContext) return;
+
+  // ── Setup-completed path: doc is ready — shorter companion acknowledgment ──
+  if (_setupCompleted) {
+    const readyMsg = _setupGoal
+      ? `📄 Document loaded! Let's focus on **"${_setupGoal}"**. What would you like to start with?`
+      : "📄 Document loaded! I can see your content. What would you like to know about it?";
+    appendBubble('assistant', readyMsg);
+    chatHistory.push({ role: 'assistant', content: readyMsg });
+    document.getElementById('chat-messages').scrollTop = 9999;
+    // Auto-start timer now that session is truly underway
+    if (_timerDuration > 0 && !_timerRunning) {
+      setTimeout(timerStartPause, 300);
+    }
+    return;
+  }
+
+  // ── Default path (history restore / no setup) ────────────────────────────
   const welcomeMsg =
     "👋 Welcome to your study session! I've loaded your document.\n\n" +
     "**Would you like me to guide your study session?**\n" +
@@ -1701,6 +1806,15 @@ window.closeHistory = function () {
 
 window.startNewSession = function () {
   window.changeDocument();
+  _setupCompleted = false;
+  _setupDuration  = 0;
+  _setupGoal      = '';
+  // Reset duration pills to "No timer"
+  document.querySelectorAll('.setup-duration-pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.secs) === 0);
+  });
+  document.getElementById('setup-goal-input') && (document.getElementById('setup-goal-input').value = '');
+  _showSetupOverlay();
 };
 
 async function loadHistory() {
@@ -1976,4 +2090,12 @@ window.addEventListener('beforeunload', _bsSave);
 // Ensure mobile chat is closed on every page load (never auto-open)
 _setMobileChatOpen(false);
 
-_bsRestore().catch(console.error);
+// Show setup overlay for new sessions; restore silently for returning sessions
+(async () => {
+  const hasSaved = !!localStorage.getItem('pritis_bs_session_id');
+  if (!hasSaved) {
+    // Small delay so layout renders before overlay animates in
+    setTimeout(_showSetupOverlay, 120);
+  }
+  await _bsRestore().catch(console.error);
+})();

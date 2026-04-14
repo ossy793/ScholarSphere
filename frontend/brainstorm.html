@@ -1047,6 +1047,200 @@
       from { transform: translateY(100%); }
       to   { transform: translateY(0); }
     }
+    /* ── Session Setup Overlay ── */
+    .session-setup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 15, 30, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    .session-setup-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .session-setup-card {
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+      padding: 32px 28px 28px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+    .setup-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .setup-header-icon {
+      font-size: 2.4rem;
+      margin-bottom: 10px;
+      line-height: 1;
+    }
+    .setup-header h2 {
+      font-size: 1.22rem;
+      font-weight: 800;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+    .setup-header p {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .setup-section {
+      margin-bottom: 22px;
+    }
+    .setup-section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .setup-section-label .hint {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.72rem;
+    }
+    /* Model cards grid */
+    .setup-model-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .setup-model-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      padding: 14px 10px 12px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      text-align: center;
+    }
+    .setup-model-card:hover {
+      border-color: var(--primary);
+      background: rgba(0,119,255,0.04);
+    }
+    .setup-model-card.selected {
+      border-color: var(--primary);
+      background: rgba(0,119,255,0.07);
+      box-shadow: 0 0 0 3px rgba(0,119,255,0.15);
+    }
+    .setup-model-logo { display: flex; align-items: center; justify-content: center; }
+    .setup-model-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .setup-model-sub {
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+    /* Duration pills */
+    .setup-duration-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .setup-duration-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .setup-duration-pill:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .setup-duration-pill.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    /* Goal input */
+    .setup-goal-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    .setup-goal-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0,119,255,0.1);
+    }
+    .setup-goal-input::placeholder { color: var(--text-muted); }
+    /* Start button */
+    .setup-start-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 4px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .setup-start-btn:hover { background: var(--primary-dark); }
+    .setup-start-btn:active { transform: scale(0.99); }
+    .setup-skip-link {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .setup-skip-link button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .setup-skip-link button:hover { color: var(--text); }
+
     /* ── PPTX text-card fallback ── */
     .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
     .pptx-slide {
@@ -1082,6 +1276,68 @@
           <div class="avatar" id="user-avatar"></div>
         </div>
       </header>
+
+      <!-- ── Session Setup Overlay ── -->
+      <div id="session-setup-overlay" class="session-setup-overlay">
+        <div class="session-setup-card">
+
+          <div class="setup-header">
+            <div class="setup-header-icon">🎯</div>
+            <h2>Set up your Study Session</h2>
+            <p>Pick your AI companion, set a timer, and define your goal</p>
+          </div>
+
+          <!-- Model cards -->
+          <div class="setup-section">
+            <div class="setup-section-label">🤖 AI Study Companion</div>
+            <div class="setup-model-grid" id="setup-model-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Duration -->
+          <div class="setup-section">
+            <div class="setup-section-label">
+              ⏱️ Study Duration
+              <span class="hint">(optional)</span>
+            </div>
+            <div class="setup-duration-pills">
+              <button class="setup-duration-pill active" data-secs="0"   onclick="setupPickDuration(0)">No timer</button>
+              <button class="setup-duration-pill"        data-secs="900"  onclick="setupPickDuration(900)">15 min</button>
+              <button class="setup-duration-pill"        data-secs="1800" onclick="setupPickDuration(1800)">30 min</button>
+              <button class="setup-duration-pill"        data-secs="2700" onclick="setupPickDuration(2700)">45 min</button>
+              <button class="setup-duration-pill"        data-secs="3600" onclick="setupPickDuration(3600)">1 hr</button>
+              <button class="setup-duration-pill"        data-secs="5400" onclick="setupPickDuration(5400)">1.5 hr</button>
+              <button class="setup-duration-pill"        data-secs="7200" onclick="setupPickDuration(7200)">2 hr</button>
+            </div>
+          </div>
+
+          <!-- Goal -->
+          <div class="setup-section">
+            <div class="setup-section-label">
+              🎯 Study Goal
+              <span class="hint">(optional)</span>
+            </div>
+            <input type="text" id="setup-goal-input" class="setup-goal-input"
+              placeholder="e.g. Understand Chapter 3, Prepare for tomorrow's exam…"
+              maxlength="120">
+          </div>
+
+          <button class="setup-start-btn" onclick="startStudySession()">
+            Start Studying
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+
+          <div class="setup-skip-link">
+            <button onclick="dismissSetupOverlay()">Continue without setup</button>
+          </div>
+
+        </div>
+      </div>
 
       <main class="page-body">
         <div class="bs-layout chat-collapsed" id="bs-layout">
