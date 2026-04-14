@@ -26,25 +26,28 @@ logger = logging.getLogger(__name__)
 # ── Model metadata (used by frontend picker) ─────────────────────────────────
 MODELS = {
     "groq": {
-        "id":       "groq",
-        "name":     "Llama 3.3",
-        "provider": "Groq",
-        "model":    "llama-3.3-70b-versatile",
-        "available": bool(settings.GROQ_API_KEY),
+        "id":           "groq",
+        "name":         "Llama 3.3 70B",
+        "provider":     "Groq",
+        "display_name": "Groq",
+        "model":        "llama-3.3-70b-versatile",
+        "available":    bool(settings.GROQ_API_KEY),
     },
     "openai": {
-        "id":       "openai",
-        "name":     "GPT-4o mini",
-        "provider": "OpenAI",
-        "model":    "gpt-4o-mini",
-        "available": bool(settings.OPENAI_API_KEY),
+        "id":           "openai",
+        "name":         "GPT-4o mini",
+        "provider":     "OpenAI",
+        "display_name": "ChatGPT",
+        "model":        "gpt-4o-mini",
+        "available":    bool(settings.OPENAI_API_KEY),
     },
     "gemini": {
-        "id":       "gemini",
-        "name":     "Gemini 2.0 Flash",
-        "provider": "Google",
-        "model":    "gemini-2.0-flash",
-        "available": bool(settings.GEMINI_API_KEY),
+        "id":           "gemini",
+        "name":         "Gemini 2.0 Flash",
+        "provider":     "Google",
+        "display_name": "Gemini",
+        "model":        "gemini-2.0-flash",
+        "available":    bool(settings.GEMINI_API_KEY),
     },
 }
 
@@ -251,5 +254,5 @@ def chat_with_model(
 
 
 def get_available_models() -> list:
-    """Return model metadata for available (key-configured) models only."""
-    return [m for m in MODELS.values() if m["available"]]
+    """Return all model metadata; each entry carries an 'available' flag."""
+    return list(MODELS.values())

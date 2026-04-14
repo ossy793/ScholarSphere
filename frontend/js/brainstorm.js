@@ -14,6 +14,24 @@ let currentFilename  = 'Document'; // used for summary PDF filename
 
 // ── Model selection ───────────────────────────────────────────────────────────
 const _MODEL_COLORS = { groq: '#f97316', openai: '#10a37f', gemini: '#4285f4' };
+
+// SVG logos for each provider
+const _MODEL_LOGOS = {
+  groq: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="24" rx="6" fill="#f97316"/>
+    <path d="M12 5.5C8.41 5.5 5.5 8.41 5.5 12C5.5 15.59 8.41 18.5 12 18.5C15.59 18.5 18.5 15.59 18.5 12V10.5H12V13.5H15.6C15.03 15.48 13.68 16.5 12 16.5C9.52 16.5 7.5 14.48 7.5 12C7.5 9.52 9.52 7.5 12 7.5C13.12 7.5 14.14 7.92 14.91 8.62L16.74 6.79C15.49 5.67 13.82 5 12 5.5Z" fill="white"/>
+  </svg>`,
+  openai: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="24" rx="6" fill="#10a37f"/>
+    <path d="M19.2 9.46a4.36 4.36 0 0 0-.38-3.59 4.41 4.41 0 0 0-4.74-2.11A4.42 4.42 0 0 0 3.71 5.88a4.36 4.36 0 0 0-2.91 2.12 4.41 4.41 0 0 0 .54 5.17 4.36 4.36 0 0 0 .37 3.59 4.41 4.41 0 0 0 4.75 2.11 4.36 4.36 0 0 0 3.28 1.46 4.41 4.41 0 0 0 4.21-3.06 4.36 4.36 0 0 0 2.91-2.12 4.41 4.41 0 0 0-.54-5.69zM12.74 18.5a3.27 3.27 0 0 1-2.1-.76l.1-.06 3.49-2.01a.58.58 0 0 0 .29-.5V10.8l1.47.85a.05.05 0 0 1 .03.04v4.07a3.29 3.29 0 0 1-3.28 3.28zM5.66 15.8a3.27 3.27 0 0 1-.39-2.2l.1.06 3.49 2.01a.56.56 0 0 0 .57 0l4.26-2.46v1.7a.06.06 0 0 1-.02.05L9.44 17.1a3.29 3.29 0 0 1-3.78-1.3zM4.9 8.63a3.27 3.27 0 0 1 1.72-1.44v4.14a.56.56 0 0 0 .28.49l4.24 2.45-1.47.85a.06.06 0 0 1-.05 0L5.11 12.6A3.29 3.29 0 0 1 4.9 8.63zm10.78 2.82-4.25-2.46 1.47-.85a.06.06 0 0 1 .05 0l3.52 2.03a3.28 3.28 0 0 1-.49 5.91v-4.14a.58.58 0 0 0-.3-.49zm1.46-2.21-.1-.06-3.48-2.03a.57.57 0 0 0-.57 0L8.73 9.61V7.9a.05.05 0 0 1 .02-.04l3.52-2.03a3.29 3.29 0 0 1 4.87 3.4zm-9.21 3.01-1.47-.85a.06.06 0 0 1-.03-.04V8.28a3.29 3.29 0 0 1 5.38-2.52l-.1.06L8.23 7.83a.58.58 0 0 0-.29.5zm.8-1.72 1.9-1.1 1.9 1.1v2.19l-1.89 1.09-1.9-1.09z" fill="white"/>
+  </svg>`,
+  gemini: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="24" rx="6" fill="#4285f4"/>
+    <path d="M12 3C12 3 12 8.5 7 12C12 15.5 12 21 12 21C12 21 12 15.5 17 12C12 8.5 12 3 12 3Z" fill="white"/>
+    <path d="M3 12C3 12 8.5 12 12 7C15.5 12 21 12 21 12C21 12 15.5 12 12 17C8.5 12 3 12 3 12Z" fill="white" opacity="0.7"/>
+  </svg>`,
+};
+
 let _selectedModel  = localStorage.getItem('sz_model') || 'groq';
 let _availableModels = [];
 
@@ -21,11 +39,12 @@ async function _loadModels() {
   try {
     _availableModels = await api.get('/brainstorm/models');
   } catch (_) {
-    _availableModels = [{ id: 'groq', name: 'Llama 3.3', provider: 'Groq' }];
+    _availableModels = [{ id: 'groq', name: 'Llama 3.3 70B', provider: 'Groq', display_name: 'Groq', available: true }];
   }
-  // If saved model is no longer available, fall back to first available
-  if (!_availableModels.find(m => m.id === _selectedModel)) {
-    _selectedModel = _availableModels[0]?.id || 'groq';
+  // If saved model is no longer available or not in list, fall back to first available
+  const avail = _availableModels.find(m => m.id === _selectedModel && m.available !== false);
+  if (!avail) {
+    _selectedModel = _availableModels.find(m => m.available !== false)?.id || 'groq';
   }
   _renderModelPicker();
   _updateModelUI();
@@ -34,30 +53,49 @@ async function _loadModels() {
 function _renderModelPicker() {
   const picker = document.getElementById('model-picker');
   if (!picker) return;
-  picker.innerHTML = _availableModels.map(m => `
-    <button class="model-option${m.id === _selectedModel ? ' active' : ''}"
-      onclick="selectModel('${m.id}')">
-      <span class="model-option-dot" style="background:${_MODEL_COLORS[m.id] || '#888'}"></span>
+  const header = `<div class="model-picker-header">Choose AI Model</div>`;
+  picker.innerHTML = header + _availableModels.map(m => {
+    const isActive    = m.id === _selectedModel;
+    const isDisabled  = m.available === false;
+    const logo        = _MODEL_LOGOS[m.id] || `<span style="width:18px;height:18px;border-radius:5px;background:${_MODEL_COLORS[m.id]||'#888'};display:inline-block"></span>`;
+    const displayName = m.display_name || m.provider;
+    return `
+    <button class="model-option${isActive ? ' active' : ''}${isDisabled ? ' disabled' : ''}"
+      onclick="${isDisabled ? '' : `selectModel('${m.id}')`}"
+      ${isDisabled ? 'disabled title="API key not configured"' : ''}>
+      <span class="model-logo-wrap">${logo}</span>
       <span class="model-option-info">
-        <span class="model-option-name">${m.name}</span>
-        <span class="model-option-provider">${m.provider}</span>
+        <span class="model-option-name">UrPadi × ${displayName}</span>
+        <span class="model-option-provider">${m.name}${isDisabled ? ' · key not set' : ''}</span>
       </span>
-      ${m.id === _selectedModel ? '<span class="model-option-badge">Active</span>' : ''}
-    </button>`).join('');
+      ${isActive ? '<span class="model-option-badge">Active</span>' : ''}
+    </button>`;
+  }).join('');
 }
 
 function _updateModelUI() {
   const m = _availableModels.find(x => x.id === _selectedModel);
   if (!m) return;
-  const dot   = document.getElementById('model-dot');
-  const label = document.getElementById('model-btn-label');
-  const power = document.getElementById('model-powered-label');
-  if (dot)   dot.style.background = _MODEL_COLORS[m.id] || '#888';
-  if (label) label.textContent = m.provider;
-  if (power) power.textContent = `powered by ${m.provider} · ${m.name}`;
+  const displayName = m.display_name || m.provider;
+  const logo        = _MODEL_LOGOS[m.id];
+  const dot         = document.getElementById('model-dot');
+  const label       = document.getElementById('model-btn-label');
+  const power       = document.getElementById('model-powered-label');
+  const logoWrap    = document.getElementById('model-header-logo');
+  if (dot)      dot.style.background = _MODEL_COLORS[m.id] || '#888';
+  if (label)    label.textContent    = displayName;
+  if (power)    power.innerHTML      = `powered by <strong>${displayName}</strong>`;
+  if (logoWrap && logo) logoWrap.innerHTML = logo;
+  // Update empty-state model badge
+  const emptyBadge = document.getElementById('empty-model-badge');
+  if (emptyBadge) {
+    emptyBadge.innerHTML = `${logo || ''}<span>Powered by <strong>${displayName}</strong> · ${m.name}</span>`;
+  }
 }
 
 window.selectModel = function (modelId) {
+  const m = _availableModels.find(x => x.id === modelId);
+  if (!m || m.available === false) return;
   _selectedModel = modelId;
   localStorage.setItem('sz_model', modelId);
   _renderModelPicker();

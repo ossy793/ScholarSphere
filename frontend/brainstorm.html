@@ -520,6 +520,7 @@
       letter-spacing: 0.01em;
       white-space: nowrap;
     }
+    .model-powered-label strong { font-weight: 700; color: var(--text); }
     .model-selector-wrap { position: relative; }
     .model-selector-btn {
       display: flex; align-items: center; gap: 5px;
@@ -543,12 +544,20 @@
       right: 0;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.13);
-      min-width: 200px;
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+      min-width: 230px;
       z-index: 200;
       overflow: hidden;
-      padding: 4px 0;
+      padding: 6px 0;
+    }
+    .model-picker-header {
+      padding: 8px 14px 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
     }
     .model-option {
       display: flex; align-items: center; gap: 10px;
@@ -558,18 +567,30 @@
       border: none; background: none;
       width: 100%; text-align: left;
     }
-    .model-option:hover { background: rgba(0,119,255,0.06); }
+    .model-option:hover:not(.disabled) { background: rgba(0,119,255,0.06); }
     .model-option.active { background: rgba(0,119,255,0.09); }
-    .model-option-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .model-option-info { display: flex; flex-direction: column; gap: 1px; }
-    .model-option-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .model-option.disabled { opacity: 0.45; cursor: not-allowed; }
+    .model-logo-wrap { flex-shrink: 0; display: flex; align-items: center; }
+    .model-option-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+    .model-option-name { font-size: 0.82rem; font-weight: 700; color: var(--text); }
     .model-option-provider { font-size: 0.68rem; color: var(--text-muted); }
     .model-option-badge {
-      margin-left: auto;
+      margin-left: auto; flex-shrink: 0;
       font-size: 0.6rem; font-weight: 700;
-      padding: 1px 6px; border-radius: 4px;
+      padding: 2px 7px; border-radius: 4px;
       background: rgba(0,119,255,0.1); color: var(--primary);
     }
+    /* Empty-state model badge */
+    .empty-model-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      margin-top: 12px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: 0.73rem; color: var(--text-muted);
+    }
+    .empty-model-badge strong { color: var(--text); font-weight: 700; }
 
     /* Guided Study Mode prompt buttons */
     .guided-prompt-btns {
@@ -1217,13 +1238,12 @@
             <div class="panel-head">
               <div class="panel-head-title" style="flex-direction:column;align-items:flex-start;gap:1px">
                 <div style="display:flex;align-items:center;gap:7px">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-                  </svg>
+                  <span id="model-header-logo" style="display:flex;align-items:center;flex-shrink:0">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#f97316"/><path d="M12 5.5C8.41 5.5 5.5 8.41 5.5 12C5.5 15.59 8.41 18.5 12 18.5C15.59 18.5 18.5 15.59 18.5 12V10.5H12V13.5H15.6C15.03 15.48 13.68 16.5 12 16.5C9.52 16.5 7.5 14.48 7.5 12C7.5 9.52 9.52 7.5 12 7.5C13.12 7.5 14.14 7.92 14.91 8.62L16.74 6.79C15.49 5.67 13.82 5 12 5.5Z" fill="white"/></svg>
+                  </span>
                   UrPadi
                 </div>
-                <div class="model-powered-label" id="model-powered-label">powered by Groq · Llama 3.3</div>
+                <div class="model-powered-label" id="model-powered-label">powered by <strong>Groq</strong></div>
               </div>
               <div style="display:flex;align-items:center;gap:7px">
                 <!-- Model selector -->
@@ -1256,6 +1276,9 @@
                 <div class="empty-icon">🧠</div>
                 <h3>Meet UrPadi</h3>
                 <p>Upload a file or paste text on the left, then ask UrPadi anything about it.</p>
+                <div class="empty-model-badge" id="empty-model-badge">
+                  <span>Powered by <strong>Groq</strong> · Llama 3.3 70B</span>
+                </div>
               </div>
             </div>
 
