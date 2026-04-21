@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Input Questions – Pritis</title>
+  <title>Create Quiz – Pritis</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0077FF">
@@ -67,7 +67,7 @@
 
     <div class="main-content">
       <header class="top-header">
-        <h1 id="page-title">Input Questions</h1>
+        <h1 id="page-title">Create Quiz</h1>
         <div class="user-badge">
           <span id="user-name"></span>
           <div class="avatar" id="user-avatar"></div>
@@ -86,7 +86,7 @@
             <div class="step-line" id="sl-1"></div>
             <div class="step" id="si-2">
               <div class="step-num">2</div>
-              <span>Paste Questions</span>
+              <span>Add Content</span>
             </div>
             <div class="step-line" id="sl-2"></div>
             <div class="step" id="si-3">
@@ -132,10 +132,10 @@
               </div>
 
               <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Content <span style="color:var(--danger)">*</span></label>
+                <label class="form-label">MCQ Content <span style="color:var(--danger)">*</span></label>
                 <p class="form-hint">
-                  Paste questions, a past paper, lecture notes, or any educational material — in any format.
-                  The AI will automatically detect all questions and generate options and correct answers.
+                  Upload a document or paste multiple-choice questions directly.
+                  All questions will be saved as MCQ format.
                 </p>
 
                 <!-- File upload bar -->
@@ -143,11 +143,6 @@
                   <button type="button" class="btn btn-outline btn-sm" onclick="triggerFileInput()">
                     📎 Upload File (PDF · DOCX · PPTX · TXT)
                   </button>
-                  <span id="file-badge" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
-                    <span id="file-name-label"></span>
-                    <button type="button" onclick="clearUploadedFile()"
-                      style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1rem;line-height:1;padding:0">×</button>
-                  </span>
                   <span id="file-reading" class="hidden" style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
                     <span style="display:flex;align-items:center;gap:6px">
                       <span class="spinner spinner-dark"></span>
@@ -160,24 +155,49 @@
                   </span>
                 </div>
 
-                <textarea id="content-textarea" class="form-control" rows="13"
-                  placeholder="Paste your content here. For example:&#10;&#10;1. What is the capital of France?&#10;2. The sun is the centre of our solar system. True or False?&#10;3. Explain the process of photosynthesis.&#10;4. Which of the following is Newton's second law?&#10;   a) F = ma  b) E = mc²  c) V = IR  d) PV = nRT&#10;&#10;The AI will extract every question and generate a complete quiz automatically."></textarea>
+                <!-- File-loaded state (shown after upload, hides textarea) -->
+                <div id="file-ready-state" class="hidden" style="
+                  display:flex;align-items:center;justify-content:space-between;
+                  padding:14px 16px;background:var(--bg);border:2px solid var(--success);
+                  border-radius:var(--radius);margin-bottom:10px">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:1.4rem">📄</span>
+                    <div>
+                      <div id="file-ready-name" style="font-weight:700;font-size:0.9rem;color:var(--text)"></div>
+                      <div style="font-size:0.78rem;color:var(--success);font-weight:600">✓ File loaded — ready to analyze</div>
+                    </div>
+                  </div>
+                  <button type="button" onclick="clearUploadedFile()"
+                    style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--text-muted);font-size:0.8rem">
+                    Remove
+                  </button>
+                </div>
+
+                <!-- Manual paste textarea (hidden when file is loaded) -->
+                <div id="textarea-wrap">
+                  <textarea id="content-textarea" class="form-control" rows="13"
+                    placeholder="Paste your MCQ questions here. For example:&#10;&#10;1. Which of the following is Newton's second law?&#10;   a) F = ma  b) E = mc²  c) V = IR  d) PV = nRT&#10;&#10;2. The powerhouse of the cell is the:&#10;   A. Nucleus  B. Mitochondria  C. Ribosome  D. Vacuole&#10;&#10;The AI will extract every question and generate a complete quiz automatically."></textarea>
+                </div>
 
                 <input type="file" id="content-file-input" accept=".pdf,.docx,.pptx,.txt"
                   style="display:none" onchange="handleContentFileInput(event)">
 
-                <!-- Answer format hint -->
+                <!-- Answer format — required -->
                 <div style="margin-top:14px;padding:14px 16px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
-                  <label class="form-label" style="margin-bottom:10px;font-size:0.82rem">
-                    Answer Format
-                    <span class="text-muted" style="font-weight:400;margin-left:4px">(optional — helps AI find existing answers)</span>
+                  <label class="form-label" style="margin-bottom:6px;font-size:0.82rem">
+                    Answer Format <span style="color:var(--danger)">*</span>
                   </label>
+                  <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px">
+                    Tell the AI how answers are indicated in your content so it can extract them accurately.
+                  </p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="hint-btns">
-                    <button type="button" class="hint-chip active" data-hint="" onclick="setAnswerHint(this)">Auto-detect</button>
                     <button type="button" class="hint-chip" data-hint="highlighted" onclick="setAnswerHint(this)">Answers highlighted/marked</button>
                     <button type="button" class="hint-chip" data-hint="after_each" onclick="setAnswerHint(this)">Answer after each question</button>
                     <button type="button" class="hint-chip" data-hint="end_key" onclick="setAnswerHint(this)">Answer key at end</button>
                     <button type="button" class="hint-chip" data-hint="none" onclick="setAnswerHint(this)">No answers — generate all</button>
+                  </div>
+                  <div id="answer-format-error" class="hidden" style="font-size:0.78rem;color:var(--danger);margin-bottom:8px;font-weight:600">
+                    ⚠ Please select an answer format above.
                   </div>
                   <textarea id="extra-instructions" class="form-control" rows="2"
                     placeholder="Optional extra instructions, e.g. 'Correct answers are marked with asterisk (*)' or 'Bold options are correct'"

@@ -82,6 +82,26 @@ def send_push_broadcast(db, title: str, body: str, url: str = "/dashboard.html")
         logger.warning("send_push_broadcast failed: %s", ex)
 
 
+def notify_user(
+    db, user_id, title: str, body: str,
+    url: str = "/dashboard.html", commit: bool = True,
+):
+    """
+    Create an in-app Notification record AND fire a push notification.
+    Pass commit=False when the caller handles db.commit() itself.
+    """
+    from ..models.notification import Notification
+    db.add(Notification(
+        title=title,
+        message=body,
+        target_user_id=user_id,
+        created_by_id=None,
+    ))
+    if commit:
+        db.commit()
+    send_push_to_user(db, user_id, title, body, url)
+
+
 def get_subscriber_count(db) -> int:
     try:
         from ..models.push_subscription import PushSubscription

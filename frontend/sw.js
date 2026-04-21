@@ -6,7 +6,7 @@ const APP_SHELL = [
   '/brainstorm.html',
   '/ai-generate.html',
   '/input-questions.html',
-  '/my-questions.html',
+  '/question-bank.html',
   '/quiz-practice.html',
   '/performance.html',
   '/upgrade.html',
@@ -18,10 +18,12 @@ const APP_SHELL = [
   '/icons/icon-512.png',
 ];
 
-// Install: cache app shell
+// Install: cache app shell (best-effort — don't fail if a file is missing)
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(APP_SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(APP_SHELL.map(url => c.add(url))))
+      .then(() => self.skipWaiting())
   );
 });
 

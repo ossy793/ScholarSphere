@@ -8,15 +8,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .config import settings
 from .database import create_tables, get_db
-from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, promo, admin, notifications, push
+from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, admin, notifications, push, users, friends, study, assistant, support, challenge, payment
 from .models.user import User
 from .models.question import Question
 from .models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument  # noqa: F401 – registers tables
-from .models.promo import PromoCode  # noqa: F401 – registers table
+from .models.feature_usage import FeatureUsage  # noqa: F401 – registers table
 from .models.notification import Notification, NotificationRead  # noqa: F401 – registers tables
 from .models.leaderboard import LeaderboardReset  # noqa: F401 – registers table
 from .models.push_subscription import PushSubscription  # noqa: F401 – registers table
 from .models.password_reset import PasswordResetCode   # noqa: F401 – registers table
+from .models.conversation import Conversation, DirectMessage  # noqa: F401 – registers tables
+from .models.study import Note, StudySchedule  # noqa: F401 – registers tables
+from .models.support import SupportAgent, SupportConversation, SupportMessage  # noqa: F401 – registers tables
+from .models.challenge import Challenge, ChallengeParticipant, ChallengeResponse  # noqa: F401 – registers tables
+from .utils.scheduler import start_scheduler, stop_scheduler
 
 # ── Rate limiter (shared across routers via app.state) ────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -47,13 +52,19 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=()"
     return response
 
 
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    stop_scheduler()
 
 
 app.include_router(auth.router, prefix="/api")
@@ -64,10 +75,16 @@ app.include_router(generate.router, prefix="/api")
 app.include_router(attempts.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(brainstorm.router, prefix="/api")
-app.include_router(promo.router,          prefix="/api")
 app.include_router(admin.router,          prefix="/api")
 app.include_router(notifications.router,  prefix="/api")
 app.include_router(push.router,           prefix="/api")
+app.include_router(users.router,          prefix="/api")
+app.include_router(friends.router,        prefix="/api")
+app.include_router(study.router,          prefix="/api")
+app.include_router(assistant.router,      prefix="/api")
+app.include_router(support.router,        prefix="/api")
+app.include_router(challenge.router,      prefix="/api")
+app.include_router(payment.router,        prefix="/api")
 
 
 @app.get("/api/health")

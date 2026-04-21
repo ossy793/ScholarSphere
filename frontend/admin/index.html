@@ -21,6 +21,40 @@
     .detail-stat-val { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
     .detail-stat-lbl { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
     .detail-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+
+    /* ── Admin dashboard tabs ── */
+    .admin-dash-tabs {
+      display: flex; align-items: center;
+      margin-left: 20px; gap: 4px;
+    }
+    .admin-dash-tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 8px;
+      font-size: .82rem; font-weight: 600;
+      border: 1.5px solid transparent;
+      background: none; cursor: pointer;
+      color: var(--text-muted);
+      transition: background .15s, color .15s, border-color .15s;
+      position: relative;
+    }
+    .admin-dash-tab:hover { background: rgba(0,119,255,.07); color: var(--primary); }
+    .admin-dash-tab.active {
+      background: rgba(0,119,255,.1);
+      color: var(--primary);
+      border-color: rgba(0,119,255,.25);
+    }
+    .cs-unread-badge {
+      background: #ef4444; color: #fff;
+      font-size: .65rem; font-weight: 700;
+      border-radius: 10px; padding: 1px 5px;
+      min-width: 16px; text-align: center;
+    }
+    .cs-unread-badge.hidden { display: none; }
+
+    /* Tab panels */
+    .admin-tab-panel { flex: 1; overflow: auto; }
+    #tab-users { display: flex; flex-direction: column; }
+    #tab-support { flex-direction: column; padding: 0; }
   </style>
 </head>
 <body>
@@ -86,14 +120,23 @@
     <aside class="sidebar" id="sidebar"></aside>
     <div class="main-content">
       <header class="top-header">
-        <div>
-          <h1 id="page-title">Admin Dashboard</h1>
-          <p style="font-size:.8rem;color:var(--text-muted);margin-top:2px">
-            User management &amp; platform analytics
-          </p>
+        <div style="display:flex;align-items:center;gap:0">
+          <h1 id="page-title" style="margin-right:0">Admin</h1>
+          <!-- Dashboard tabs -->
+          <div class="admin-dash-tabs" id="admin-dash-tabs">
+            <button class="admin-dash-tab active" data-tab="users" onclick="switchAdminTab('users')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              Users &amp; Analytics
+            </button>
+            <button class="admin-dash-tab" data-tab="support" onclick="switchAdminTab('support')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              Customer Service
+              <span class="cs-unread-badge hidden" id="cs-tab-badge">0</span>
+            </button>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="btn btn-outline btn-sm" onclick="openBroadcastModal()" title="Send to all users">📢 Broadcast</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-outline btn-sm" id="broadcast-btn" onclick="openBroadcastModal()">📢 Broadcast</button>
           <span class="badge badge-primary">ADMIN</span>
           <div class="user-badge">
             <span id="user-name"></span>
@@ -101,6 +144,9 @@
           </div>
         </div>
       </header>
+
+      <!-- ══ TAB: Users & Analytics ══════════════════════════════════════════ -->
+      <div id="tab-users" class="admin-tab-panel">
 
       <div class="page-body">
 
@@ -231,9 +277,18 @@
         </div>
 
       </div><!-- /.page-body -->
+      </div><!-- /#tab-users -->
+
+      <!-- ══ TAB: Customer Service ══════════════════════════════════════════ -->
+      <div id="tab-support" class="admin-tab-panel hidden" style="display:none;flex:1;overflow:hidden">
+        <!-- Loaded by customer-service.js -->
+        <div id="cs-root" style="height:100%;display:flex;flex-direction:column"></div>
+      </div><!-- /#tab-support -->
+
     </div><!-- /.main-content -->
   </div><!-- /.app-layout -->
 
   <script type="module" src="admin.js"></script>
+  <script type="module" src="customer-service.js"></script>
 </body>
 </html>

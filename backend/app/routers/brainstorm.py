@@ -1,4 +1,7 @@
+import asyncio
+import json
 import logging
+import re as _re
 import uuid as uuid_module
 from datetime import datetime
 from typing import List, Optional
@@ -22,10 +25,11 @@ from ..utils.file_parser import (
     _render_pdf_page_range,
 )
 from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
-from ..utils.chunker import chunk_text
+from ..utils.chunker import chunk_text, chunk_pages_aware
 from ..utils.rag import store_chunks, retrieve_chunks, chunks_exist
 from ..services.ai_service import get_groq_client
 from ..services.model_service import chat_with_model, get_available_models
+from ..utils.access import check_access, enforce_model_access, effective_plan
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
@@ -71,7 +75,15 @@ Explain as if talking to a smart friend, not writing an essay.
 6. BE CONCISE: Give short, focused answers. No long paragraphs. \
 Use bullet points only if they genuinely help.
 
-7. TONE: Supportive and clear. You are a helpful study companion, not a textbook.\
+7. TONE: Supportive and clear. You are a helpful study companion, not a textbook.
+
+8. PAGE REFERENCES: When you mention or reference a page number, always clarify that it is \
+the document viewer's page index — for example: \
+"page 3 (document viewer page — may differ from the printed page number in your document)". \
+If a retrieved section header shows "[Document Viewer Page N | section title]", use that number \
+with the clarification. Include the section title when available, e.g.: \
+"This is covered on page 3 of the document viewer (under 'Introduction to Contract Law'), \
+which may not match the printed page number in your original document."\
 """
 
 
@@ -194,14 +206,45 @@ def _convert_and_store_pdf(session_id_str: str, file_bytes: bytes,
 def _chunk_and_embed(session_id_str: str, document_id_str: str, text: str) -> None:
     """
     Background task: chunk the document text and store embeddings via RAG pipeline.
-    Runs after the upload response is sent so the user can start chatting immediately.
-    Falls back gracefully — if embedding fails, keyword search still works.
+    Prefers page-aware chunking (prefixes each chunk with viewer page number) so the
+    AI can cite pages accurately. Falls back to flat-text chunking if unavailable.
     """
     if not text or not text.strip():
         return
     db = SessionLocal()
     try:
-        chunks = chunk_text(text)
+        chunks = None
+
+        # Attempt page-aware chunking using stored raw file bytes
+        try:
+            doc = db.query(BrainstormDocument).filter(
+                BrainstormDocument.id == uuid_module.UUID(document_id_str)
+            ).first()
+            if doc and doc.file_content and doc.file_type in ("pdf", "docx", "pptx"):
+                from ..services.rag_service import (
+                    extract_pages_from_pdf,
+                    extract_pages_from_docx,
+                    extract_pages_from_pptx,
+                )
+                if doc.file_type == "pdf":
+                    pages = extract_pages_from_pdf(doc.file_content)
+                elif doc.file_type == "docx":
+                    pages = extract_pages_from_docx(doc.file_content)
+                else:
+                    pages = extract_pages_from_pptx(doc.file_content)
+                if pages:
+                    chunks = chunk_pages_aware(pages)
+                    logger.info(
+                        "RAG: page-aware chunking — %d pages → %d chunks for session %s",
+                        len(pages), len(chunks), session_id_str,
+                    )
+        except Exception as exc:
+            logger.warning("Page-aware chunking failed (%s) — using flat-text fallback", exc)
+            chunks = None
+
+        if not chunks:
+            chunks = chunk_text(text)
+
         if not chunks:
             return
         store_chunks(
@@ -377,6 +420,8 @@ async def create_session_from_file(
     The response is returned immediately so the user can start chatting
     while the viewer PDF and embeddings are being prepared asynchronously.
     """
+    check_access(db, current_user, "study_zone", increment=True)
+
     file_bytes = await file.read()
 
     if len(file_bytes) > _MAX_UPLOAD:
@@ -597,19 +642,19 @@ async def upload_document(
 
     if file_type == "pdf":
         try:
-            text = extract_text_from_pdf(file_bytes)
+            text = await asyncio.to_thread(extract_text_from_pdf, file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
     elif file_type == "docx":
         try:
-            text = extract_text_from_docx(file_bytes)
+            text = await asyncio.to_thread(extract_text_from_docx, file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
     elif file_type == "pptx":
         try:
-            text = extract_text_from_pptx(file_bytes)
+            text = await asyncio.to_thread(extract_text_from_pptx, file_bytes)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
@@ -619,7 +664,7 @@ async def upload_document(
             raise HTTPException(status_code=422, detail="The text file appears to be empty.")
 
     elif file_type in IMAGE_TYPES:
-        text = extract_text_from_image(file_bytes)
+        text = await asyncio.to_thread(extract_text_from_image, file_bytes)
         if not text:
             raise HTTPException(
                 status_code=422,
@@ -777,6 +822,9 @@ def brainstorm_chat(
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    # Enforce model access per plan (gemini blocked on free)
+    enforce_model_access(current_user, payload.model)
+
     # ── Resolve session ───────────────────────────────────────────────────────
     active_session = None
     session_uuid   = None
@@ -910,7 +958,11 @@ def brainstorm_chat(
         active_session.updated_at = datetime.utcnow()
         db.commit()
 
-    return {"reply": reply}
+    # Return session_mins limit so frontend can enforce the timer
+    from ..utils.access import PLAN_LIMITS, effective_plan as _ep
+    plan   = _ep(current_user)
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get("study_zone") or {}
+    return {"reply": reply, "session_mins": limits.get("session_mins")}
 
 
 _SUMMARY_SYSTEM_PROMPT = (
@@ -1063,3 +1115,789 @@ def generate_summary(
         )
 
     return {"summary": summary, "filename": payload.filename}
+
+
+# ── Flashcards ─────────────────────────────────────────────────────────────────
+
+class FlashcardsRequest(BaseModel):
+    context: str
+    topic: str = ""          # optional hint from recent chat
+    model: str = "groq"
+    count: int = 7           # 5-10 cards
+
+
+@router.post("/flashcards")
+def generate_flashcards(
+    payload: FlashcardsRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Generate Q&A flashcards from the document context."""
+    if not payload.context.strip():
+        raise HTTPException(status_code=400, detail="No document context provided.")
+
+    topic_hint = f" Focus on: {payload.topic}." if payload.topic else ""
+    prompt = (
+        f"Generate {payload.count} flashcard Q&A pairs from this document.{topic_hint}\n"
+        "Return ONLY valid JSON — no prose, no markdown fences:\n"
+        '[{"q":"Question","a":"Answer"}, ...]\n'
+        "Make questions specific and answers concise (1-3 sentences)."
+    )
+    truncated = truncate_text(payload.context, max_chars=40000)
+
+    try:
+        reply = chat_with_model(
+            model_id=payload.model,
+            messages=[
+                {"role": "system", "content": "You are a study assistant that creates exam-ready flashcards."},
+                {"role": "user",   "content": f"Document:\n{truncated}\n\n{prompt}"},
+            ],
+            temperature=0.4,
+            max_tokens=1500,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI error: {str(e)}")
+
+    # Robust JSON extraction
+    try:
+        raw = reply.replace("```json", "").replace("```", "").strip()
+        start = raw.index("[")
+        end   = raw.rindex("]") + 1
+        cards = json.loads(raw[start:end])
+        if not isinstance(cards, list):
+            raise ValueError("Not a list")
+    except Exception:
+        raise HTTPException(status_code=500, detail="AI returned malformed flashcards. Please try again.")
+
+    return {"cards": cards[:10]}
+
+
+# ── Visual Explanation ────────────────────────────────────────────────────────
+
+class VisualRequest(BaseModel):
+    session_id:  Optional[str] = None
+    context:     str = ""        # legacy fallback (still accepted)
+    user_query:  str = ""        # what the user wants explained visually
+    page_number: int = 0         # 0 = auto-detect from user_query
+    topic:       str = ""        # legacy
+    model:       str = "groq"
+
+
+def _extract_page_number_from_query(text: str) -> int:
+    m = _re.search(r'\bpage\s+(\d+)\b', text, _re.IGNORECASE)
+    return int(m.group(1)) if m else 0
+
+
+def _get_pdf_page_text(file_bytes: bytes, page_number: int) -> str:
+    try:
+        import pdfplumber, io as _io
+        with pdfplumber.open(_io.BytesIO(file_bytes)) as pdf:
+            if 1 <= page_number <= len(pdf.pages):
+                return pdf.pages[page_number - 1].extract_text() or ""
+    except Exception:
+        pass
+    return ""
+
+
+_MERMAID_SYSTEM = (
+    "You are a diagram expert for an educational platform. "
+    "Generate a Mermaid.js FLOWCHART to visually explain a concept from the document.\n\n"
+    "Return ONLY valid JSON (no markdown fences, no prose before or after):\n"
+    '{"title":"...","diagram_type":"flowchart","mermaid":"...","description":"..."}\n\n'
+    "MANDATORY mermaid syntax rules — use FLOWCHART TD only:\n"
+    "  flowchart TD\n"
+    "    A[First concept] --> B[Second concept]\n"
+    "    B --> C[Third concept]\n"
+    "    B --> D[Another branch]\n\n"
+    "Rules:\n"
+    "- ALWAYS start with 'flowchart TD' on the first line\n"
+    "- Node IDs must be single letters or short words: A, B, C, D1, etc.\n"
+    "- Labels inside [] must be under 35 chars — NO quotes, colons, parentheses, or curly braces inside labels\n"
+    "- Only use --> for edges. Never use -->, ---, ==>, -.->, or any other arrow in mindmap style\n"
+    "- Use 5-10 nodes maximum\n"
+    "- description: one sentence explaining what the diagram shows\n"
+    "- The mermaid string must use \\n for newlines since it lives inside a JSON string"
+)
+
+
+def _sanitize_mermaid(code: str) -> str:
+    """Fix common AI-generated Mermaid issues before sending to frontend."""
+    lines = code.strip().splitlines()
+    if not lines:
+        return code
+    first = lines[0].strip().lower()
+    # If the AI forgot the declaration or used mindmap/graph, force flowchart TD
+    if not first.startswith(("flowchart", "graph ", "sequencediagram", "gantt", "mindmap", "erdiagram")):
+        lines = ["flowchart TD"] + lines
+
+    # If it's a mindmap but contains --> arrows (invalid), convert to flowchart TD
+    if lines[0].strip().lower() == "mindmap":
+        has_arrows = any("-->" in l or "---" in l or "→" in l for l in lines[1:])
+        if has_arrows:
+            new_lines = ["flowchart TD"]
+            node_id = 65  # 'A'
+            for line in lines[1:]:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("root"):
+                    continue
+                label = stripped.lstrip("+-* \t").strip("()[]\"'")[:35]
+                if label:
+                    new_lines.append(f"  {chr(node_id)}[{label}]")
+                    if node_id > 65:
+                        new_lines[-1] = f"  {chr(node_id - 1)} --> {chr(node_id)}[{label}]"
+                    node_id += 1
+                    if node_id > 74:  # max 10 nodes
+                        break
+            return "\n".join(new_lines)
+
+    return "\n".join(lines)
+
+
+@router.post("/visual")
+async def generate_visual(
+    payload: VisualRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate a Mermaid diagram visual explanation from document content."""
+    check_access(db, current_user, "visual_explanation", increment=True)
+    enforce_model_access(current_user, payload.model)
+
+    context = ""
+    page_no = payload.page_number or _extract_page_number_from_query(payload.user_query)
+
+    if payload.session_id:
+        try:
+            session_uuid = uuid_module.UUID(payload.session_id)
+            doc_record = db.query(BrainstormDocument).filter(
+                BrainstormDocument.session_id == session_uuid
+            ).first()
+
+            # Page-specific extraction first
+            if page_no and doc_record and doc_record.file_content:
+                page_text = _get_pdf_page_text(doc_record.file_content, page_no)
+                if page_text:
+                    context = page_text
+
+            # RAG retrieval
+            if not context and chunks_exist(db, session_uuid):
+                q = payload.user_query or payload.topic or "main concepts overview"
+                chunks = retrieve_chunks(db, session_uuid, q, top_k=6)
+                if chunks:
+                    context = "\n\n".join(chunks)
+
+            # Full text fallback
+            if not context and doc_record and doc_record.extracted_text:
+                context = truncate_text(doc_record.extracted_text, max_chars=4000)
+
+        except Exception as exc:
+            logger.warning("Visual: session error: %s", exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    # Legacy context field
+    if not context and payload.context:
+        context = truncate_text(payload.context, max_chars=4000)
+
+    if not context:
+        raise HTTPException(status_code=400, detail="No document content available.")
+
+    topic_hint = payload.user_query or payload.topic or "the main topic"
+    page_hint = (
+        f" (focus on document viewer page {page_no} — note: this is the viewer's page index, "
+        f"which may differ from the printed page number in the original document)"
+        if page_no else ""
+    )
+    user_msg = (
+        f"Document content:\n\n{context[:3500]}\n\n"
+        f"User request: Explain '{topic_hint}' visually{page_hint}.\n\n"
+        "Generate a Mermaid diagram. Return valid JSON with title, diagram_type, mermaid, description."
+    )
+
+    # Try models — Gemini preferred for diagram quality
+    model_order = ["gemini", "openai", "groq"]
+    if payload.model in model_order:
+        model_order = [payload.model] + [m for m in model_order if m != payload.model]
+
+    reply = None
+    for model_id in model_order:
+        try:
+            reply = chat_with_model(
+                model_id=model_id,
+                messages=[
+                    {"role": "system", "content": _MERMAID_SYSTEM},
+                    {"role": "user",   "content": user_msg},
+                ],
+                temperature=0.3,
+                max_tokens=1200,
+            )
+            break
+        except Exception as exc:
+            logger.warning("Visual/%s error: %s", model_id, exc)
+
+    if not reply:
+        raise HTTPException(status_code=500, detail="AI unavailable. Please try again.")
+
+    # Parse Mermaid JSON
+    try:
+        raw = reply.replace("```json", "").replace("```", "").strip()
+        data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+        if "mermaid" not in data:
+            raise ValueError("no mermaid field")
+        data["mermaid"] = _sanitize_mermaid(data["mermaid"])
+        data.setdefault("diagram_type", "flowchart")
+        data.setdefault("description", "")
+        data.setdefault("title", topic_hint)
+        data["topic"] = topic_hint
+        logger.info("Visual: Mermaid diagram generated, type=%s", data.get("diagram_type"))
+        return data
+    except Exception as exc:
+        logger.warning("Visual: Mermaid JSON parse failed (%s) — falling back to structured", exc)
+
+    # Fallback: structured sections breakdown
+    fallback_prompt = (
+        f"Create a structured visual breakdown of '{topic_hint}'.\n"
+        "Return ONLY valid JSON — no prose, no code fences:\n"
+        '{"title":"...","type":"breakdown","sections":[{"icon":"emoji","heading":"...","points":["...","..."]}]}\n'
+        "Use 3-5 sections. Each section: 1 emoji, short heading, 2-4 bullet points."
+    )
+    try:
+        reply2 = chat_with_model(
+            model_id=payload.model,
+            messages=[
+                {"role": "system", "content": "You are a study assistant creating structured visual explanations."},
+                {"role": "user",   "content": f"Document:\n{context[:3500]}\n\n{fallback_prompt}"},
+            ],
+            temperature=0.35,
+            max_tokens=1000,
+        )
+        raw2 = reply2.replace("```json", "").replace("```", "").strip()
+        data2 = json.loads(raw2[raw2.index("{"):raw2.rindex("}") + 1])
+        if "sections" not in data2:
+            raise ValueError("missing sections")
+        data2["topic"] = topic_hint
+        return data2
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not generate visual explanation. Please try again.")
+
+
+# ── Learning Resources (YouTube) ──────────────────────────────────────────────
+
+# Updated function-calling tool — returns query + subject + keywords for strict filtering
+_YOUTUBE_FC_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "fetch_youtube_resources",
+        "description": "Fetch highly relevant educational YouTube videos based on extracted document topics",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "Precise YouTube search query built from document content. "
+                        "Format: '{subject} {key_topic_1} {key_topic_2} explanation'. "
+                        "Examples: "
+                        "'Business Law contract law agency sale of goods explanation', "
+                        "'Photosynthesis light reaction chlorophyll explanation', "
+                        "'Macroeconomics GDP inflation fiscal policy lecture'. "
+                        "NEVER use generic terms like 'study tips', 'how to learn', or 'motivation'."
+                    ),
+                },
+                "subject": {
+                    "type": "string",
+                    "description": (
+                        "Main academic subject extracted from the document (2-4 words). "
+                        "Examples: 'Business Law', 'Organic Chemistry', 'Macroeconomics'."
+                    ),
+                },
+                "keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Top 5 specific key terms or concepts from the document "
+                        "used to verify video relevance. "
+                        "Examples: ['contract law', 'agency', 'offer and acceptance']."
+                    ),
+                },
+            },
+            "required": ["query", "subject", "keywords"],
+        },
+    },
+}
+
+# Priority educational channels — scored higher during ranking
+_YT_PRIORITY_CHANNELS = {
+    "khan academy",
+    "the organic chemistry tutor",
+    "crashcourse",
+    "crash course",
+    "professor dave explains",
+    "fog accountancy tutorials",
+    "excellence academy",
+    "ted-ed",
+    "mit opencourseware",
+    "stanford university",
+    "coursera",
+    "freecodecamp.org",
+    "3blue1brown",
+    "sci show",
+    "kurzgesagt – in a nutshell",
+    "bbc",
+    "national geographic education",
+    "harvard university",
+    "yale courses",
+    "simple learning pro",
+    "the audiopedia",
+    "law simplified",
+    "law insider",
+}
+
+_YT_SKIP_KEYWORDS = {
+    "funny", "prank", "reaction", "vlog", "challenge", "tiktok",
+    "gaming", "meme", "#shorts", "shorts", "motivat", "study hack",
+    "study with me", "lofi", "paraphrase", "plagiarism", "essay writing trick",
+    "relationship", "dating", "signs you are", "signs you're", "personality",
+    "self help", "self-help", "anxiety", "depression", "mindset",
+}
+
+# Common English stop words that must NOT count as subject matches
+_SCORE_STOP_WORDS = {
+    "i", "i'm", "i've", "i'll", "you", "your", "we", "our", "they", "their",
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "can", "for", "of", "in", "on",
+    "at", "to", "and", "or", "but", "with", "this", "that", "it", "its",
+    "when", "where", "what", "how", "why", "who", "which", "there",
+    "here", "me", "my", "him", "his", "her", "us", "them", "so", "as",
+    "if", "by", "from", "up", "down", "about", "into", "than", "then",
+    "now", "just", "ready", "get", "let", "go", "come", "more", "some",
+    "any", "all", "one", "two", "out", "not", "no", "yes", "well", "also",
+}
+
+
+def _is_meaningful_subject(subject: str) -> bool:
+    """Return False if the subject is a greeting or contains mostly stop words."""
+    if not subject or len(subject) > 60:
+        return False
+    words = [w.strip("!?.,") for w in subject.lower().split()]
+    if not words:
+        return False
+    stop_ratio = sum(1 for w in words if w in _SCORE_STOP_WORDS) / len(words)
+    return stop_ratio < 0.6   # reject if >60% of words are stop words
+
+
+def _score_video(video: dict, subject: str, keywords: list[str]) -> int:
+    """
+    Score a video for relevance to the document topic.
+    Higher = more relevant. 0 = discard. -1 = hard reject.
+    """
+    title   = video["title"].lower()
+    desc    = video.get("description", "").lower()
+    channel = video["channel"].lower()
+
+    # Hard reject: skip-list terms in title
+    if any(k in title for k in _YT_SKIP_KEYWORDS):
+        return -1
+
+    score = 0
+
+    # Priority channel bonus
+    if any(pc in channel for pc in _YT_PRIORITY_CHANNELS):
+        score += 10
+
+    # Subject match in title — only meaningful (non-stop) words count
+    if _is_meaningful_subject(subject):
+        subject_terms = [
+            w.strip("!?.,'\"") for w in subject.lower().split()
+            if w.strip("!?.,'\"") not in _SCORE_STOP_WORDS and len(w) > 3
+        ]
+        for term in subject_terms:
+            if term in title:
+                score += 5
+            elif term in desc:
+                score += 1
+
+    # Keyword matches (keywords come from document analysis, already meaningful)
+    for kw in keywords:
+        kw_l = kw.lower().strip()
+        if not kw_l or kw_l in _SCORE_STOP_WORDS:
+            continue
+        if kw_l in title:
+            score += 3
+        elif kw_l in desc:
+            score += 1
+
+    return score
+
+
+async def _search_youtube(
+    query: str,
+    api_key: str,
+    subject: str = "",
+    keywords: list[str] | None = None,
+    fetch_count: int = 8,
+) -> list[dict]:
+    """
+    Search YouTube Data API v3, score results for document relevance,
+    and return the top 3 most relevant educational videos.
+    """
+    import httpx
+
+    keywords = keywords or []
+
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={
+                "q":                 query,
+                "type":              "video",
+                "maxResults":        fetch_count,
+                "key":               api_key,
+                "part":              "snippet",
+                "relevanceLanguage": "en",
+                "safeSearch":        "strict",
+                "videoEmbeddable":   "true",
+                "videoCategoryId":   "27",   # Education category
+            },
+        )
+    resp.raise_for_status()
+    data = resp.json()
+
+    scored = []
+    for item in data.get("items", []):
+        vid_id = item.get("id", {}).get("videoId")
+        snip   = item.get("snippet", {})
+        if not vid_id:
+            continue
+
+        video = {
+            "id":          vid_id,
+            "title":       snip.get("title", ""),
+            "channel":     snip.get("channelTitle", ""),
+            "description": snip.get("description", ""),
+            "thumbnail":   snip.get("thumbnails", {}).get("medium", {}).get("url", ""),
+            "embedUrl":    f"https://www.youtube.com/embed/{vid_id}?autoplay=1&rel=0",
+            "url":         f"https://www.youtube.com/watch?v={vid_id}",
+        }
+
+        s = _score_video(video, subject, keywords)
+        if s < 0:
+            continue          # hard-rejected
+        scored.append((s, video))
+
+    # Sort: highest score first, then take top 3
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # If strict filtering leaves nothing, relax and return whatever passed
+    result = [v for _, v in scored if _ > 0]
+    if not result:
+        result = [v for _, v in scored]  # accept score-0 videos as last resort
+
+    return result[:3]
+
+
+class ResourcesSmartRequest(BaseModel):
+    session_id:  Optional[str] = None
+    user_query:  str = ""   # set only when user manually types a topic
+    model:       str = "groq"
+
+
+@router.post("/resources/smart")
+async def get_smart_resources(
+    payload: ResourcesSmartRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    check_access(db, current_user, "youtube_resources", increment=True)
+    """
+    Document-aware YouTube video recommendations — 100% RAG-driven.
+
+    1. Scans the uploaded document via RAG to extract real content (NOT the filename).
+    2. AI (function calling) reads document content → extracts subject + keywords + search query.
+    3. Fallback plain-text AI prompt if function calling fails.
+    4. Searches YouTube, scores by relevance + priority channels, returns top 3.
+    """
+    from ..config import settings
+    from ..services.ai_service import get_groq_client as _groq, _get_openai_client as _oai
+
+    if not payload.session_id and not payload.user_query:
+        return {"videos": [], "topic": "", "configured": True, "intro": "",
+                "error": "No active document session."}
+
+    # ── Fast path: user manually supplied a topic — skip AI extraction ────────
+    if payload.user_query.strip():
+        q = payload.user_query.strip()
+        if not settings.YOUTUBE_API_KEY:
+            return {"videos": [], "topic": q, "configured": False, "intro": ""}
+        try:
+            videos = await _search_youtube(
+                query   = f"{q} explained tutorial",
+                api_key = settings.YOUTUBE_API_KEY,
+                subject = q,
+            )
+        except Exception as exc:
+            logger.warning("YouTube API error (manual query): %s", exc)
+            return {"videos": [], "topic": q, "configured": True, "error": str(exc), "intro": ""}
+        intro = f"Here are a few videos on **{q}**." if videos else ""
+        return {"videos": videos, "topic": q, "configured": True, "intro": intro}
+
+    # ── 1. Scan document via RAG ──────────────────────────────────────────────
+    # Pull broad chunks that cover the whole document — never use filenames
+    context = ""
+    try:
+        session_uuid = uuid_module.UUID(payload.session_id)
+        if chunks_exist(db, session_uuid):
+            # Two queries: one for overview, one for key concepts
+            chunks_a = retrieve_chunks(db, session_uuid, "main subject overview introduction", top_k=4)
+            chunks_b = retrieve_chunks(db, session_uuid, "key concepts definitions topics",    top_k=4)
+            combined = list(dict.fromkeys(chunks_a + chunks_b))  # deduplicate, keep order
+            if combined:
+                context = "\n\n".join(combined)
+
+        if not context:
+            # RAG embeddings not ready yet — load raw text directly
+            doc_rec = db.query(BrainstormDocument).filter(
+                BrainstormDocument.session_id == session_uuid
+            ).first()
+            if doc_rec and doc_rec.extracted_text:
+                context = truncate_text(doc_rec.extracted_text, max_chars=4000)
+    except Exception as exc:
+        logger.warning("Resources/smart: RAG scan error: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+    if not context:
+        return {"videos": [], "topic": "", "configured": True, "intro": "",
+                "error": "Could not read document content."}
+
+    # ── 2. AI reads document → extracts subject + query + keywords ────────────
+    search_query = ""
+    subject      = ""
+    keywords: list[str] = []
+
+    sys_msg = (
+        "You are an academic document analyst. "
+        "Read the document excerpt carefully and call fetch_youtube_resources.\n\n"
+        "Instructions:\n"
+        "• subject: The real academic subject/course name found IN the document text "
+        "  (2-4 words, e.g. 'Business Law', 'Cell Biology', 'Macroeconomics'). "
+        "  Read the content — do NOT guess from a filename.\n"
+        "• query: A specific YouTube search string built from the document's actual topics. "
+        "  Format: '{subject} {topic1} {topic2} explained'. "
+        "  Example: 'Business Law contract law offer acceptance explained'. "
+        "  NEVER include: file names, document titles, 'summary', 'introduction', "
+        "  study tips, motivation, or greeting phrases.\n"
+        "• keywords: Top 5 key academic terms found in the document body "
+        "  (specific concepts, not generic words like 'introduction' or 'chapter')."
+    )
+    user_msg = (
+        f"Document content (read carefully to identify the academic subject):\n\n"
+        f"{context[:3500]}\n\n"
+        "Based on the document content above — NOT the filename — call fetch_youtube_resources."
+    )
+
+    # Step A: try function calling (preferred)
+    try:
+        if settings.OPENAI_API_KEY:
+            ai = _oai()
+            resp = ai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": sys_msg},
+                           {"role": "user",   "content": user_msg}],
+                tools=[_YOUTUBE_FC_TOOL],
+                tool_choice={"type": "function", "function": {"name": "fetch_youtube_resources"}},
+                temperature=0.1,
+                max_tokens=200,
+            )
+            args = json.loads(resp.choices[0].message.tool_calls[0].function.arguments)
+        else:
+            ai = _groq()
+            resp = ai.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "system", "content": sys_msg},
+                           {"role": "user",   "content": user_msg}],
+                tools=[_YOUTUBE_FC_TOOL],
+                tool_choice={"type": "function", "function": {"name": "fetch_youtube_resources"}},
+                temperature=0.1,
+                max_tokens=200,
+            )
+            args = json.loads(resp.choices[0].message.tool_calls[0].function.arguments)
+
+        search_query = args.get("query",    "").strip()
+        subject      = args.get("subject",  "").strip()
+        keywords     = [k for k in args.get("keywords", []) if isinstance(k, str) and k.strip()]
+
+        # Validate — reject if subject looks like a filename/greeting/sentence
+        if not _is_meaningful_subject(subject):
+            subject = ""
+        if not search_query or not _is_meaningful_subject(search_query.split()[0] if search_query else ""):
+            search_query = ""
+
+        logger.info("Resources/smart FC: query=%r subject=%r kw=%s", search_query, subject, keywords)
+
+    except Exception as exc:
+        logger.warning("Resources/smart: FC failed (%s), trying plain prompt.", exc)
+
+    # Step B: plain-text fallback if FC failed or returned unusable values
+    if not search_query or not subject:
+        try:
+            plain_prompt = (
+                f"Read this document excerpt and answer in JSON only:\n\n{context[:3000]}\n\n"
+                'Return: {"subject":"<2-4 word academic subject>","query":"<YouTube search string with subject + 2 specific topics + explained>","keywords":["term1","term2","term3","term4","term5"]}\n'
+                "Rules: subject must be the academic discipline in the document (e.g. 'Business Law', 'Thermodynamics'). "
+                "Do NOT use the filename. Do NOT include 'introduction', 'summary', or generic phrases."
+            )
+            if settings.OPENAI_API_KEY:
+                ai = _oai()
+                pr = ai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": plain_prompt}],
+                    temperature=0.1,
+                    max_tokens=150,
+                )
+                raw = pr.choices[0].message.content.strip()
+            else:
+                ai = _groq()
+                pr = ai.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": plain_prompt}],
+                    temperature=0.1,
+                    max_tokens=150,
+                )
+                raw = pr.choices[0].message.content.strip()
+
+            raw = raw.replace("```json", "").replace("```", "").strip()
+            parsed = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+            fb_subject = parsed.get("subject", "").strip()
+            fb_query   = parsed.get("query",   "").strip()
+            fb_kws     = parsed.get("keywords", [])
+
+            if not subject      and _is_meaningful_subject(fb_subject): subject      = fb_subject
+            if not search_query and fb_query:                            search_query = fb_query
+            if not keywords:
+                keywords = [k for k in fb_kws if isinstance(k, str) and k.strip()]
+
+            logger.info("Resources/smart fallback: query=%r subject=%r", search_query, subject)
+        except Exception as exc2:
+            logger.warning("Resources/smart: plain fallback also failed: %s", exc2)
+
+    # Last resort — if AI extraction completely failed, refuse gracefully
+    if not search_query:
+        return {"videos": [], "topic": subject or "unknown", "configured": True, "intro": "",
+                "error": "Could not determine document subject. Please try again."}
+
+    # ── 3. YouTube search ─────────────────────────────────────────────────────
+    if not settings.YOUTUBE_API_KEY:
+        return {"videos": [], "topic": subject, "configured": False, "intro": ""}
+
+    try:
+        videos = await _search_youtube(
+            query    = search_query,
+            api_key  = settings.YOUTUBE_API_KEY,
+            subject  = subject,
+            keywords = keywords,
+        )
+    except Exception as exc:
+        logger.warning("YouTube API error: %s", exc)
+        return {"videos": [], "topic": subject, "configured": True, "error": str(exc), "intro": ""}
+
+    intro = f"Here are a few videos to help you better understand **{subject}**." if videos else ""
+    return {"videos": videos, "topic": subject, "configured": True, "intro": intro}
+
+
+@router.get("/resources")
+def get_learning_resources(
+    topic: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Legacy GET endpoint — kept for backward compatibility."""
+    import httpx
+    from ..config import settings
+
+    if not settings.YOUTUBE_API_KEY:
+        return {"videos": [], "topic": topic, "configured": False}
+
+    if not topic.strip():
+        raise HTTPException(status_code=400, detail="Topic is required.")
+
+    try:
+        resp = httpx.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={
+                "q":                 topic + " explanation tutorial",
+                "type":              "video",
+                "maxResults":        5,
+                "key":               settings.YOUTUBE_API_KEY,
+                "part":              "snippet",
+                "relevanceLanguage": "en",
+                "safeSearch":        "strict",
+                "videoDuration":     "medium",
+                "videoEmbeddable":   "true",
+            },
+            timeout=8.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.warning("YouTube API error: %s", e)
+        return {"videos": [], "topic": topic, "configured": True, "error": str(e)}
+
+    videos = []
+    for item in data.get("items", []):
+        vid_id = item.get("id", {}).get("videoId")
+        snip   = item.get("snippet", {})
+        if not vid_id:
+            continue
+        videos.append({
+            "id":        vid_id,
+            "title":     snip.get("title", ""),
+            "channel":   snip.get("channelTitle", ""),
+            "thumbnail": snip.get("thumbnails", {}).get("medium", {}).get("url", ""),
+            "embedUrl":  f"https://www.youtube.com/embed/{vid_id}?autoplay=1&rel=0",
+            "url":       f"https://www.youtube.com/watch?v={vid_id}",
+        })
+
+    return {"videos": videos[:3], "topic": topic, "configured": True}
+
+
+# ── Voice transcription (Groq Whisper) ────────────────────────────────────────
+
+@router.post("/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Transcribe a voice recording using Groq Whisper.
+    Accepts WebM / MP4 / WAV / OGG audio (whatever MediaRecorder produces).
+    Returns { "text": "..." }.
+    """
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="No audio data received.")
+    if len(audio_bytes) > 25 * 1024 * 1024:  # 25 MB limit (Groq's limit)
+        raise HTTPException(status_code=413, detail="Audio file too large (max 25 MB).")
+
+    filename = audio.filename or "recording.webm"
+    client   = get_groq_client()
+
+    try:
+        transcription = client.audio.transcriptions.create(
+            file=(filename, audio_bytes),
+            model="whisper-large-v3-turbo",
+            response_format="text",
+            language="en",
+        )
+        # Groq returns a plain string when response_format="text"
+        text = transcription if isinstance(transcription, str) else transcription.text
+        return {"text": text.strip()}
+    except Exception as e:
+        logger.error("Whisper transcription error: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transcription failed: {str(e)}",
+        )

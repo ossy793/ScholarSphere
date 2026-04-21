@@ -1,89 +1,27 @@
 import { api, requireAuth, getUser, setUser } from './api.js';
 import { renderLayout } from './layout.js';
-import { initPushNotifications } from './push.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
 
-// Always refresh user data from server so premium upgrades reflect immediately
 (async () => {
   try {
     const fresh = await api.get('/auth/me');
     if (fresh) setUser(fresh);
   } catch {}
   initDashboard();
-  // Request push notification permission after a short delay (non-blocking)
-  setTimeout(() => initPushNotifications(), 3000);
 })();
 
 function initDashboard() {
+  renderLayout('Dashboard', 'Dashboard');
+  const user = getUser();
+  document.getElementById('user-name').textContent = user?.full_name || user?.email || '';
+  document.getElementById('user-avatar').textContent =
+    (user?.full_name || user?.email || '?')[0].toUpperCase();
 
-renderLayout('Dashboard', 'Dashboard');
-
-const user = getUser();
-
-// ── Free-user view ────────────────────────────────────────────────────────────
-// Load streak for all users (Brainstorm is available to everyone)
-loadStreak();
-
-if (!user?.is_premium) {
-  document.querySelector('.page-body').innerHTML = `
-    <div style="max-width:540px;margin:0 auto;text-align:center;padding:40px 0">
-      <div style="font-size:3rem;margin-bottom:16px">🔒</div>
-      <h2 style="font-size:1.4rem;font-weight:800;color:var(--text);margin:0 0 10px">
-        You're on the Free Plan
-      </h2>
-      <p style="color:var(--text-muted);margin:0 0 28px;font-size:.95rem">
-        Free users have access to the <strong>Brainstorm</strong> feature.
-        Upgrade with a promo code to unlock AI question generation, quizzes,
-        performance analytics and more — completely free.
-      </p>
-      <a href="upgrade.html" class="btn btn-primary btn-lg"
-         style="margin-bottom:12px;display:inline-block;width:100%;max-width:280px">
-        Get Premium Access
-      </a>
-      <br>
-      <a href="brainstorm.html" class="btn btn-outline btn-lg"
-         style="display:inline-block;width:100%;max-width:280px">
-        Go to Brainstorm
-      </a>
-
-      <div style="margin-top:20px;display:inline-flex;align-items:center;gap:10px;
-                  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
-                  padding:10px 18px">
-        <span id="streak-icon" style="font-size:1.3rem">🔥</span>
-        <div style="text-align:left">
-          <div style="font-weight:800;font-size:1rem;color:var(--text)" id="stat-streak">– days</div>
-          <div style="font-size:0.75rem;color:var(--text-muted)">Brainstorm Streak</div>
-        </div>
-      </div>
-
-      <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:14px;text-align:left">
-        ${[
-          ['🤖', 'AI Generate',    'Generate quizzes from your notes, PDFs or Word documents.'],
-          ['✏️', 'Input Questions', 'Create custom quizzes with MCQs, short answers and more.'],
-          ['📋', 'My Questions',   'Manage, share and practice all your saved quizzes.'],
-          ['📊', 'Performance',    'Track your scores and progress with detailed analytics.'],
-        ].map(([icon, title, desc]) => `
-          <div style="background:var(--bg);border-radius:var(--radius);padding:16px;
-                      border:1px solid var(--border)">
-            <div style="font-size:1.4rem;margin-bottom:6px">${icon}</div>
-            <p style="font-weight:700;margin:0 0 4px;font-size:.9rem">
-              ${title}
-              <span style="font-size:.65rem;background:#6366f1;color:#fff;
-                           padding:1px 6px;border-radius:999px;vertical-align:middle">PRO</span>
-            </p>
-            <p style="font-size:.8rem;color:var(--text-muted);margin:0">${desc}</p>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-} else {
-  // ── Premium-user view ─────────────────────────────────────────────────────
+  loadStreak();
   loadDashboard();
+  loadPlanCard();
 }
-
-} // end initDashboard
 
 async function loadStreak() {
   try {
@@ -93,9 +31,7 @@ async function loadStreak() {
     const iconEl = document.getElementById('streak-icon');
     if (el) el.textContent = streak > 0 ? `${streak} day${streak !== 1 ? 's' : ''}` : '0 days';
     if (iconEl) iconEl.textContent = streak >= 7 ? '🔥' : streak >= 3 ? '✨' : streak > 0 ? '🌱' : '💤';
-  } catch {
-    // streak is non-critical; fail silently
-  }
+  } catch {}
 }
 
 async function loadDashboard() {
@@ -114,4 +50,106 @@ async function loadDashboard() {
   } catch (err) {
     console.error('Dashboard load error:', err);
   }
+}
+
+async function loadPlanCard() {
+  const user = getUser();
+  if (!user) return;
+
+  const plan = user.subscription_plan || 'free';
+  const isAdmin = user.is_admin;
+  const container = document.getElementById('plan-card');
+  if (!container) return;
+
+  // Admin badge — no usage tracking needed
+  if (isAdmin) {
+    container.innerHTML = `
+      <div class="plan-status-card plan-admin">
+        <div class="plan-status-left">
+          <div class="plan-status-icon admin">⚡</div>
+          <div class="plan-status-info">
+            <h3>Admin — Full Pro Access</h3>
+            <p>Unlimited access to all features, no restrictions.</p>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Fetch usage data (best-effort — if it fails just show plan name)
+  let usage = {};
+  try {
+    usage = await api.get('/payment/usage') || {};
+  } catch {}
+
+  const expiry = user.subscription_expiry
+    ? new Date(user.subscription_expiry).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+    : null;
+
+  const planMeta = {
+    free:  { label: 'Free Plan',  icon: '📌', cls: 'free',  iconCls: 'free' },
+    basic: { label: 'Basic Plan', icon: '✨', cls: 'basic', iconCls: 'basic' },
+    pro:   { label: 'Pro Plan',   icon: '🚀', cls: 'pro',   iconCls: 'pro'  },
+  };
+  const meta = planMeta[plan] || planMeta.free;
+
+  let rightSection = '';
+
+  if (plan === 'free') {
+    // Show usage bars for the three limited features
+    const items = [
+      { key: 'ai_generate',    label: 'AI Generate',   limit: 3  },
+      { key: 'study_zone',     label: 'Study Zone',    limit: 3  },
+      { key: 'input_questions',label: 'Create Quiz',    limit: 2  },
+    ];
+    const bars = items.map(({ key, label, limit }) => {
+      const used = usage[key]?.used ?? 0;
+      const pct  = Math.min(100, Math.round((used / limit) * 100));
+      const fillCls = pct >= 100 ? 'full' : pct >= 67 ? 'warn' : '';
+      return `
+        <div class="plan-usage-item">
+          <div class="plan-usage-label">${label}</div>
+          <div class="plan-usage-bar"><div class="plan-usage-fill ${fillCls}" style="width:${pct}%"></div></div>
+          <div class="plan-usage-count">${used}/${limit} used</div>
+        </div>`;
+    }).join('');
+
+    rightSection = `
+      <div class="plan-usage-row">${bars}</div>
+      <a href="upgrade.html" class="plan-upgrade-btn">Upgrade ↗</a>`;
+
+  } else if (plan === 'basic') {
+    const expiryText = expiry ? `Renews / expires ${expiry}` : 'Active';
+    rightSection = `
+      <div class="plan-status-info" style="text-align:right">
+        <p style="font-size:.78rem;color:var(--text-muted)">${expiryText}</p>
+      </div>
+      <a href="upgrade.html" class="plan-upgrade-btn pro-btn">Go Pro ↗</a>`;
+
+  } else if (plan === 'pro') {
+    const expiryText = expiry ? `Active until ${expiry}` : 'Active';
+    rightSection = `
+      <div class="plan-status-info" style="text-align:right">
+        <p style="font-size:.78rem;color:var(--text-muted)">${expiryText}</p>
+      </div>`;
+  }
+
+  container.innerHTML = `
+    <div class="plan-status-card plan-${meta.cls}">
+      <div class="plan-status-left">
+        <div class="plan-status-icon ${meta.iconCls}">${meta.icon}</div>
+        <div class="plan-status-info">
+          <h3>${meta.label}</h3>
+          <p>${_planDesc(plan)}</p>
+        </div>
+      </div>
+      ${rightSection}
+    </div>`;
+}
+
+function _planDesc(plan) {
+  if (plan === 'free')  return 'Limited access — 3 AI Generates, 3 Study sessions, 2 Input uploads';
+  if (plan === 'basic') return 'Unlimited sessions · YouTube & Visual Explanation · All models';
+  if (plan === 'pro')   return 'Full access · No limits · Priority features';
+  return '';
 }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upgrade to Premium – Pritis</title>
+  <title>Upgrade – Pritis</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0077FF">
@@ -17,112 +17,148 @@
   <link rel="stylesheet" href="css/upgrade.css">
 </head>
 <body>
-  <div class="upgrade-page">
+<div class="upgrade-page">
 
-    <!-- Header -->
-    <div class="upgrade-header">
-      <a href="dashboard.html" class="upgrade-back">← Back</a>
-      <div class="upgrade-logo">
-        <div class="logo-icon">P</div>
-        <span>Pritis</span>
-      </div>
+  <!-- Header -->
+  <div class="upgrade-header">
+    <a href="dashboard.html" class="upgrade-back">← Back to Dashboard</a>
+    <div class="upgrade-logo">
+      <div class="logo-icon">P</div>
+      <span>Pritis</span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="upgrade-hero">
+    <div class="upgrade-badge" id="hero-badge">UPGRADE YOUR PLAN</div>
+    <h1>Choose the Right Plan</h1>
+    <p>Unlock more features and study smarter. Cancel anytime.</p>
+  </div>
+
+  <!-- Billing cycle toggle -->
+  <div class="cycle-toggle">
+    <button class="cycle-btn active" id="btn-weekly"  onclick="setCycle('weekly')">Weekly</button>
+    <button class="cycle-btn"        id="btn-monthly" onclick="setCycle('monthly')">
+      Monthly <span class="save-badge">Save 25%</span>
+    </button>
+  </div>
+
+  <!-- Pricing cards -->
+  <div class="pricing-grid">
+
+    <!-- FREE -->
+    <div class="pricing-card" id="card-free">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">₦0<span class="plan-period">/forever</span></div>
+      <div class="plan-desc">Get started with the basics</div>
+      <ul class="plan-features">
+        <li class="feat-yes">✓ Study Zone (3 sessions · 30 min each)</li>
+        <li class="feat-yes">✓ AI Generate (3 uses · max 20 questions)</li>
+        <li class="feat-yes">✓ Create Quiz (2 uses)</li>
+        <li class="feat-yes">✓ Challenge feature</li>
+        <li class="feat-yes">✓ Study Strategy tool</li>
+        <li class="feat-yes">✓ Groq & ChatGPT models</li>
+        <li class="feat-no">✗ YouTube resources</li>
+        <li class="feat-no">✗ Visual Explanation</li>
+        <li class="feat-no">✗ Ask Friends</li>
+        <li class="feat-no">✗ Gemini model</li>
+      </ul>
+      <button class="plan-btn plan-btn-ghost" onclick="window.location.href='dashboard.html'">
+        Current Free Plan
+      </button>
     </div>
 
-    <!-- Hero -->
-    <div class="upgrade-hero">
-      <div class="upgrade-badge">FREE → PREMIUM</div>
-      <h1>Unlock Full Access</h1>
-      <p>Enter your Gmail to receive a free promo code and unlock all Pritis features.</p>
+    <!-- BASIC -->
+    <div class="pricing-card pricing-card-highlight" id="card-basic">
+      <div class="popular-badge">MOST POPULAR</div>
+      <div class="plan-name">Basic</div>
+      <div class="plan-price" id="basic-price">₦1,000<span class="plan-period">/week</span></div>
+      <div class="plan-desc">Everything you need to study effectively</div>
+      <ul class="plan-features">
+        <li class="feat-yes">✓ Unlimited study sessions</li>
+        <li class="feat-yes">✓ Unlimited AI Generate (max 70 questions)</li>
+        <li class="feat-yes">✓ Unlimited Create Quiz</li>
+        <li class="feat-yes">✓ YouTube resources (10 uses/month)</li>
+        <li class="feat-yes">✓ Visual Explanation (10 uses/month)</li>
+        <li class="feat-yes">✓ Ask Friends feature</li>
+        <li class="feat-yes">✓ Groq, ChatGPT & Gemini models</li>
+        <li class="feat-yes">✓ Challenge feature</li>
+        <li class="feat-no">✗ Unlimited YouTube & Visual</li>
+      </ul>
+      <button class="plan-btn plan-btn-primary" id="btn-basic" onclick="startPayment('basic')">
+        Get Basic
+      </button>
     </div>
 
-    <!-- Feature comparison -->
-    <div class="upgrade-features">
-      <div class="feature-col free">
-        <h3>Free</h3>
-        <ul>
-          <li class="yes">✓ Brainstorm AI Chat</li>
-          <li class="no">✗ Dashboard Analytics</li>
-          <li class="no">✗ AI Question Generation</li>
-          <li class="no">✗ Input Questions</li>
-          <li class="no">✗ My Questions</li>
-          <li class="no">✗ Performance Tracking</li>
-        </ul>
-      </div>
-      <div class="feature-col premium">
-        <div class="premium-badge">PREMIUM</div>
-        <h3>Premium</h3>
-        <ul>
-          <li class="yes">✓ Brainstorm AI Chat</li>
-          <li class="yes">✓ Dashboard Analytics</li>
-          <li class="yes">✓ AI Question Generation</li>
-          <li class="yes">✓ Input Questions</li>
-          <li class="yes">✓ My Questions</li>
-          <li class="yes">✓ Performance Tracking</li>
-        </ul>
-      </div>
+    <!-- PRO -->
+    <div class="pricing-card pricing-card-pro" id="card-pro">
+      <div class="pro-badge">PRO MAX</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price" id="pro-price">₦1,500<span class="plan-period">/week</span></div>
+      <div class="plan-desc">Full access, zero restrictions</div>
+      <ul class="plan-features">
+        <li class="feat-yes">✓ Everything in Basic</li>
+        <li class="feat-yes">✓ Unlimited YouTube resources</li>
+        <li class="feat-yes">✓ Unlimited Visual Explanations</li>
+        <li class="feat-yes">✓ All AI models — Groq, ChatGPT, Gemini</li>
+        <li class="feat-yes">✓ AI Study Recommendations</li>
+        <li class="feat-yes">✓ No daily or monthly limits</li>
+        <li class="feat-yes">✓ Priority features first</li>
+      </ul>
+      <button class="plan-btn plan-btn-pro" id="btn-pro" onclick="startPayment('pro')">
+        Get Pro
+      </button>
     </div>
 
-    <!-- Promo Flow -->
-    <div class="upgrade-card">
+  </div><!-- /.pricing-grid -->
 
-      <!-- Global alert -->
-      <div id="global-alert" class="alert hidden"></div>
-
-      <!-- Step 1: Request code -->
-      <div id="step-request">
-        <h2>Step 1 — Get Your Code</h2>
-        <p class="step-sub">Enter your Gmail address and we'll send you a one-time access code.</p>
-        <div class="form-group">
-          <label class="form-label">Gmail Address</label>
-          <input type="email" id="req-email" class="form-control"
-                 placeholder="yourname@gmail.com" required>
-        </div>
-        <button class="btn btn-primary w-full btn-lg" id="req-btn" onclick="requestCode()">
-          Send My Code
-        </button>
+  <!-- Payment processing card -->
+  <div class="upgrade-card hidden" id="pay-card">
+    <div id="pay-alert" class="alert hidden"></div>
+    <div id="pay-main">
+      <div class="pay-summary">
+        <div class="pay-plan-label" id="pay-plan-label">Basic — Weekly</div>
+        <div class="pay-amount" id="pay-amount-label">₦1,000</div>
       </div>
-
-      <!-- Step 2: Verify code (hidden initially) -->
-      <div id="step-verify" class="hidden">
-        <h2>Step 2 — Enter Your Code</h2>
-        <p class="step-sub">Check your inbox. The code expires in <strong>15 minutes</strong>.</p>
-        <div class="form-group">
-          <label class="form-label">Gmail Address</label>
-          <input type="email" id="ver-email" class="form-control" readonly>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Promo Code</label>
-          <input type="text" id="ver-code" class="form-control code-input"
-                 placeholder="e.g. A3K9X2M7" maxlength="10" autocomplete="off"
-                 oninput="this.value = this.value.toUpperCase()">
-        </div>
-        <button class="btn btn-primary w-full btn-lg" id="ver-btn" onclick="verifyCode()">
-          Activate Premium
-        </button>
-        <button class="btn btn-ghost w-full mt-2" onclick="backToRequest()">
-          ← Use a different email
-        </button>
+      <button class="plan-btn plan-btn-primary w-full" id="pay-btn" onclick="confirmPayment()">
+        Pay with Paystack
+      </button>
+      <button class="plan-btn plan-btn-ghost w-full mt-2" onclick="cancelPayCard()">
+        ← Back to plans
+      </button>
+      <p class="pay-note">Secured by <strong>Paystack</strong> · Safe & encrypted</p>
+    </div>
+    <div id="pay-waiting" class="hidden" style="text-align:center;padding:20px 0">
+      <div style="font-size:2.2rem;margin-bottom:12px">⏳</div>
+      <h3 style="font-weight:800;margin:0 0 8px">Waiting for Transfer</h3>
+      <p style="font-size:.85rem;color:var(--text-muted);margin:0 0 20px">
+        Once your bank transfer is confirmed, your plan activates automatically.<br>
+        This usually takes <strong>1–5 minutes</strong>.
+      </p>
+      <div id="pay-poll-status" style="font-size:.8rem;color:var(--text-muted);margin-bottom:16px">
+        Checking payment status…
       </div>
+      <button onclick="cancelWaiting()" style="background:none;border:none;font-size:.8rem;
+        color:var(--text-muted);cursor:pointer;text-decoration:underline">
+        Cancel / try again
+      </button>
+    </div>
+    <div id="pay-success" class="hidden success-block">
+      <div class="success-icon">🎉</div>
+      <h2 id="success-title">Plan Activated!</h2>
+      <p id="success-msg">You now have full access to your new plan.</p>
+      <p style="font-size:.85rem;color:var(--text-muted);margin-top:4px">
+        Taking you to dashboard in 3 seconds…
+      </p>
+      <a href="dashboard.html" class="plan-btn plan-btn-primary w-full mt-2">
+        Go to Dashboard Now
+      </a>
+    </div>
+  </div>
 
-      <!-- Step 3: Success (hidden initially) -->
-      <div id="step-success" class="hidden success-block">
-        <div class="success-icon">🎉</div>
-        <h2>You're Premium!</h2>
-        <p>Welcome to Pritis Premium. All features are now unlocked.</p>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">
-          Taking you to your dashboard in 3 seconds…
-        </p>
-        <a id="whatsapp-link" href="#" target="_blank" class="btn btn-whatsapp w-full btn-lg">
-          Join the WhatsApp Group
-        </a>
-        <a href="dashboard.html" class="btn btn-primary w-full btn-lg mt-2">
-          Go to Dashboard Now
-        </a>
-      </div>
+</div><!-- /.upgrade-page -->
 
-    </div><!-- /.upgrade-card -->
-  </div><!-- /.upgrade-page -->
-
-  <script type="module" src="js/upgrade.js"></script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script type="module" src="js/payment.js"></script>
 </body>
 </html>

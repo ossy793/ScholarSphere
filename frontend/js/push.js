@@ -1,15 +1,10 @@
 /**
  * Pritis Push Notification subscription manager.
- *
  * Call initPushNotifications() once after the user is authenticated.
- * It will ask for permission and register the device subscription.
  */
 
 import { api } from './api.js';
 
-const BASE_URL = 'https://www.pritis.name.ng/api';
-
-// Convert a base64url string to a Uint8Array (required for VAPID subscribe)
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -39,36 +34,57 @@ async function sendSubscriptionToServer(subscription) {
 }
 
 export async function initPushNotifications() {
-  // Browser support check
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  console.log('[Push] initPushNotifications called');
 
-  // Don't re-prompt if already granted or denied
-  if (Notification.permission === 'denied') return;
+  if (!('Notification' in window)) { console.warn('[Push] Notification API not supported'); return; }
+  if (!('serviceWorker' in navigator)) { console.warn('[Push] ServiceWorker not supported'); return; }
+  if (Notification.permission === 'denied') { console.warn('[Push] Permission denied'); return; }
 
+  // ── Step 1: Request permission ───────────────────────────────────────────────
+  let permission = Notification.permission;
+  console.log('[Push] Current permission:', permission);
+  if (permission === 'default') {
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== 'granted') { console.warn('[Push] Permission not granted:', permission); return; }
+
+  // ── Step 2: Subscribe to push ────────────────────────────────────────────────
+  if (!('PushManager' in window)) { console.warn('[Push] PushManager not supported'); return; }
+
+  const vapidKey = await getVapidPublicKey();
+  console.log('[Push] VAPID key:', vapidKey ? vapidKey.slice(0, 20) + '…' : 'null');
+  if (!vapidKey) return;
+
+  console.log('[Push] Waiting for serviceWorker.ready…');
+  let reg;
   try {
-    const vapidKey = await getVapidPublicKey();
-    if (!vapidKey) return;  // VAPID not configured on server yet
+    // Timeout after 10 seconds — if SW never activates something is wrong
+    reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 10000)),
+    ]);
+  } catch (err) {
+    console.error('[Push] serviceWorker.ready failed:', err);
+    return;
+  }
+  console.log('[Push] SW ready, scope:', reg.scope);
 
-    const reg = await navigator.serviceWorker.ready;
+  let subscription = await reg.pushManager.getSubscription();
+  console.log('[Push] Existing subscription:', subscription ? 'yes' : 'none');
 
-    // Check if already subscribed
-    let subscription = await reg.pushManager.getSubscription();
-
-    if (!subscription) {
-      // Request permission + subscribe
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
-
+  if (!subscription) {
+    try {
       subscription = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
+      console.log('[Push] New subscription created:', subscription.endpoint.slice(0, 40) + '…');
+    } catch (err) {
+      console.error('[Push] pushManager.subscribe failed:', err);
+      return;
     }
-
-    // Always sync subscription to server (handles token refresh)
-    await sendSubscriptionToServer(subscription);
-
-  } catch (err) {
-    console.warn('Push notification setup failed:', err);
   }
+
+  await sendSubscriptionToServer(subscription);
+  console.log('[Push] Subscription synced to server — done.');
 }

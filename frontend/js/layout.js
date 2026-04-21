@@ -1,15 +1,30 @@
-import { getUser, clearToken, api } from './api.js';
+import { getUser, clearToken, api, setUser } from './api.js';
+import { initAssistant } from './assistant.js';
+import { initPushNotifications } from './push.js';
 
-// Nav items that require a premium account
-const PREMIUM_NAV = new Set([
-  'Input Questions', 'AI Generate', 'My Questions', 'Performance',
-]);
+// Minimum plan required per nav item (undefined = free/open)
+const NAV_MIN_PLAN = {
+  'Create Quiz': 'free',   // free gets 2 uses — access granted, limits enforced by backend
+  'AI Generate':     'free',   // same — free gets 3 uses
+  'Question Bank':   'free',
+  'Performance':     'free',
+};
+
+// Plan display config
+const PLAN_META = {
+  free:  { label: 'Free',  color: '#9ca3af', badge: '' },
+  basic: { label: 'Basic', color: '#6366f1', badge: 'BASIC' },
+  pro:   { label: 'Pro',   color: '#f59e0b', badge: 'PRO' },
+};
+
+function _planOrder(p) { return { free: 0, basic: 1, pro: 2 }[p] || 0; }
 
 export function renderLayout(pageTitle, activeNav, basePath = '') {
   const user = getUser();
   if (!user) return;
 
-  const isPremium = !!user.is_premium;
+  const plan      = user.is_admin ? 'pro' : (user.subscription_plan || 'free');
+  const planMeta  = PLAN_META[plan] || PLAN_META.free;
 
   const initials = (user.full_name || user.email || '?')
     .split(' ')
@@ -21,23 +36,28 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
 
   const navItems = [
     { href: basePath + 'dashboard.html',       icon: svgHome(),       label: 'Dashboard' },
-    { href: basePath + 'input-questions.html', icon: svgEdit(),       label: 'Input Questions' },
+    { href: basePath + 'input-questions.html', icon: svgEdit(),       label: 'Create Quiz' },
     { href: basePath + 'ai-generate.html',     icon: svgAI(),         label: 'AI Generate' },
-    { href: basePath + 'my-questions.html',    icon: svgQuiz(),       label: 'My Questions' },
-    { href: basePath + 'brainstorm.html',      icon: svgBrainstorm(), label: 'Study Zone' },
-    { href: basePath + 'performance.html',     icon: svgChart(),      label: 'Performance' },
+    { href: basePath + 'question-bank.html',   icon: svgQuiz(),       label: 'Question Bank' },
+    { href: basePath + 'brainstorm.html',       icon: svgBrainstorm(),  label: 'Study Zone' },
+    { href: basePath + 'study-strategy.html',  icon: svgStrategy(),    label: 'Study Strategy' },
+    { href: basePath + 'challenge.html',       icon: svgTrophy(),      label: 'Challenge' },
+    { href: basePath + 'performance.html',     icon: svgChart(),       label: 'Performance' },
+    { href: basePath + 'settings.html',        icon: svgSettings(),   label: 'Settings' },
   ];
 
   const navHtml = navItems.map(item => {
-    const locked  = PREMIUM_NAV.has(item.label) && !isPremium;
-    const href    = locked ? basePath + 'upgrade.html' : item.href;
-    const classes = ['nav-item', activeNav === item.label ? 'active' : '', locked ? 'locked' : '']
+    const minPlan = NAV_MIN_PLAN[item.label];
+    // Lock nav items only when user has NO plan at all (shouldn't happen since free exists)
+    // All items accessible; limits enforced at the feature level with upgrade modals
+    const locked  = false;
+    const href    = item.href;
+    const classes = ['nav-item', activeNav === item.label ? 'active' : '']
       .filter(Boolean).join(' ');
-    const lockBadge = locked ? '<span class="nav-lock">PRO</span>' : '';
     return `
-      <a href="${href}" class="${classes}" title="${locked ? item.label + ' – Premium' : item.label}">
+      <a href="${href}" class="${classes}" title="${item.label}">
         ${item.icon}
-        <span class="nav-label">${item.label}${lockBadge}</span>
+        <span class="nav-label">${item.label}</span>
       </a>
     `;
   }).join('');
@@ -53,6 +73,39 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     </div>
   ` : '';
 
+  // Plan badge / expiry in sidebar footer
+  let planFooterHtml = '';
+  if (!user.is_admin) {
+    const expiryStr = user.subscription_expiry
+      ? `Expires ${new Date(user.subscription_expiry).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}`
+      : '';
+    const upgradeLink = plan === 'free'
+      ? `<a href="${basePath}upgrade.html" style="display:inline-block;margin-top:4px;font-size:.68rem;font-weight:700;
+           color:#6366f1;text-decoration:none;background:rgba(99,102,241,.1);padding:2px 8px;
+           border-radius:5px;">Upgrade ↗</a>`
+      : (plan === 'basic'
+          ? `<a href="${basePath}upgrade.html" style="display:inline-block;margin-top:4px;font-size:.68rem;font-weight:700;
+               color:#f59e0b;text-decoration:none;background:rgba(245,158,11,.1);padding:2px 8px;
+               border-radius:5px;">Go Pro ↗</a>`
+          : '');
+    planFooterHtml = `
+      <div style="padding:8px 12px 4px;border-top:1px solid rgba(255,255,255,.07)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${planMeta.color};flex-shrink:0"></span>
+          <span style="font-size:.72rem;font-weight:700;color:${planMeta.color};letter-spacing:.5px;text-transform:uppercase">${planMeta.label} Plan</span>
+        </div>
+        ${expiryStr ? `<div style="font-size:.68rem;color:rgba(255,255,255,.35);padding-left:13px">${expiryStr}</div>` : ''}
+        <div style="padding-left:13px">${upgradeLink}</div>
+      </div>
+    `;
+  } else {
+    planFooterHtml = `
+      <div style="padding:8px 12px 4px;border-top:1px solid rgba(255,255,255,.07)">
+        <span style="font-size:.7rem;font-weight:700;color:#fde68a;letter-spacing:.5px">⚡ ADMIN — FULL ACCESS</span>
+      </div>
+    `;
+  }
+
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-logo">
       <div class="logo-icon">P</div>
@@ -64,6 +117,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     </div>
     <nav class="sidebar-nav">${navHtml}${adminNavHtml}</nav>
     <div class="sidebar-footer">
+      ${planFooterHtml}
       <button class="nav-item w-full" onclick="handleLogout()"
         style="border:none;cursor:pointer;background:none;text-align:left"
         title="Sign Out">
@@ -74,8 +128,24 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   `;
 
   document.getElementById('page-title').textContent = pageTitle;
-  document.getElementById('user-name').textContent = user.full_name;
-  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').textContent  = user.username || user.full_name;
+
+  // Show profile picture if available, otherwise initials
+  const avatarEl = document.getElementById('user-avatar');
+  if (user.profile_picture_url) {
+    avatarEl.innerHTML = `<img src="${user.profile_picture_url}" alt="avatar"
+      style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  } else {
+    avatarEl.innerHTML = '';
+    avatarEl.textContent = initials;
+  }
+
+  // ── Profile completion enforcement ───────────────────────────────────────────
+  // Skip on the settings page itself
+  const onSettings = window.location.pathname.includes('settings.html');
+  if (!onSettings && !user.profile_completed) {
+    _injectProfileIncompleteOverlay(basePath);
+  }
 
   // ── Notification bell ──
   _injectNotifBell(basePath);
@@ -140,6 +210,9 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
     document.body.classList.add('nav-collapsed');
   }
 
+  // ── Floating AI Assistant ──
+  initAssistant();
+
   window.handleLogout = function () {
     clearToken();
     window.location.href = basePath + 'index.html';
@@ -176,6 +249,10 @@ function svgChart() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
 }
 
+function svgStrategy() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>`;
+}
+
 function svgBrainstorm() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-1.66z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-1.66z"/></svg>`;
 }
@@ -194,6 +271,14 @@ function svgShield() {
 
 function svgMenu() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+}
+
+function svgTrophy() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>`;
+}
+
+function svgSettings() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`;
 }
 
 function svgBell() {
@@ -329,6 +414,9 @@ function _injectNotifBell(basePath) {
     header.appendChild(bellWrap);
   }
 
+  // Push notifications — try silent init first, then show banner if needed
+  setTimeout(() => _initPushOrBanner(), 1500);
+
   // Close panel on outside click
   document.addEventListener('click', (e) => {
     const panel = document.getElementById('notif-panel');
@@ -338,6 +426,49 @@ function _injectNotifBell(basePath) {
     }
   });
 }
+
+async function _initPushOrBanner() {
+  if (!('Notification' in window)) return;
+
+  if (Notification.permission === 'granted') {
+    // Already have permission — silently subscribe/re-sync
+    initPushNotifications();
+    return;
+  }
+
+  if (Notification.permission === 'denied') return;
+
+  // Permission is 'default' — show a banner so user clicks (Chrome requires user gesture)
+  const banner = document.createElement('div');
+  banner.id = 'push-banner';
+  banner.style.cssText = `
+    position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:#1e293b;color:#fff;padding:12px 20px;border-radius:12px;
+    font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:9990;max-width:90vw;
+    animation:slideUp .3s ease;
+  `;
+  banner.innerHTML = `
+    <style>@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}</style>
+    <span>🔔</span>
+    <span>Enable notifications to get reminders &amp; alerts</span>
+    <button id="push-allow-btn" style="background:#3b82f6;border:none;color:#fff;padding:7px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.82rem;white-space:nowrap">Allow</button>
+    <button id="push-dismiss-btn" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.1rem;padding:2px 6px">✕</button>
+  `;
+  document.body.appendChild(banner);
+
+  document.getElementById('push-allow-btn').addEventListener('click', async () => {
+    banner.remove();
+    await initPushNotifications();
+  });
+  document.getElementById('push-dismiss-btn').addEventListener('click', () => {
+    banner.remove();
+  });
+
+  // Auto-dismiss after 12 seconds
+  setTimeout(() => { if (document.getElementById('push-banner')) banner.remove(); }, 12000);
+}
+
 
 async function _loadUnreadCount() {
   try {
@@ -416,4 +547,73 @@ function _escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── Profile completion blocking overlay ───────────────────────────────────────
+function _injectProfileIncompleteOverlay(basePath) {
+  if (document.getElementById('profile-incomplete-overlay')) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    #profile-incomplete-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #profile-incomplete-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 36px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    #profile-incomplete-card .pic-icon { font-size: 3rem; margin-bottom: 16px; }
+    #profile-incomplete-card h2 {
+      font-size: 1.1rem; font-weight: 800; color: var(--text);
+      margin-bottom: 10px;
+    }
+    #profile-incomplete-card p {
+      font-size: 0.88rem; color: var(--text-muted);
+      line-height: 1.6; margin-bottom: 24px;
+    }
+    #profile-incomplete-card .go-btn {
+      display: block; width: 100%;
+      padding: 13px; border-radius: 10px; border: none;
+      background: var(--primary); color: #fff;
+      font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.15s;
+    }
+    #profile-incomplete-card .go-btn:hover { background: var(--primary-dark); }
+  `;
+  document.head.appendChild(style);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'profile-incomplete-overlay';
+  const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+  overlay.innerHTML = `
+    <div id="profile-incomplete-card">
+      <div class="pic-icon">🎓</div>
+      <h2>Complete Your Profile</h2>
+      <p>Please reset and complete your profile to continue using the platform.<br>
+         It only takes a moment!</p>
+      <a class="go-btn" href="${basePath}settings.html?redirect=${redirect}&setup=1">
+        Complete My Profile →
+      </a>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Refresh user from server in background — in case localStorage is stale
+  api.get('/users/me').then(u => {
+    if (u?.profile_completed) {
+      setUser(u);
+      overlay.remove();
+    }
+  }).catch(() => {});
 }

@@ -15,6 +15,51 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
   <style>
+    /* ── Smart Mode toggle ── */
+    .smart-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0;
+    }
+    .toggle-switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      width: 44px; height: 24px; background: var(--border);
+      border-radius: 12px; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; background: #fff;
+      border-radius: 50%; transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked + .toggle-track { background: var(--primary); }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+
+    /* ── Difficulty pills ── */
+    .diff-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .diff-pill {
+      padding: 6px 16px; border: 1.5px solid var(--border);
+      border-radius: 20px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+      color: var(--text-muted); transition: all 0.15s; user-select: none;
+    }
+    .diff-pill input { display: none; }
+    .diff-pill:has(input:checked) { border-color: var(--primary); background: rgba(0,119,255,0.08); color: var(--primary); }
+    .diff-pill.easy:has(input:checked)   { border-color: #16a34a; background: rgba(22,163,74,0.08);  color: #16a34a; }
+    .diff-pill.medium:has(input:checked) { border-color: #d97706; background: rgba(217,119,6,0.08); color: #d97706; }
+    .diff-pill.hard:has(input:checked)   { border-color: #dc2626; background: rgba(220,38,38,0.08); color: #dc2626; }
+
+    /* ── Output format row ── */
+    .fmt-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .fmt-card {
+      flex: 1; min-width: 140px; padding: 12px 14px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      cursor: pointer; user-select: none; transition: all 0.15s;
+    }
+    .fmt-card:has(input:checked) { border-color: var(--primary); background: rgba(0,119,255,0.05); }
+    .fmt-card input { display: none; }
+    .fmt-card-title { font-size: 0.88rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .fmt-card-desc  { font-size: 0.75rem; color: var(--text-muted); }
+
     .type-option {
       display: flex;
       align-items: flex-start;
@@ -30,7 +75,7 @@
       border-color: var(--primary);
       background: rgba(79,70,229,0.04);
     }
-    .type-option input[type="checkbox"] {
+    .type-option input[type="radio"] {
       margin-top: 2px;
       width: 16px;
       height: 16px;
@@ -95,12 +140,12 @@
             </div>
 
             <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Question Types <span style="color:var(--danger)">*</span></label>
-              <p class="form-hint">Select the types of questions you want the AI to generate. Tick one or more.</p>
+              <label class="form-label">Question Type <span style="color:var(--danger)">*</span></label>
+              <p class="form-hint">Select one question type for the AI to generate.</p>
               <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
 
                 <label class="type-option">
-                  <input type="checkbox" id="type-mcq" value="mcq" checked>
+                  <input type="radio" name="question-type" id="type-mcq" value="mcq" checked>
                   <span class="type-option-icon">🔘</span>
                   <span class="type-option-body">
                     <strong>Multiple Choice Questions (MCQ)</strong>
@@ -109,7 +154,7 @@
                 </label>
 
                 <label class="type-option">
-                  <input type="checkbox" id="type-short" value="short_answer" checked>
+                  <input type="radio" name="question-type" id="type-short" value="short_answer">
                   <span class="type-option-icon">✏️</span>
                   <span class="type-option-body">
                     <strong>Short Answer Questions</strong>
@@ -118,7 +163,7 @@
                 </label>
 
                 <label class="type-option">
-                  <input type="checkbox" id="type-essay" value="essay" checked>
+                  <input type="radio" name="question-type" id="type-essay" value="theory">
                   <span class="type-option-icon">📝</span>
                   <span class="type-option-body">
                     <strong>Theory / Essay Questions</strong>
@@ -127,8 +172,55 @@
                 </label>
 
               </div>
-              <div id="types-alert" class="alert alert-error hidden" style="margin-top:10px;margin-bottom:0">
-                Please select at least one question type.
+            </div>
+          </div>
+
+          <!-- Smart Generation (RAG) — always enabled -->
+          <div class="card mb-4">
+            <h2 class="card-title" style="margin-bottom:3px">Smart Generation</h2>
+            <p class="form-hint" style="margin:0">Uses RAG to retrieve only the most relevant document sections, then generates context-aware questions with source references</p>
+
+            <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:16px">
+
+              <!-- Difficulty -->
+              <div class="form-group">
+                <label class="form-label">Difficulty</label>
+                <div class="diff-grid">
+                  <label class="diff-pill easy"><input type="radio" name="rag-difficulty" value="easy"> Easy</label>
+                  <label class="diff-pill medium"><input type="radio" name="rag-difficulty" value="medium" checked> Medium</label>
+                  <label class="diff-pill hard"><input type="radio" name="rag-difficulty" value="hard"> Hard</label>
+                  <label class="diff-pill"><input type="radio" name="rag-difficulty" value="mixed"> Mixed</label>
+                </div>
+              </div>
+
+              <!-- Output format -->
+              <div class="form-group">
+                <label class="form-label">Output Format</label>
+                <div class="fmt-row" id="fmt-row">
+                  <label class="fmt-card" id="fmt-interactive">
+                    <input type="radio" name="rag-format" value="interactive" checked>
+                    <div class="fmt-card-title">🖥 Interactive Quiz</div>
+                    <div class="fmt-card-desc">Practice in the app with instant feedback</div>
+                  </label>
+                  <label class="fmt-card">
+                    <input type="radio" name="rag-format" value="pdf">
+                    <div class="fmt-card-title">📄 Download PDF</div>
+                    <div class="fmt-card-desc">Print-ready quiz with branded layout</div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Answer placement (PDF only) -->
+              <div class="form-group" id="answer-placement-group" style="display:none">
+                <label class="form-label">Answers in PDF</label>
+                <select id="answer-placement" class="form-control">
+                  <option value="after_each">After each question</option>
+                  <option value="end">Answer key at the end</option>
+                </select>
+              </div>
+
+              <div style="background:rgba(0,119,255,0.05);border:1px solid rgba(0,119,255,0.15);border-radius:8px;padding:10px 14px;font-size:0.8rem;color:var(--text-muted);line-height:1.6">
+                ⚡ <strong>Smart Mode</strong> works with uploaded files (PDF, DOCX, PPTX). Questions include page references strictly grounded in your document. Paste Text uses standard generation.
               </div>
             </div>
           </div>

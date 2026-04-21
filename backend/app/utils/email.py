@@ -3,14 +3,16 @@ Email Utility
 -------------
 Production:  Mailjet API (HTTP — free 6k/month, just verify sender email, no domain needed)
              Set MAILJET_API_KEY + MAILJET_API_SECRET + MAILJET_SENDER_EMAIL in Render.
-Fallback:    Brevo API / Resend API
 Local dev:   SMTP via Gmail (set SMTP_USER + SMTP_PASSWORD in .env)
 """
 
+import asyncio
 import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import httpx
 
 from ..config import settings
 
@@ -57,54 +59,40 @@ def _html_body(code: str) -> str:
 
 def _send_via_mailjet(to_email: str, code: str) -> None:
     """Send via Mailjet — free 6,000 emails/month, only sender email verification needed."""
-    import requests
-    resp = requests.post(
-        "https://api.mailjet.com/v3.1/send",
-        auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
-        json={
-            "Messages": [{
-                "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pritis"},
-                "To":   [{"Email": to_email}],
-                "Subject":  "Your Pritis Premium Access Code",
-                "HTMLPart": _html_body(code),
-            }]
-        },
-        timeout=10,
-    )
-    resp.raise_for_status()
+    with httpx.Client(timeout=10) as client:
+        resp = client.post(
+            "https://api.mailjet.com/v3.1/send",
+            auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+            json={
+                "Messages": [{
+                    "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pritis"},
+                    "To":   [{"Email": to_email}],
+                    "Subject":  "Your Pritis Premium Access Code",
+                    "HTMLPart": _html_body(code),
+                }]
+            },
+        )
+        resp.raise_for_status()
 
 
-def _send_via_brevo(to_email: str, code: str) -> None:
-    """Send via Brevo HTTP API — no domain needed, just a verified sender email."""
-    import requests
-    resp = requests.post(
-        "https://api.brevo.com/v3/smtp/email",
-        headers={
-            "accept": "application/json",
-            "api-key": settings.BREVO_API_KEY,
-            "content-type": "application/json",
-        },
-        json={
-            "sender": {"name": "Pritis", "email": settings.BREVO_SENDER_EMAIL},
-            "to": [{"email": to_email}],
-            "subject": "Your Pritis Premium Access Code",
-            "htmlContent": _html_body(code),
-        },
-        timeout=10,
-    )
-    resp.raise_for_status()
+async def _send_via_mailjet_async(to_email: str, code: str) -> None:
+    """Async version — use from async routes / background tasks."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://api.mailjet.com/v3.1/send",
+            auth=(settings.MAILJET_API_KEY, settings.MAILJET_API_SECRET),
+            json={
+                "Messages": [{
+                    "From": {"Email": settings.MAILJET_SENDER_EMAIL, "Name": "Pritis"},
+                    "To":   [{"Email": to_email}],
+                    "Subject":  "Your Pritis Premium Access Code",
+                    "HTMLPart": _html_body(code),
+                }]
+            },
+        )
+        resp.raise_for_status()
 
 
-def _send_via_resend(to_email: str, code: str) -> None:
-    """Send via Resend HTTP API — works on Render (no SMTP port restrictions)."""
-    import resend
-    resend.api_key = settings.RESEND_API_KEY
-    resend.Emails.send({
-        "from":    settings.RESEND_FROM,
-        "to":      [to_email],
-        "subject": "Your Pritis Premium Access Code",
-        "html":    _html_body(code),
-    })
 
 
 def _send_via_smtp(to_email: str, code: str) -> None:
@@ -129,15 +117,16 @@ def _send_via_smtp(to_email: str, code: str) -> None:
 
 
 def send_promo_email(to_email: str, code: str) -> None:
-    """
-    Send the promo activation code.
-    Priority: Mailjet → Brevo → Resend → SMTP (local dev).
-    """
+    """Sync — safe to call from sync routes (FastAPI threadpool)."""
     if settings.MAILJET_API_KEY and settings.MAILJET_API_SECRET:
         _send_via_mailjet(to_email, code)
-    elif settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL:
-        _send_via_brevo(to_email, code)
-    elif settings.RESEND_API_KEY:
-        _send_via_resend(to_email, code)
     else:
         _send_via_smtp(to_email, code)
+
+
+async def send_promo_email_async(to_email: str, code: str) -> None:
+    """Async — use from async routes or BackgroundTasks."""
+    if settings.MAILJET_API_KEY and settings.MAILJET_API_SECRET:
+        await _send_via_mailjet_async(to_email, code)
+    else:
+        await asyncio.to_thread(_send_via_smtp, to_email, code)

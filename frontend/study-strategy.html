@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Strategy – Pritis</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    /* ── Layout ── */
+    .page-content { padding: 24px; max-width: 1100px; }
+
+    /* ── Tabs ── */
+    .strategy-tabs {
+      display: flex; gap: 8px; margin-bottom: 28px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
+    }
+    .strategy-tab {
+      padding: 10px 22px; border: none; background: none;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      color: var(--text-muted); border-radius: 8px 8px 0 0;
+      position: relative; bottom: -2px;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .strategy-tab:hover { color: var(--text); }
+    .strategy-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .strategy-panel { display: none; }
+    .strategy-panel.active { display: block; }
+
+    /* ── Cards / sections ── */
+    .ss-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .ss-card h2 {
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      margin: 0 0 16px;
+    }
+
+    /* ── Notes ── */
+    .notes-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 20px;
+      height: calc(100vh - 220px);
+      min-height: 400px;
+    }
+    @media (max-width: 700px) {
+      .notes-layout { grid-template-columns: 1fr; height: auto; }
+    }
+
+    .notes-sidebar {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .notes-sidebar-head {
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notes-sidebar-head h3 { font-size: 0.85rem; font-weight: 700; color: var(--text); margin: 0; }
+    .notes-new-btn {
+      padding: 5px 12px; font-size: 0.78rem; font-weight: 600;
+      background: var(--primary); color: #fff;
+      border: none; border-radius: 7px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .notes-new-btn:hover { background: var(--primary-dark); }
+
+    .notes-folder-list {
+      overflow-y: auto; flex: 1; padding: 8px 0;
+    }
+    .notes-folder-item {
+      padding: 8px 14px; font-size: 0.82rem; font-weight: 500;
+      color: var(--text-muted); cursor: pointer;
+      border-radius: 0; transition: background 0.12s, color 0.12s;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notes-folder-item:hover { background: rgba(0,119,255,0.05); color: var(--text); }
+    .notes-folder-item.active { background: rgba(0,119,255,0.1); color: var(--primary); font-weight: 700; }
+    .folder-badge {
+      font-size: 0.7rem; background: var(--border);
+      color: var(--text-muted); border-radius: 20px;
+      padding: 1px 7px; font-weight: 600;
+    }
+
+    .notes-list-section { border-top: 1px solid var(--border); padding: 8px 0; flex-shrink: 0; }
+    .note-list-item {
+      padding: 8px 14px; font-size: 0.8rem;
+      color: var(--text-muted); cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: background 0.12s, color 0.12s;
+    }
+    .note-list-item:hover { background: rgba(0,119,255,0.05); color: var(--text); }
+    .note-list-item.active { background: rgba(0,119,255,0.1); color: var(--primary); font-weight: 600; }
+
+    .notes-editor {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .notes-editor-toolbar {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .note-title-input {
+      flex: 1; border: none; background: transparent;
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      outline: none; min-width: 0;
+    }
+    .note-title-input::placeholder { color: var(--text-muted); }
+    .note-folder-input {
+      width: 140px; padding: 5px 10px; border-radius: 7px;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 0.78rem; outline: none;
+    }
+    .note-folder-input:focus { border-color: var(--primary); }
+    .note-save-status {
+      font-size: 0.72rem; color: var(--text-muted); min-width: 60px; text-align: right;
+    }
+    .note-delete-btn {
+      padding: 5px 10px; background: none; border: 1px solid var(--border);
+      border-radius: 7px; color: #EF4444; font-size: 0.78rem; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .note-delete-btn:hover { background: rgba(239,68,68,0.08); }
+    .note-content-area {
+      flex: 1; padding: 18px 20px;
+      border: none; outline: none; resize: none;
+      background: transparent; color: var(--text);
+      font-size: 0.9rem; line-height: 1.7;
+      font-family: inherit; min-height: 200px;
+    }
+    .notes-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--text-muted); text-align: center; gap: 12px;
+    }
+    .notes-empty .empty-icon { font-size: 2.5rem; }
+    .notes-empty p { font-size: 0.88rem; max-width: 260px; }
+
+    /* ── GPA Calculator ── */
+    .gpa-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    }
+    @media (max-width: 700px) { .gpa-grid { grid-template-columns: 1fr; } }
+
+    .gpa-result-card {
+      background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+      border-radius: 14px; padding: 28px 24px; text-align: center;
+      color: #fff;
+    }
+    .gpa-result-card .gpa-label {
+      font-size: 0.82rem; font-weight: 600; opacity: 0.85; margin-bottom: 8px;
+    }
+    .gpa-result-card .gpa-value {
+      font-size: 3.2rem; font-weight: 900; line-height: 1;
+    }
+    .gpa-result-card .gpa-class {
+      font-size: 0.9rem; font-weight: 700; margin-top: 8px; opacity: 0.9;
+    }
+    .gpa-result-card .gpa-total {
+      font-size: 0.78rem; margin-top: 6px; opacity: 0.75;
+    }
+
+    .courses-table-wrap { overflow-x: auto; }
+    table.gpa-table {
+      width: 100%; border-collapse: collapse; font-size: 0.84rem;
+    }
+    .gpa-table th {
+      text-align: left; padding: 8px 10px; color: var(--text-muted);
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .gpa-table td { padding: 8px 6px; }
+    .gpa-table input[type="text"],
+    .gpa-table input[type="number"],
+    .gpa-table select {
+      width: 100%; padding: 6px 8px; border: 1px solid var(--border);
+      border-radius: 7px; background: var(--bg); color: var(--text);
+      font-size: 0.82rem; outline: none;
+    }
+    .gpa-table input:focus, .gpa-table select:focus { border-color: var(--primary); }
+    .gpa-table .remove-row-btn {
+      background: none; border: none; cursor: pointer; color: #EF4444;
+      font-size: 1rem; padding: 4px 6px; border-radius: 6px;
+      transition: background 0.12s;
+    }
+    .gpa-table .remove-row-btn:hover { background: rgba(239,68,68,0.08); }
+    .gpa-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .btn-sm {
+      padding: 8px 16px; font-size: 0.82rem; font-weight: 600;
+      border-radius: 8px; border: none; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-outline {
+      background: none; border: 1px solid var(--border); color: var(--text);
+    }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-danger { background: none; border: 1px solid #EF4444; color: #EF4444; }
+    .btn-danger:hover { background: rgba(239,68,68,0.08); }
+
+    /* ── Timetable ── */
+    .timetable-top {
+      display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .timetable-field { display: flex; flex-direction: column; gap: 5px; }
+    .timetable-field label {
+      font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .timetable-field input,
+    .timetable-field textarea,
+    .timetable-field select {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none;
+      font-family: inherit;
+    }
+    .timetable-field input:focus,
+    .timetable-field textarea:focus { border-color: var(--primary); }
+    .timetable-field.grow { flex: 1; min-width: 160px; }
+
+    .schedule-list { display: flex; flex-direction: column; gap: 12px; }
+    .schedule-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .schedule-card-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: rgba(0,119,255,0.1); color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .schedule-card-body { flex: 1; min-width: 0; }
+    .schedule-card-course {
+      font-size: 0.92rem; font-weight: 700; color: var(--text);
+    }
+    .schedule-card-time {
+      font-size: 0.8rem; color: var(--primary); font-weight: 600; margin-top: 3px;
+    }
+    .schedule-card-desc {
+      font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;
+    }
+    .schedule-card-duration {
+      font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;
+    }
+    .schedule-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .sched-btn {
+      padding: 5px 10px; font-size: 0.75rem; font-weight: 600;
+      border-radius: 7px; border: 1px solid var(--border);
+      background: none; cursor: pointer; transition: background 0.12s;
+      color: var(--text-muted);
+    }
+    .sched-btn:hover { background: rgba(0,0,0,0.04); }
+    .sched-btn.danger { border-color: #EF4444; color: #EF4444; }
+    .sched-btn.danger:hover { background: rgba(239,68,68,0.08); }
+
+    .sched-empty {
+      text-align: center; color: var(--text-muted);
+      padding: 48px 16px; font-size: 0.88rem;
+    }
+    .sched-empty .empty-icon { font-size: 2.2rem; margin-bottom: 10px; }
+
+    /* Edit schedule inline */
+    .sched-edit-row {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+      background: var(--bg); border: 1px solid var(--primary);
+      border-radius: 10px; padding: 12px 14px; margin-top: 8px;
+    }
+    .sched-edit-row input, .sched-edit-row textarea {
+      padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg-card); color: var(--text); font-size: 0.82rem;
+      outline: none; font-family: inherit;
+    }
+    .sched-edit-row input:focus, .sched-edit-row textarea:focus { border-color: var(--primary); }
+
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff; padding: 10px 22px;
+      border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+      z-index: 9999; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <h1 id="page-title">Study Strategy</h1>
+      <div class="user-badge">
+        <span id="user-name"></span>
+        <div class="avatar" id="user-avatar"></div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <!-- Tabs -->
+      <div class="strategy-tabs">
+        <button class="strategy-tab active" data-tab="notes">Notes</button>
+        <button class="strategy-tab" data-tab="gpa">GPA Calculator</button>
+        <button class="strategy-tab" data-tab="timetable">Study Timetable</button>
+      </div>
+
+      <!-- ── Notes Panel ── -->
+      <div class="strategy-panel active" id="panel-notes">
+        <div class="notes-layout">
+          <!-- Sidebar -->
+          <div class="notes-sidebar">
+            <div class="notes-sidebar-head">
+              <h3>My Notes</h3>
+              <button class="notes-new-btn" id="btn-new-note">+ New</button>
+            </div>
+            <div class="notes-folder-list" id="folder-list">
+              <!-- populated by JS -->
+            </div>
+          </div>
+
+          <!-- Editor -->
+          <div class="notes-editor" id="notes-editor">
+            <!-- Empty state -->
+            <div class="notes-empty" id="notes-empty-state">
+              <div class="empty-icon">📝</div>
+              <p>Select a note from the sidebar or create a new one to get started.</p>
+              <button class="notes-new-btn" onclick="document.getElementById('btn-new-note').click()">Create your first note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── GPA Calculator Panel ── -->
+      <div class="strategy-panel" id="panel-gpa">
+        <div class="gpa-grid">
+          <!-- Result Card -->
+          <div>
+            <div class="gpa-result-card">
+              <div class="gpa-label">Cumulative GPA (5-point scale)</div>
+              <div class="gpa-value" id="gpa-value">0.00</div>
+              <div class="gpa-class" id="gpa-class">—</div>
+              <div class="gpa-total" id="gpa-total">0 credit units</div>
+            </div>
+
+            <div class="ss-card" style="margin-top:20px">
+              <h2>Grade Scale (Nigerian 5-Point)</h2>
+              <table class="gpa-table">
+                <thead>
+                  <tr>
+                    <th>Grade</th><th>Score Range</th><th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>A</td><td>70 – 100</td><td>5.00</td></tr>
+                  <tr><td>B</td><td>60 – 69</td><td>4.00</td></tr>
+                  <tr><td>C</td><td>50 – 59</td><td>3.00</td></tr>
+                  <tr><td>D</td><td>45 – 49</td><td>2.00</td></tr>
+                  <tr><td>E</td><td>40 – 44</td><td>1.00</td></tr>
+                  <tr><td>F</td><td>0 – 39</td><td>0.00</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Course Table -->
+          <div class="ss-card">
+            <h2>Courses</h2>
+            <div class="courses-table-wrap">
+              <table class="gpa-table">
+                <thead>
+                  <tr>
+                    <th>Course</th>
+                    <th>Units</th>
+                    <th>Grade</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="gpa-course-rows">
+                  <!-- rows injected by JS -->
+                </tbody>
+              </table>
+            </div>
+            <div class="gpa-actions">
+              <button class="btn-sm btn-primary" id="btn-add-course">+ Add Course</button>
+              <button class="btn-sm btn-outline" id="btn-save-gpa">Save</button>
+              <button class="btn-sm btn-danger" id="btn-clear-gpa">Clear All</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Timetable Panel ── -->
+      <div class="strategy-panel" id="panel-timetable">
+        <div class="ss-card">
+          <h2>Schedule a Study Session</h2>
+          <div class="timetable-top">
+            <div class="timetable-field grow">
+              <label>Course / Subject</label>
+              <input type="text" id="sched-course" placeholder="e.g. MTH 301" maxlength="255" />
+            </div>
+            <div class="timetable-field grow">
+              <label>Description (optional)</label>
+              <input type="text" id="sched-desc" placeholder="What to study" />
+            </div>
+            <div class="timetable-field">
+              <label>Date &amp; Time (local)</label>
+              <input type="datetime-local" id="sched-time" />
+            </div>
+            <div class="timetable-field" style="width:110px">
+              <label>Duration (min)</label>
+              <input type="number" id="sched-duration" min="15" max="480" step="15" placeholder="60" />
+            </div>
+            <div class="timetable-field">
+              <label>&nbsp;</label>
+              <button class="btn-sm btn-primary" id="btn-add-sched">Add Session</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ss-card">
+          <h2>Upcoming Sessions</h2>
+          <div class="schedule-list" id="schedule-list">
+            <div class="sched-empty">
+              <div class="empty-icon">📅</div>
+              <p>No upcoming sessions. Add one above to get started!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+  </div><!-- /app-layout -->
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="js/study-strategy.js"></script>
+</body>
+</html>

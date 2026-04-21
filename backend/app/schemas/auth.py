@@ -9,6 +9,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    username:   Optional[str] = None
     department: Optional[str] = None
     university: Optional[str] = None
     level:      Optional[str] = None
@@ -74,6 +75,24 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
+class TwoFAVerifyRequest(BaseModel):
+    pre_auth_token: str
+    totp_code: str
+
+
+class TwoFAEnableRequest(BaseModel):
+    totp_code: str
+    secret: str
+
+
+class TwoFADisableRequest(BaseModel):
+    totp_code: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -83,12 +102,17 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     full_name: str
-    department: Optional[str] = None
-    university: Optional[str] = None
-    level:      Optional[str] = None
-    is_premium: bool
-    is_active: bool
-    is_admin: bool
+    username:            Optional[str] = None
+    school:              Optional[str] = None
+    level:               Optional[str] = None
+    course:              Optional[str] = None
+    profile_picture_url: Optional[str] = None
+    profile_completed:   bool = False
+    subscription_plan:   str  = "free"
+    subscription_expiry: Optional[datetime] = None
+    is_active:   bool
+    is_admin:    bool
+    totp_enabled: bool = False
     created_at: datetime
 
     class Config:

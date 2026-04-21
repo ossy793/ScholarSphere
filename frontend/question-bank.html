@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Question Bank – Pritis</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0077FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pritis">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    /* ── Folder grid ───────────────────────────────────────── */
+    .folder-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 560px) {
+      .folder-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    }
+
+    .folder-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 0 0 16px;
+      cursor: pointer;
+      position: relative;
+      transition: border-color .15s, box-shadow .15s, transform .15s;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      overflow: hidden;
+    }
+    .folder-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 6px 28px rgba(0,119,255,.11);
+      transform: translateY(-2px);
+    }
+    .folder-color-bar {
+      height: 5px;
+      width: 100%;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+    .folder-card-body { padding: 0 16px; flex: 1; display: flex; flex-direction: column; }
+    .folder-card-icon { font-size: 2rem; margin-bottom: 8px; line-height: 1; }
+    .folder-card-name {
+      font-weight: 700; font-size: .9rem; color: var(--text);
+      word-break: break-word; flex: 1;
+    }
+    .folder-card-count {
+      font-size: .73rem; color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    /* ⋮ menu */
+    .folder-menu-btn {
+      position: absolute; top: 12px; right: 10px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 3px 8px;
+      border-radius: 6px; font-size: 1.1rem; line-height: 1;
+      z-index: 2; font-weight: 900;
+      transition: background .12s, color .12s;
+    }
+    .folder-menu-btn:hover { background: rgba(0,0,0,.06); color: var(--text); }
+
+    .folder-dropdown {
+      position: absolute; top: 38px; right: 8px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.14);
+      z-index: 300; min-width: 148px; overflow: hidden;
+    }
+    .folder-dropdown.hidden { display: none; }
+    .folder-dd-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px; font-size: .84rem; font-weight: 500;
+      cursor: pointer; color: var(--text);
+      border: none; background: none;
+      width: 100%; text-align: left;
+      transition: background .1s;
+    }
+    .folder-dd-item:hover { background: rgba(0,0,0,.04); }
+    .folder-dd-item.danger { color: var(--danger); }
+    .folder-dd-item.danger:hover { background: rgba(220,38,38,.06); }
+
+    /* Add-course card */
+    .add-folder-card {
+      border: 1.5px dashed var(--border);
+      background: transparent;
+      border-radius: 16px;
+      min-height: 160px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; gap: 8px;
+      transition: border-color .15s, background .15s;
+    }
+    .add-folder-card:hover { border-color: var(--primary); background: rgba(0,119,255,.03); }
+    .add-folder-card .afc-plus { font-size: 1.7rem; color: var(--text-muted); }
+    .add-folder-card p { font-size: .81rem; font-weight: 600; color: var(--text-muted); margin: 0; }
+
+    /* ── Quiz view ─────────────────────────────────────────── */
+    .qb-back-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 22px; flex-wrap: wrap;
+    }
+    .qb-back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: none; border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 7px 14px;
+      cursor: pointer; font-size: .84rem; font-weight: 600;
+      color: var(--text-muted); transition: all .15s; white-space: nowrap;
+    }
+    .qb-back-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .qb-course-title { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+
+    /* Quiz cards */
+    .quiz-card {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 18px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .quiz-card:hover { border-color: rgba(0,119,255,.3); box-shadow: 0 4px 18px rgba(0,119,255,.07); }
+    .quiz-card-title { font-weight: 700; font-size: .9rem; color: var(--text); }
+    .quiz-card-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: .74rem; color: var(--text-muted); }
+    .quiz-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Question Bank</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <!-- ── VIEW: Course Folders ── -->
+        <div id="view-folders">
+          <div class="flex items-center gap-3 mb-6" style="flex-wrap:wrap">
+            <input type="text" id="folder-search" class="form-control"
+              style="max-width:260px" placeholder="Search courses…" oninput="filterFolders()">
+          </div>
+          <div id="folder-grid" class="folder-grid"></div>
+          <div id="folders-loading" class="text-center text-muted mt-6">Loading…</div>
+          <div id="folders-empty" class="empty-state hidden">
+            <div class="icon">📁</div>
+            <h3>No courses yet</h3>
+            <p>Create your first course to start organising quizzes.</p>
+            <button class="btn btn-primary mt-4" onclick="openCreateCourseModal()">+ Create Course</button>
+          </div>
+        </div>
+
+        <!-- ── VIEW: Quizzes inside a course ── -->
+        <div id="view-quizzes" class="hidden">
+          <div class="qb-back-row">
+            <button class="qb-back-btn" onclick="backToFolders()">← Back</button>
+            <span class="qb-course-title" id="current-course-name"></span>
+            <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input type="text" id="quiz-search" class="form-control"
+                style="max-width:200px" placeholder="Search quizzes…" oninput="filterQuizzes()">
+              <a href="input-questions.html" class="btn btn-primary btn-sm">+ Manual Quiz</a>
+              <a href="ai-generate.html" class="btn btn-outline btn-sm">🤖 AI Generate</a>
+            </div>
+          </div>
+          <div id="quiz-grid" class="grid-3"></div>
+          <div id="quizzes-loading" class="text-center text-muted mt-6 hidden">Loading quizzes…</div>
+          <div id="quizzes-empty" class="empty-state hidden">
+            <div class="icon">📋</div>
+            <h3>No quizzes in this course</h3>
+            <p>Create a quiz manually or use AI generation.</p>
+            <div class="flex gap-2 mt-4" style="justify-content:center">
+              <a href="input-questions.html" class="btn btn-primary">Manual Quiz</a>
+              <a href="ai-generate.html" class="btn btn-outline">AI Generate</a>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ── Modal: Create Course ── -->
+  <div class="modal-overlay hidden" id="create-course-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Course</h3>
+        <button class="modal-close" onclick="closeCreateCourseModal()">&times;</button>
+      </div>
+      <div id="create-course-alert" class="alert alert-error hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Course Name <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="new-course-name" class="form-control" placeholder="e.g. Biology 101"
+          onkeydown="if(event.key==='Enter') createCourse()">
+      </div>
+      <button class="btn btn-primary w-full" id="create-course-btn" onclick="createCourse()">Create Course</button>
+    </div>
+  </div>
+
+  <!-- ── Modal: Edit Course ── -->
+  <div class="modal-overlay hidden" id="edit-course-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Course</h3>
+        <button class="modal-close" onclick="closeEditCourseModal()">&times;</button>
+      </div>
+      <div id="edit-course-alert" class="alert alert-error hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Course Name <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="edit-course-name" class="form-control"
+          onkeydown="if(event.key==='Enter') saveCourseEdit()">
+      </div>
+      <input type="hidden" id="edit-course-id">
+      <button class="btn btn-primary w-full" id="save-course-btn" onclick="saveCourseEdit()">Save Changes</button>
+    </div>
+  </div>
+
+  <!-- ── Modal: Delete Course ── -->
+  <div class="modal-overlay hidden" id="delete-course-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Course</h3>
+        <button class="modal-close" onclick="closeDeleteCourseModal()">&times;</button>
+      </div>
+      <p class="mb-2">Are you sure you want to delete <strong id="delete-course-name"></strong>?</p>
+      <p class="text-sm mb-4" id="delete-course-warning" style="color:var(--danger)"></p>
+      <div class="flex gap-2">
+        <button class="btn btn-danger" id="confirm-delete-course-btn" onclick="confirmDeleteCourse()">Delete</button>
+        <button class="btn btn-secondary" onclick="closeDeleteCourseModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Delete Quiz ── -->
+  <div class="modal-overlay hidden" id="delete-quiz-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Quiz</h3>
+        <button class="modal-close" onclick="closeDeleteQuizModal()">&times;</button>
+      </div>
+      <p class="mb-4">Are you sure you want to delete <strong id="delete-quiz-name"></strong>? This cannot be undone.</p>
+      <div class="flex gap-2">
+        <button class="btn btn-danger" id="confirm-delete-quiz-btn" onclick="confirmDeleteQuiz()">Delete</button>
+        <button class="btn btn-secondary" onclick="closeDeleteQuizModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Share Quiz ── -->
+  <div class="modal-overlay hidden" id="share-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Share Quiz</h3>
+        <button class="modal-close" onclick="closeShareModal()">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Share Link</label>
+        <div class="flex gap-2">
+          <input type="text" id="share-link" class="form-control" readonly>
+          <button class="btn btn-primary btn-sm" id="copy-share-btn" onclick="copyShareLink()">Copy</button>
+        </div>
+      </div>
+      <p class="text-xs text-muted">Anyone with this link can view and practice this quiz (read-only).</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/question-bank.js"></script>
+</body>
+</html>

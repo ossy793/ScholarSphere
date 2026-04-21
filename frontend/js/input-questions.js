@@ -1,16 +1,17 @@
-import { api, requirePremium } from './api.js';
+import { api, requireAuth, showUpgradeModal } from './api.js';
 import { renderLayout } from './layout.js';
 
-if (!requirePremium()) throw new Error('not premium');
-renderLayout('Input Questions', 'Input Questions');
+if (!requireAuth()) throw new Error('unauthenticated');
+renderLayout('Create Quiz', 'Create Quiz');
 
-let currentQuizId = null;
-let reviewItems = []; // [{ question_text, question_type, options, correct_answer, explanation }]
-let _scannedPdfFile = null; // stored when a scanned PDF is uploaded (text < threshold)
+let currentQuizId   = null;
+let reviewItems     = []; // [{ question_text, options, correct_answer, explanation }]
+let _extractedContent = null; // text from uploaded file — never shown in UI
+let _scannedPdfFile   = null;
 
 // ── State persistence ──────────────────────────────────────────────────────────
 const _IQ_KEYS = ['pritis_iq_quiz_id','pritis_iq_step','pritis_iq_course',
-                  'pritis_iq_title','pritis_iq_desc','pritis_iq_content','pritis_iq_items'];
+                  'pritis_iq_title','pritis_iq_desc','pritis_iq_items'];
 
 function _iqSave() {
   try {
@@ -21,7 +22,6 @@ function _iqSave() {
     localStorage.setItem('pritis_iq_course',  document.getElementById('course-select')?.value || '');
     localStorage.setItem('pritis_iq_title',   document.getElementById('quiz-title')?.value || '');
     localStorage.setItem('pritis_iq_desc',    document.getElementById('quiz-desc')?.value || '');
-    localStorage.setItem('pritis_iq_content', document.getElementById('content-textarea')?.value || '');
     localStorage.setItem('pritis_iq_items',   JSON.stringify(reviewItems));
   } catch (e) {}
 }
@@ -33,16 +33,14 @@ function _iqRestore() {
   if (!quizId) return;
   currentQuizId = quizId;
 
-  const step    = parseInt(localStorage.getItem('pritis_iq_step') || '1');
-  const title   = localStorage.getItem('pritis_iq_title')   || '';
-  const desc    = localStorage.getItem('pritis_iq_desc')    || '';
-  const content = localStorage.getItem('pritis_iq_content') || '';
-  let   items   = [];
+  const step  = parseInt(localStorage.getItem('pritis_iq_step') || '1');
+  const title = localStorage.getItem('pritis_iq_title') || '';
+  const desc  = localStorage.getItem('pritis_iq_desc')  || '';
+  let   items = [];
   try { items = JSON.parse(localStorage.getItem('pritis_iq_items') || '[]'); } catch {}
 
-  if (title)   document.getElementById('quiz-title').value = title;
-  if (desc)    document.getElementById('quiz-desc').value  = desc;
-  if (content) document.getElementById('content-textarea').value = content;
+  if (title) document.getElementById('quiz-title').value = title;
+  if (desc)  document.getElementById('quiz-desc').value  = desc;
 
   if (step >= 2) {
     const card = document.getElementById('quiz-details-card');
@@ -134,9 +132,11 @@ window.triggerFileInput = function () {
 
 window.clearUploadedFile = function () {
   document.getElementById('content-file-input').value = '';
-  document.getElementById('file-badge').classList.add('hidden');
+  document.getElementById('file-ready-state').classList.add('hidden');
+  document.getElementById('textarea-wrap').style.display = '';
   document.getElementById('content-textarea').value = '';
-  _scannedPdfFile = null;
+  _extractedContent = null;
+  _scannedPdfFile   = null;
 };
 
 window.handleContentFileInput = async function (e) {
@@ -152,11 +152,13 @@ window.handleContentFileInput = async function (e) {
     return;
   }
 
-  // Show loading state
+  // Hide textarea, show progress
+  document.getElementById('textarea-wrap').style.display = 'none';
+  document.getElementById('file-ready-state').classList.add('hidden');
   document.getElementById('file-reading').classList.remove('hidden');
-  document.getElementById('file-badge').classList.add('hidden');
 
-  _scannedPdfFile = null; // reset on each new file
+  _extractedContent = null;
+  _scannedPdfFile   = null;
 
   try {
     let text = '';
@@ -164,33 +166,32 @@ window.handleContentFileInput = async function (e) {
       text = await readTextFile(file);
     } else if (ext === '.docx') {
       text = await readDocxFile(file);
-    } else if (ext === '.pdf' || ext === '.pptx') {
-      text = await uploadFileForText(file);
-    }
-
-    // For scanned PDFs: text will be very short — store the file for visual parsing
-    if (ext === '.pdf' && text.trim().length < 300) {
+    } else if (ext === '.pdf') {
+      // All PDFs are sent directly to Gemini for question extraction — no text pre-extraction needed
       _scannedPdfFile = file;
-      document.getElementById('content-textarea').value =
-        '[Scanned PDF detected — questions will be extracted visually from the document pages]';
-      document.getElementById('file-name-label').textContent = `📄 ${file.name} (scanned)`;
-      document.getElementById('file-badge').classList.remove('hidden');
+      _extractedContent = null;
+      document.getElementById('file-ready-name').textContent = file.name;
+      document.getElementById('file-ready-state').classList.remove('hidden');
       return;
+    } else if (ext === '.pptx') {
+      text = await uploadFileForText(file);
     }
 
     if (!text.trim()) {
       showAlert(alertEl, 'The file appears to be empty or contains no readable text.');
+      document.getElementById('textarea-wrap').style.display = '';
       return;
+    } else {
+      _extractedContent = text;
     }
 
-    // Populate textarea with extracted text
-    document.getElementById('content-textarea').value = text;
+    // Show file-loaded indicator (no raw text shown to user)
+    document.getElementById('file-ready-name').textContent = file.name + (_scannedPdfFile ? ' (scanned)' : '');
+    document.getElementById('file-ready-state').classList.remove('hidden');
 
-    // Show file badge
-    document.getElementById('file-name-label').textContent = `📄 ${file.name}`;
-    document.getElementById('file-badge').classList.remove('hidden');
   } catch (err) {
     showAlert(alertEl, err.message || 'Failed to read the file. Please try again.');
+    document.getElementById('textarea-wrap').style.display = '';
   } finally {
     document.getElementById('file-reading').classList.add('hidden');
     e.target.value = '';
@@ -212,7 +213,6 @@ async function readDocxFile(file) {
   }
   const arrayBuffer = await file.arrayBuffer();
 
-  // Extract HTML to detect bold/italic formatting
   const [htmlResult, textResult] = await Promise.all([
     mammoth.convertToHtml({ arrayBuffer }),
     mammoth.extractRawText({ arrayBuffer }),
@@ -221,7 +221,6 @@ async function readDocxFile(file) {
   const text = textResult.value.trim();
   if (!text) throw new Error('This DOCX file contains no extractable text.');
 
-  // Find bold elements — may indicate correct answers
   const dom = new DOMParser().parseFromString(htmlResult.value, 'text/html');
   const boldTexts = [...dom.querySelectorAll('strong, b')]
     .map(el => el.textContent.trim())
@@ -229,7 +228,7 @@ async function readDocxFile(file) {
 
   if (boldTexts.length > 0) {
     const unique = [...new Set(boldTexts)];
-    return `[FORMATTING NOTE: The following text appears bold in the document — likely correct answers or key terms: ${unique.join(' | ')}]\n\n${text}`;
+    return `[FORMATTING NOTE: The following text appears bold — likely correct answers: ${unique.join(' | ')}]\n\n${text}`;
   }
 
   return text;
@@ -285,10 +284,10 @@ async function uploadFileForText(file) {
 window.setAnswerHint = function (btn) {
   document.querySelectorAll('.hint-chip').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('answer-format-error').classList.add('hidden');
 };
 
 const _HINT_MAP = {
-  '':           '',
   'highlighted':'The correct answers are highlighted or visually marked in the document (e.g. bold, underlined, asterisk, or labelled "ANS:").',
   'after_each': 'The correct answer for each question is listed immediately after that question (e.g. "Answer: C" or "Ans: B").',
   'end_key':    'An answer key is provided at the end of the document listing question numbers with their correct answers.',
@@ -304,11 +303,24 @@ function _buildAnswerHint() {
 
 // ── Step 2: Analyze & Generate ────────────────────────────────────────────────
 window.analyzeAndGenerate = async function () {
-  const content = document.getElementById('content-textarea').value.trim();
   const alertEl = document.getElementById('parse-alert');
   alertEl.classList.add('hidden');
 
-  if (!content) return showAlert(alertEl, 'Please paste some content or upload a file first.');
+  // Determine content source
+  const manualContent = document.getElementById('content-textarea').value.trim();
+  const content = _extractedContent || manualContent;
+
+  if (!content && !_scannedPdfFile) {
+    return showAlert(alertEl, 'Please paste some content or upload a file first.');
+  }
+
+  // Validate answer format selection
+  const selectedChip = document.querySelector('.hint-chip.active');
+  if (!selectedChip) {
+    document.getElementById('answer-format-error').classList.remove('hidden');
+    document.getElementById('answer-format-error').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   const btn      = document.getElementById('analyze-btn');
   const progWrap = document.getElementById('iq-analyze-progress-wrap');
@@ -337,7 +349,6 @@ window.analyzeAndGenerate = async function () {
   try {
     let generated;
     if (_scannedPdfFile) {
-      // Scanned PDF — send file to visual parsing endpoint
       const formData = new FormData();
       formData.append('file', _scannedPdfFile);
       formData.append('answer_hint', _buildAnswerHint());
@@ -353,16 +364,13 @@ window.analyzeAndGenerate = async function () {
       return;
     }
 
+    // Force all items to MCQ; normalise options
     const items = generated.map(g => {
-      const type = g.question_type === 'short_answer' ? 'short_answer' : 'mcq';
-      let opts = g.options || null;
-      if (type === 'mcq')          opts = normaliseMcqOptions(opts);
-      if (type === 'short_answer') opts = null;
+      const opts = normaliseMcqOptions(g.options || null);
       return {
         question_text:  g.question_text  || '',
-        question_type:  type,
         options:        opts,
-        correct_answer: g.correct_answer || '',
+        correct_answer: g.correct_answer || opts[0] || '',
         explanation:    g.explanation    || '',
       };
     });
@@ -371,7 +379,8 @@ window.analyzeAndGenerate = async function () {
     _iqSave();
   } catch (err) {
     clearInterval(simTimer);
-    showAlert(alertEl, `Analysis failed: ${err.message}`);
+    if (err.upgradeRequired) { showUpgradeModal(err.upgradeInfo); }
+    else { showAlert(alertEl, `Analysis failed: ${err.message}`); }
   } finally {
     btn.disabled = false;
     btn.innerHTML = '✨ Analyze &amp; Generate Quiz';
@@ -427,79 +436,62 @@ function renderReview(items) {
 
 function normaliseMcqOptions(opts, defaultCount = 4) {
   if (!opts || opts.length === 0) return Array(defaultCount).fill('');
-  // Preserve actual option count from document (min 2, max 6), clean nulls
   return opts.slice(0, 6).map(o => (o == null ? '' : String(o)));
 }
 
 function renderCard(i, item) {
-  const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
-  let optionsHtml = '';
+  const labels  = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const opts    = normaliseMcqOptions(item.options);
+  const canRemove = opts.length > 2;
+  const canAdd    = opts.length < 6;
 
-  if (item.question_type === 'mcq') {
-    const opts = normaliseMcqOptions(item.options);
-    const canRemove = opts.length > 2;
-    const canAdd    = opts.length < 6;
+  const optInputs = opts.map((o, j) => `
+    <div class="opt-row">
+      <span class="opt-label">${labels[j]}</span>
+      <input type="text" class="form-control" style="padding:8px 12px;flex:1"
+        value="${escAttr(o)}" placeholder="Option ${labels[j]}"
+        oninput="updateReviewOption(${i},${j},this.value)">
+      ${canRemove ? `<button type="button" onclick="removeReviewOption(${i},${j})"
+        style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1.2rem;padding:0 6px;flex-shrink:0;line-height:1">×</button>` : ''}
+    </div>`).join('');
 
-    const optInputs = opts.map((o, j) => `
-      <div class="opt-row">
-        <span class="opt-label">${labels[j]}</span>
-        <input type="text" class="form-control" style="padding:8px 12px;flex:1"
-          value="${escAttr(o)}" placeholder="Option ${labels[j]}"
-          oninput="updateReviewOption(${i},${j},this.value)">
-        ${canRemove ? `<button type="button" onclick="removeReviewOption(${i},${j})"
-          style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:1.2rem;padding:0 6px;flex-shrink:0;line-height:1">×</button>` : ''}
-      </div>`).join('');
-
-    const correctOpts = opts.map((o, j) =>
-      `<option value="${escAttr(o)}" ${item.correct_answer === o ? 'selected' : ''}>${labels[j]}. ${escHtml(o) || '(empty)'}</option>`
-    ).join('');
-
-    optionsHtml = `
-      <div class="form-group">
-        <label class="form-label">Options</label>
-        ${optInputs}
-        ${canAdd ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addReviewOption(${i})">+ Add Option</button>` : ''}
-      </div>
-      <div class="form-group">
-        <label class="form-label">Correct Answer</label>
-        <select class="form-control" id="correct-sel-${i}"
-          onchange="updateReviewField(${i},'correct_answer',this.value)">
-          ${correctOpts}
-        </select>
-      </div>`;
-
-  } else {
-    optionsHtml = `
-      <div class="form-group">
-        <label class="form-label">Expected Answer <span style="color:var(--danger)">*</span></label>
-        <input type="text" class="form-control" value="${escAttr(item.correct_answer || '')}"
-          placeholder="Type the expected answer"
-          oninput="updateReviewField(${i},'correct_answer',this.value)">
-      </div>`;
-  }
+  const correctOpts = opts.map((o, j) =>
+    `<option value="${escAttr(o)}" ${item.correct_answer === o ? 'selected' : ''}>${labels[j]}. ${escHtml(o) || '(empty)'}</option>`
+  ).join('');
 
   return `
     <div class="card mb-3 review-card" id="rcard-${i}">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <span class="badge badge-primary">Q${i + 1}</span>
-          <select class="form-control"
-            style="padding:5px 10px;font-size:0.8rem;width:auto;height:auto;border-radius:var(--radius-sm)"
-            onchange="changeReviewType(${i},this.value)">
-            <option value="mcq"          ${item.question_type === 'mcq'          ? 'selected' : ''}>Multiple Choice</option>
-            <option value="short_answer" ${item.question_type === 'short_answer' ? 'selected' : ''}>Short Answer</option>
-          </select>
+          <span style="font-size:0.78rem;font-weight:600;color:var(--text-muted);
+                       background:var(--bg);border:1px solid var(--border);
+                       border-radius:var(--radius-sm);padding:3px 10px">
+            Multiple Choice
+          </span>
         </div>
         <button class="btn btn-danger btn-sm" onclick="removeReviewItem(${i})">Remove</button>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Question</label>
+        <label class="form-label">Question <span style="color:var(--danger)">*</span></label>
         <textarea class="form-control" rows="2"
           oninput="updateReviewField(${i},'question_text',this.value)">${escHtml(item.question_text)}</textarea>
       </div>
 
-      ${optionsHtml}
+      <div class="form-group">
+        <label class="form-label">Options <span style="color:var(--danger)">*</span></label>
+        ${optInputs}
+        ${canAdd ? `<button type="button" class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addReviewOption(${i})">+ Add Option</button>` : ''}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Correct Answer <span style="color:var(--danger)">*</span></label>
+        <select class="form-control" id="correct-sel-${i}"
+          onchange="updateReviewField(${i},'correct_answer',this.value)">
+          ${correctOpts}
+        </select>
+      </div>
 
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">
@@ -519,7 +511,7 @@ window.updateReviewField = function (i, field, value) {
 
 window.updateReviewOption = function (i, j, value) {
   if (!reviewItems[i].options) reviewItems[i].options = ['', '', '', ''];
-  while (reviewItems[i].options.length < 4) reviewItems[i].options.push('');
+  while (reviewItems[i].options.length < 2) reviewItems[i].options.push('');
 
   const old = reviewItems[i].options[j];
   reviewItems[i].options[j] = value;
@@ -530,28 +522,12 @@ window.updateReviewOption = function (i, j, value) {
 
   const sel = document.getElementById(`correct-sel-${i}`);
   if (sel) {
-    const labels = ['A', 'B', 'C', 'D'];
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
     const opts   = reviewItems[i].options;
     sel.innerHTML = opts.map((o, idx) =>
       `<option value="${escAttr(o)}" ${reviewItems[i].correct_answer === o ? 'selected' : ''}>${labels[idx]}. ${escHtml(o) || '(empty)'}</option>`
     ).join('');
   }
-};
-
-window.changeReviewType = function (i, type) {
-  const item = reviewItems[i];
-  item.question_type = type;
-
-  if (type === 'mcq') {
-    item.options = normaliseMcqOptions(item.options && item.options.length >= 2 ? item.options : null);
-    item.correct_answer = item.correct_answer && item.options.includes(item.correct_answer)
-      ? item.correct_answer : (item.options[0] || '');
-  } else {
-    item.options = null;
-  }
-
-  const card = document.getElementById(`rcard-${i}`);
-  if (card) card.outerHTML = renderCard(i, item);
 };
 
 window.addReviewOption = function (i) {
@@ -594,14 +570,10 @@ window.saveAllQuestions = async function () {
   reviewItems.forEach((item, i) => {
     if (!item.question_text.trim())
       errors.push(`Q${i + 1}: Question text is empty.`);
-    if (item.question_type === 'mcq') {
-      const opts = item.options || [];
-      if (opts.length < 2)            errors.push(`Q${i + 1}: At least 2 options are required.`);
-      if (opts.some(o => !o.trim()))  errors.push(`Q${i + 1}: All options must be filled.`);
-      if (!item.correct_answer)       errors.push(`Q${i + 1}: Please select a correct answer.`);
-    }
-    if (item.question_type === 'short_answer' && !item.correct_answer.trim())
-      errors.push(`Q${i + 1}: Expected answer is required.`);
+    const opts = item.options || [];
+    if (opts.length < 2)           errors.push(`Q${i + 1}: At least 2 options are required.`);
+    if (opts.some(o => !o.trim())) errors.push(`Q${i + 1}: All options must be filled in.`);
+    if (!item.correct_answer)      errors.push(`Q${i + 1}: Please select a correct answer.`);
   });
 
   if (errors.length > 0) {
@@ -623,7 +595,7 @@ window.saveAllQuestions = async function () {
     try {
       await api.post(`/quizzes/${currentQuizId}/questions`, {
         question_text:  item.question_text.trim(),
-        question_type:  item.question_type,
+        question_type:  'mcq',
         options:        item.options,
         correct_answer: item.correct_answer.trim(),
         explanation:    item.explanation?.trim() || null,
@@ -642,7 +614,7 @@ window.saveAllQuestions = async function () {
     alertEl.className = 'alert alert-success';
     alertEl.innerHTML =
       `✓ ${saved} question${saved !== 1 ? 's' : ''} saved successfully! ` +
-      `<a href="my-questions.html" style="font-weight:600;margin-left:8px">View All Quizzes →</a>`;
+      `<a href="question-bank.html" style="font-weight:600;margin-left:8px">View Question Bank →</a>`;
     reviewItems = [];
     renderReview([]);
     _iqClear();
@@ -657,9 +629,10 @@ window.saveAllQuestions = async function () {
 // ── Reset ─────────────────────────────────────────────────────────────────────
 window.resetAll = function () {
   _iqClear();
-  currentQuizId  = null;
-  reviewItems    = [];
-  _scannedPdfFile = null;
+  currentQuizId    = null;
+  reviewItems      = [];
+  _extractedContent = null;
+  _scannedPdfFile  = null;
 
   document.getElementById('review-section').classList.add('hidden');
   document.getElementById('bulk-input-section').classList.add('hidden');
@@ -671,8 +644,10 @@ window.resetAll = function () {
   document.getElementById('quiz-title').value = '';
   document.getElementById('quiz-desc').value  = '';
   document.getElementById('content-textarea').value = '';
-  document.getElementById('file-badge').classList.add('hidden');
+  document.getElementById('file-ready-state').classList.add('hidden');
+  document.getElementById('textarea-wrap').style.display = '';
   document.getElementById('content-file-input').value = '';
+  document.querySelectorAll('.hint-chip').forEach(b => b.classList.remove('active'));
 
   const btn = document.getElementById('create-quiz-btn');
   btn.disabled    = false;

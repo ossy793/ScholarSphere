@@ -73,6 +73,31 @@ class Settings(BaseSettings):
     # Cron job secret (protects scheduled notification endpoints)
     CRON_SECRET: str = ""
 
+    # Paystack payment gateway
+    PAYSTACK_SECRET_KEY: str = ""   # sk_test_... or sk_live_...
+    PAYSTACK_PUBLIC_KEY: str = ""   # pk_test_... or pk_live_...
+    PAYSTACK_AMOUNT_KOBO: int = 100000  # 100,000 kobo = ₦1,000
+
+    # Google OAuth (Sign in with Google)
+    GOOGLE_CLIENT_ID: str = ""
+
+    # YouTube Data API v3 (for Study Zone learning recommendations)
+    YOUTUBE_API_KEY: str = ""
+
+    # ── WhatsApp / Customer Support ───────────────────────────────────────────
+    # Twilio WhatsApp sandbox / production
+    TWILIO_ACCOUNT_SID:    str = ""
+    TWILIO_AUTH_TOKEN:     str = ""
+    TWILIO_WHATSAPP_FROM:  str = "whatsapp:+14155238886"  # sandbox default
+
+    # Meta Cloud API (preferred for production)
+    META_WHATSAPP_TOKEN:       str = ""   # Permanent token from Meta Business
+    META_PHONE_NUMBER_ID:      str = ""   # Phone Number ID from Meta
+    META_WEBHOOK_VERIFY_TOKEN: str = "pritis_support_verify"
+
+    # Support AI behaviour
+    SUPPORT_AI_ENABLED: bool = True
+
 
 @lru_cache()
 def get_setting() -> Settings:

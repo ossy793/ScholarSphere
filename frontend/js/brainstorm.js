@@ -1,4 +1,4 @@
-import { api, requireAuth, getUser } from './api.js';
+import { api, requireAuth, getUser, getToken } from './api.js';
 import { renderLayout } from './layout.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
@@ -138,9 +138,10 @@ document.addEventListener('click', e => {
 _loadModels();
 
 // ── Session Setup ──────────────────────────────────────────────────────────────
-let _setupDuration  = 1800; // seconds chosen in setup — defaults to 30 min
-let _setupGoal      = '';  // optional goal text
-let _setupCompleted = false; // true once user clicked "Start Studying"
+let _setupDuration        = 1800; // seconds chosen in setup — defaults to 30 min
+let _setupGoal            = '';   // optional goal text
+let _setupCompleted       = false; // true once user clicked "Start Studying"
+let _fabGreetingDismissed = false; // true once user dismisses the FAB speech bubble
 
 function _renderSetupModelCards() {
   const grid = document.getElementById('setup-model-grid');
@@ -175,6 +176,17 @@ window.setupPickDuration = function (secs) {
   document.querySelectorAll('.setup-duration-pill').forEach(p => {
     p.classList.toggle('active', parseInt(p.dataset.secs) === secs);
   });
+  // Clear custom input when a preset pill is clicked
+  const customInput = document.getElementById('setup-custom-mins');
+  if (customInput) customInput.value = '';
+};
+
+window.setupPickCustomDuration = function (val) {
+  const mins = parseInt(val, 10);
+  if (!val || isNaN(mins) || mins < 1) return;
+  _setupDuration = Math.min(mins, 480) * 60; // cap at 8 hrs
+  // Deactivate preset pills since custom value overrides them
+  document.querySelectorAll('.setup-duration-pill').forEach(p => p.classList.remove('active'));
 };
 
 function _formatDuration(secs) {
@@ -184,23 +196,24 @@ function _formatDuration(secs) {
 }
 
 window.startStudySession = function () {
-  _setupGoal      = document.getElementById('setup-goal-input')?.value.trim() || '';
-  _setupCompleted = true;
+  _setupGoal             = document.getElementById('setup-goal-input')?.value.trim() || '';
+  _setupCompleted        = true;
+  _fabGreetingDismissed  = false; // reset so greeting shows fresh
 
   document.getElementById('session-setup-overlay')?.classList.remove('visible');
 
   // Pre-configure timer if duration chosen
   if (_setupDuration > 0) {
     window.onTimerPresetChange(String(_setupDuration));
+    // Show timer indicators immediately
+    const badge = document.getElementById('chat-timer-badge');
+    if (badge) badge.style.display = 'flex';
+    const inlinePill = document.getElementById('inline-timer');
+    if (inlinePill) inlinePill.style.display = 'flex';
+    const floatPill = document.getElementById('floating-timer');
+    if (floatPill) floatPill.style.display = 'flex';
   }
 
-  // Open chat panel on desktop so welcome message is visible
-  const layout = document.getElementById('bs-layout');
-  if (layout?.classList.contains('chat-collapsed') && !window.matchMedia('(max-width:768px)').matches) {
-    toggleChatPanel();
-  }
-
-  // Send companion welcome BEFORE document is loaded
   const m           = _availableModels.find(x => x.id === _selectedModel);
   const displayName = m?.display_name || 'Groq';
   const goalPart    = _setupGoal
@@ -211,11 +224,17 @@ window.startStudySession = function () {
     `👋 Hey! I'm **UrPadi**, your study companion powered by **${displayName}**.${goalPart}${timerPart}\n\n` +
     `Upload your document or paste some text on the left and let's get to work! 📚`;
 
+  // Store welcome message in chat history so it appears when user opens chat
   const container = document.getElementById('chat-messages');
   document.getElementById('chat-empty')?.remove();
   appendBubble('assistant', welcome);
   chatHistory.push({ role: 'assistant', content: welcome });
   container.scrollTop = container.scrollHeight;
+
+  // Show the greeting bubble beside the chat toggle (desktop + mobile)
+  const goalShort  = _setupGoal ? `<br><em style="color:var(--text-muted);font-size:0.78rem">"${_setupGoal}"</em>` : '';
+  const bubbleText = `👋 Hey! I'm <strong>UrPadi</strong>, powered by <strong>${displayName}</strong>.${goalShort}<br><span style="color:var(--text-muted);font-size:0.78rem">Upload a doc, then click to chat!</span>`;
+  setTimeout(() => _showGreeting(bubbleText), 400);
 };
 
 
@@ -1243,6 +1262,21 @@ window.changeDocument = function () {
   currentSessionId = null;
   disableChat();
   clearChat(false);
+
+  // Reset setup state and show the setup overlay for the new session
+  _setupCompleted = false;
+  _setupDuration  = 1800;
+  _setupGoal      = '';
+  _fabGreetingDismissed = false;
+  document.querySelectorAll('.setup-duration-pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.secs) === 1800);
+  });
+  const goalInput = document.getElementById('setup-goal-input');
+  if (goalInput) goalInput.value = '';
+  const customInput = document.getElementById('setup-custom-mins');
+  if (customInput) customInput.value = '';
+  timerStop();
+  setTimeout(_showSetupOverlay, 80);
 };
 
 // ── Chat enable / disable ─────────────────────────────────────────────────────
@@ -1275,6 +1309,7 @@ function enableChat(ocrWarning) {
     input.disabled    = false;
     input.placeholder = 'Ask UrPadi anything about the document… (Enter to send)';
     document.getElementById('send-btn').disabled = false;
+    document.getElementById('mic-btn') && (document.getElementById('mic-btn').disabled = false);
     // Don't auto-focus on mobile — it scrolls the off-screen chat panel into view
     if (!window.matchMedia('(max-width: 768px)').matches) input.focus();
     _startReadingTimers(); // begin proactive engagement countdown
@@ -1287,6 +1322,7 @@ function disableChat() {
   input.disabled    = true;
   input.placeholder = 'Upload a document to start chatting with UrPadi…';
   document.getElementById('send-btn').disabled = true;
+  document.getElementById('mic-btn') && (document.getElementById('mic-btn').disabled = true);
   _clearReadingTimers(); // stop timers when no document is active
   _showTimerBar(false);
 }
@@ -1309,6 +1345,778 @@ window.clearChat = function (showEmpty = true) {
     container.innerHTML = '';
   }
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SMART LEARNING ENHANCEMENTS
+// Flashcards · Visual Explanation · YouTube Resources · Confusion Detection
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Confusion detection ────────────────────────────────────────────────────────
+const _CONFUSION_RE = /don'?t understand|i'?m confused|not (getting|clear)|explain (again|more|further|this)|what do you mean|help me understand|i'?m lost|make it (simpler|clearer)|what (is|are) (a |an |the )?|clarif/i;
+
+function _isConfused(text) {
+  return _CONFUSION_RE.test(text);
+}
+
+// ── Inject action buttons below an assistant message ──────────────────────────
+// topic: hint string derived from recent chat, used for resources/flashcards
+let _msgActionCounter = 0;
+
+function _appendMessageActions(afterEl, topicHint) {
+  if (!documentContext) return;
+  const id  = `ma-${++_msgActionCounter}`;
+  const row = document.createElement('div');
+  row.className = 'msg-action-row';
+  row.id = id;
+  row.innerHTML = `
+    <button class="msg-action-btn" id="${id}-fc"
+      onclick="triggerFlashcards('${id}', '${escHtml(topicHint).replace(/'/g,"\\'")}')">
+      📇 Flashcards
+    </button>
+    <button class="msg-action-btn" id="${id}-vis"
+      onclick="triggerVisual('${id}', '${escHtml(topicHint).replace(/'/g,"\\'")}')">
+      🎨 Visual Explanation
+    </button>
+    <button class="msg-action-btn" id="${id}-res"
+      onclick="triggerResources('${id}', '${escHtml(topicHint).replace(/'/g,"\\'")}')">
+      🎥 Resources
+    </button>`;
+  afterEl.after(row);
+  return row;
+}
+
+// Extract a short topic hint from the last user message + AI reply
+function _extractTopic(userMsg, aiReply) {
+  // Use the first sentence of the AI reply as topic hint (max 80 chars)
+  const first = (aiReply || userMsg || '').split(/[.\n]/)[0].trim();
+  return first.slice(0, 80);
+}
+
+// ── Flashcards ────────────────────────────────────────────────────────────────
+window.triggerFlashcards = async function (rowId, topic) {
+  const row = document.getElementById(rowId);
+  const btn = document.getElementById(`${rowId}-fc`);
+  if (!btn || btn.disabled) return;
+
+  // Disable all three buttons while loading
+  ['fc','vis','res'].forEach(k => {
+    const b = document.getElementById(`${rowId}-${k}`);
+    if (b) b.disabled = true;
+  });
+  btn.textContent = '⏳ Generating…';
+
+  let cards;
+  try {
+    const res = await api.post('/brainstorm/flashcards', {
+      context: documentContext,
+      topic,
+      model: _selectedModel,
+      count: 7,
+    });
+    cards = res.cards;
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '📇 Flashcards';
+    ['vis','res'].forEach(k => {
+      const b = document.getElementById(`${rowId}-${k}`);
+      if (b) b.disabled = false;
+    });
+    _injectAfterRow(row, `<p style="color:var(--danger);font-size:.84rem">⚠️ ${escHtml(err.message)}</p>`);
+    return;
+  }
+
+  // Build flip-card deck HTML
+  const deckId = `fc-${rowId}`;
+  const deck = document.createElement('div');
+  deck.className = 'flashcard-deck';
+  deck.id = deckId;
+  deck.innerHTML = `
+    <div class="flashcard-header">📇 Flashcards — ${cards.length} cards (tap to flip)</div>
+    <div class="flashcard-viewport">
+      <div class="flashcard-scene">
+        <div class="flashcard" id="${deckId}-card" onclick="flipFlashcard('${deckId}')">
+          <div class="flashcard-face flashcard-front">
+            <div class="flashcard-label">Question</div>
+            <div class="flashcard-text" id="${deckId}-q">${escHtml(cards[0].q)}</div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <div class="flashcard-label">Answer</div>
+            <div class="flashcard-text" id="${deckId}-a">${escHtml(cards[0].a)}</div>
+          </div>
+        </div>
+      </div>
+      <p class="flashcard-hint">Tap card to reveal answer</p>
+      <div class="flashcard-nav">
+        <button class="flashcard-nav-btn" onclick="navFlashcard('${deckId}',-1)" id="${deckId}-prev" disabled>‹</button>
+        <span class="flashcard-counter" id="${deckId}-counter">1 / ${cards.length}</span>
+        <button class="flashcard-nav-btn" onclick="navFlashcard('${deckId}',1)" id="${deckId}-next">›</button>
+      </div>
+    </div>`;
+
+  // Store cards on the element for nav
+  deck._cards   = cards;
+  deck._current = 0;
+
+  row.after(deck);
+
+  // Re-enable non-clicked buttons
+  ['vis','res'].forEach(k => {
+    const b = document.getElementById(`${rowId}-${k}`);
+    if (b) b.disabled = false;
+  });
+  btn.textContent = '📇 Flashcards ✓';
+};
+
+window.flipFlashcard = function (deckId) {
+  document.getElementById(`${deckId}-card`)?.classList.toggle('flipped');
+};
+
+window.navFlashcard = function (deckId, dir) {
+  const deck = document.getElementById(deckId);
+  if (!deck) return;
+  const cards = deck._cards;
+  let idx = deck._current + dir;
+  if (idx < 0 || idx >= cards.length) return;
+  deck._current = idx;
+
+  // Reset flip, update content
+  const card  = document.getElementById(`${deckId}-card`);
+  if (card) card.classList.remove('flipped');
+  const qEl = document.getElementById(`${deckId}-q`);
+  const aEl = document.getElementById(`${deckId}-a`);
+  if (qEl) qEl.textContent = cards[idx].q;
+  if (aEl) aEl.textContent = cards[idx].a;
+
+  document.getElementById(`${deckId}-counter`).textContent = `${idx + 1} / ${cards.length}`;
+  document.getElementById(`${deckId}-prev`).disabled = idx === 0;
+  document.getElementById(`${deckId}-next`).disabled = idx === cards.length - 1;
+};
+
+// ── Visual Explanation ────────────────────────────────────────────────────────
+let _visualCounter = 0;
+
+window.triggerVisual = function (rowId, topic) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+
+  // Toggle: if prompt already open, close it
+  const existing = document.getElementById(`${rowId}-vis-prompt`);
+  if (existing) { existing.remove(); return; }
+
+  // Remove any previous visual card for this row
+  const prevCard = document.getElementById(`${rowId}-vis-card`);
+  if (prevCard) prevCard.remove();
+
+  const promptEl = document.createElement('div');
+  promptEl.id = `${rowId}-vis-prompt`;
+  promptEl.className = 'visual-prompt-row';
+  promptEl.innerHTML = `
+    <div class="visual-prompt-box">
+      <div class="visual-prompt-title">🎨 Visual Explanation</div>
+      <p class="visual-prompt-hint">What would you like explained visually?<br>
+        <span style="opacity:.7">Tip: mention a page number or concept — e.g. "Contract formation flowchart" or "Explain page 2"</span>
+      </p>
+      <div class="visual-prompt-input-row" id="${rowId}-vis-inputs">
+        <input type="text" id="${rowId}-vis-input" class="visual-prompt-input"
+          placeholder="e.g. Explain contract law on page 3 with a diagram"
+          value="${escHtml(topic || '')}" />
+        <button class="visual-prompt-btn"
+          onclick="generateVisualDiagram('${rowId}', document.getElementById('${rowId}-vis-input').value)">
+          Generate
+        </button>
+      </div>
+    </div>`;
+
+  row.after(promptEl);
+
+  const inp = document.getElementById(`${rowId}-vis-input`);
+  inp.focus();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') generateVisualDiagram(rowId, inp.value);
+  });
+};
+
+window.generateVisualDiagram = async function (rowId, userQuery) {
+  userQuery = (userQuery || '').trim();
+  const inputsEl = document.getElementById(`${rowId}-vis-inputs`);
+  if (inputsEl) {
+    inputsEl.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:4px 0">⏳ Generating diagram…</p>';
+  }
+
+  let data;
+  try {
+    data = await api.post('/brainstorm/visual', {
+      session_id: currentSessionId || null,
+      user_query: userQuery,
+      model:      _selectedModel,
+    });
+  } catch (err) {
+    if (inputsEl) {
+      const safeQ = escHtml(userQuery).replace(/'/g, "\\'");
+      inputsEl.innerHTML = `
+        <p style="color:var(--danger);font-size:.82rem;margin:0 0 8px">⚠️ ${escHtml(err.message)}</p>
+        <button class="visual-prompt-btn" onclick="generateVisualDiagram('${rowId}', '${safeQ}')">Retry</button>`;
+    }
+    return;
+  }
+
+  // Remove prompt
+  const promptEl = document.getElementById(`${rowId}-vis-prompt`);
+  if (promptEl) promptEl.remove();
+
+  const cardId  = `${rowId}-vis-card`;
+  const diagId  = `vis-diag-${++_visualCounter}`;
+  const safeQ   = escHtml(userQuery).replace(/'/g, "\\'");
+
+  let bodyHtml = '';
+
+  const card = document.createElement('div');
+  card.className = 'visual-card';
+  card.id = cardId;
+
+  if (data.mermaid) {
+    card.innerHTML = `
+      <div class="visual-card-inner">
+        <div class="visual-card-title">🎨 ${escHtml(data.title || userQuery || 'Visual Breakdown')}</div>
+        <div class="visual-diagram-wrap" id="${diagId}-wrap">
+          <div class="mermaid" id="${diagId}"></div>
+        </div>
+        ${data.description ? `<p class="visual-desc">${escHtml(data.description)}</p>` : ''}
+        <div class="visual-actions">
+          <button class="visual-action-btn" onclick="downloadVisualSVG('${diagId}-wrap')">⬇ Download SVG</button>
+          <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
+        </div>
+      </div>`;
+    // Set raw mermaid syntax via textContent to avoid HTML-escaping issues
+    card.querySelector(`#${diagId}`).textContent = data.mermaid;
+  } else if (data.sections) {
+    const sHtml = (data.sections || []).map(s => `
+      <div class="visual-section">
+        <div class="visual-section-heading">
+          <span class="v-icon">${s.icon || '📌'}</span>
+          <span>${escHtml(s.heading || '')}</span>
+        </div>
+        <ul>${(s.points || []).map(p => `<li>${escHtml(p)}</li>`).join('')}</ul>
+      </div>`).join('');
+    card.innerHTML = `
+      <div class="visual-card-inner">
+        <div class="visual-card-title">🎨 ${escHtml(data.title || userQuery || 'Visual Breakdown')}</div>
+        ${sHtml}
+        <div class="visual-actions">
+          <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
+        </div>
+      </div>`;
+  }
+
+  const row = document.getElementById(rowId);
+  if (row) row.after(card);
+
+  // Render Mermaid diagram
+  if (data.mermaid && window.mermaid) {
+    try {
+      await mermaid.run({ nodes: [document.getElementById(diagId)] });
+    } catch (e) {
+      const diagEl = document.getElementById(diagId);
+      if (diagEl) {
+        const desc = data.description ? `<p style="font-size:.82rem;color:var(--text);margin:0 0 10px">${escHtml(data.description)}</p>` : '';
+        diagEl.innerHTML = `
+          <div style="padding:14px;text-align:left">
+            ${desc}
+            <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 10px">⚠️ Diagram could not render. Click Regenerate to try again.</p>
+            <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
+          </div>`;
+      }
+    }
+  }
+
+  const btn = document.getElementById(`${rowId}-vis`);
+  if (btn) btn.textContent = '🎨 Visual ✓';
+};
+
+window.downloadVisualSVG = function (containerId) {
+  const el  = document.getElementById(containerId);
+  const svg = el?.querySelector('svg');
+  if (!svg) return;
+  const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: 'visual-explanation.svg' });
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Strip a filename extension and return a clean title
+function _cleanDocTopic(filename) {
+  return (filename || '').replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim();
+}
+
+// Detect whether a string looks like a greeting/question rather than an academic topic
+const _GREETING_RE = /^(how|what|why|when|where|can|could|would|hey|hi|i'?m|i am|let'?s|let me|great|sure|ok|okay|here|upload|tap|click|ask|feel free|welcome|don'?t|you can|you need|you have|📄|👋|i've|i have)/i;
+
+// Decide the best topic hint: always prefer document filename over AI reply text
+function _bestTopicHint(rawTopic) {
+  const docTopic = _cleanDocTopic(currentFilename);
+  // Document filename is always more reliable than extracted AI text
+  if (docTopic) return docTopic;
+  // If we have no filename, fall back to raw topic only if it looks academic
+  if (!rawTopic || _GREETING_RE.test(rawTopic.trim())) return '';
+  return rawTopic;
+}
+
+// ── Learning Resources (YouTube) ─────────────────────────────────────────────
+window.triggerResources = async function (rowId, topic) {
+  const row = document.getElementById(rowId);
+  const btn = document.getElementById(`${rowId}-res`);
+  if (!btn || btn.disabled) return;
+
+  ['fc','vis','res'].forEach(k => {
+    const b = document.getElementById(`${rowId}-${k}`);
+    if (b) b.disabled = true;
+  });
+  btn.textContent = '⏳ Fetching…';
+
+  let data;
+  try {
+    // Send ONLY the session_id — let the backend scan the document via RAG
+    // to determine the subject. Never send filenames or AI reply text as topic.
+    data = await api.post('/brainstorm/resources/smart', {
+      session_id: currentSessionId || null,
+      model: _selectedModel,
+    });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '🎥 Resources';
+    ['fc','vis'].forEach(k => {
+      const b = document.getElementById(`${rowId}-${k}`);
+      if (b) b.disabled = false;
+    });
+    _injectAfterRow(row, `<p style="color:var(--danger);font-size:.84rem">⚠️ ${escHtml(err.message)}</p>`);
+    return;
+  }
+
+  const rack = document.createElement('div');
+  rack.className = 'resources-rack';
+  rack.id = `res-rack-${rowId}`;
+
+  if (!data.configured) {
+    // No YouTube API key
+    rack.innerHTML = `
+      <div class="resources-rack-title">🎥 Resources</div>
+      <p style="font-size:0.75rem;color:var(--text-muted);margin:4px 0 8px">
+        YouTube API key not configured — add <code>YOUTUBE_API_KEY</code> to your <code>.env</code> file.
+      </p>`;
+  } else if (data.error || !data.videos?.length) {
+    // AI couldn't determine topic OR no results — ask the user
+    const inputId = `res-manual-${rowId}`;
+    rack.innerHTML = `
+      <div class="resources-rack-title">🎥 Resources</div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin:4px 0 10px;line-height:1.5">
+        What topic would you like videos on?
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;max-width:340px">
+        <input type="text" id="${inputId}"
+          placeholder="e.g. Business Law contracts"
+          style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;
+                 padding:0 10px;font-size:0.84rem;background:var(--surface);color:var(--text);outline:none"
+          onkeydown="if(event.key==='Enter') searchResourcesManually('${rowId}')" />
+        <button onclick="searchResourcesManually('${rowId}')"
+          style="height:34px;padding:0 14px;border-radius:8px;border:none;
+                 background:var(--primary);color:#fff;font-weight:700;font-size:0.82rem;
+                 cursor:pointer;white-space:nowrap">
+          Search
+        </button>
+      </div>`;
+  } else {
+    // Show AI intro message in the chat first
+    if (data.intro) {
+      const introEl = document.createElement('div');
+      introEl.className = 'msg assistant';
+      introEl.innerHTML = `
+        <div class="msg-avatar">UP</div>
+        <div class="msg-bubble">${renderMarkdown(data.intro)}</div>`;
+      document.getElementById('chat-messages')?.appendChild(introEl);
+      const msgs = document.getElementById('chat-messages');
+      if (msgs) msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    // Build embedded video cards
+    const cardsHtml = data.videos.map((v, idx) => {
+      const embedId = `yt-embed-${rowId}-${idx}`;
+      return `
+        <div class="resource-card resource-card-embed" id="${embedId}-card">
+          <div class="resource-embed-preview" id="${embedId}-preview"
+               onclick="playYouTubeEmbed('${embedId}','${escHtml(v.embedUrl)}','${escHtml(v.id)}')">
+            <img class="resource-thumb" src="${escHtml(v.thumbnail)}" alt="${escHtml(v.title)}"
+                 loading="lazy" onerror="this.style.display='none'">
+            <div class="resource-play-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </div>
+          </div>
+          <div id="${embedId}-player" class="resource-embed-player" style="display:none">
+            <!-- iframe injected on play -->
+          </div>
+          <div class="resource-info">
+            <div class="resource-title">${escHtml(v.title)}</div>
+            <div class="resource-channel">${escHtml(v.channel)}</div>
+          </div>
+        </div>`;
+    }).join('');
+    rack.innerHTML = `<div class="resources-rack-title">🎥 Recommended Videos — ${escHtml(data.topic || topic || '')}</div>${cardsHtml}`;
+  }
+
+  row.after(rack);
+
+  ['fc','vis'].forEach(k => {
+    const b = document.getElementById(`${rowId}-${k}`);
+    if (b) b.disabled = false;
+  });
+  btn.textContent = '🎥 Resources ✓';
+};
+
+// Manual topic search — called when user types their own topic in the fallback form
+window.searchResourcesManually = async function (rowId) {
+  const inputEl = document.getElementById(`res-manual-${rowId}`);
+  const rack    = document.getElementById(`res-rack-${rowId}`);
+  if (!inputEl || !rack) return;
+
+  const query = inputEl.value.trim();
+  if (!query) { inputEl.focus(); return; }
+
+  // Show loading state inside the rack
+  rack.innerHTML = `
+    <div class="resources-rack-title">🎥 Resources</div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:0.82rem;color:var(--text-muted)">
+      <div class="typing-indicator"><span></span><span></span><span></span></div>
+      Searching for "${escHtml(query)}"…
+    </div>`;
+
+  let data;
+  try {
+    data = await api.post('/brainstorm/resources/smart', {
+      session_id: currentSessionId || null,
+      user_query: query,
+      model: _selectedModel,
+    });
+  } catch (err) {
+    rack.innerHTML = `
+      <div class="resources-rack-title">🎥 Resources</div>
+      <p style="color:var(--danger);font-size:0.82rem">⚠️ ${escHtml(err.message)}</p>`;
+    return;
+  }
+
+  if (!data.videos?.length) {
+    // Still no results — show the form again with an error hint
+    const inputId = `res-manual-${rowId}`;
+    rack.innerHTML = `
+      <div class="resources-rack-title">🎥 Resources</div>
+      <p style="font-size:0.8rem;color:var(--danger);margin:0 0 8px">No results for "${escHtml(query)}". Try a different topic.</p>
+      <div style="display:flex;gap:8px;align-items:center;max-width:340px">
+        <input type="text" id="${inputId}" value="${escHtml(query)}"
+          placeholder="e.g. Business Law contracts"
+          style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;
+                 padding:0 10px;font-size:0.84rem;background:var(--surface);color:var(--text);outline:none"
+          onkeydown="if(event.key==='Enter') searchResourcesManually('${rowId}')" />
+        <button onclick="searchResourcesManually('${rowId}')"
+          style="height:34px;padding:0 14px;border-radius:8px;border:none;
+                 background:var(--primary);color:#fff;font-weight:700;font-size:0.82rem;cursor:pointer">
+          Search
+        </button>
+      </div>`;
+    return;
+  }
+
+  // Show AI intro if provided
+  if (data.intro) {
+    const introEl = document.createElement('div');
+    introEl.className = 'msg assistant';
+    introEl.innerHTML = `<div class="msg-avatar">UP</div><div class="msg-bubble">${renderMarkdown(data.intro)}</div>`;
+    document.getElementById('chat-messages')?.appendChild(introEl);
+    const msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  // Render video cards inside the rack
+  const cardsHtml = data.videos.map((v, idx) => {
+    const embedId = `yt-embed-${rowId}-m${idx}`;
+    return `
+      <div class="resource-card resource-card-embed" id="${embedId}-card">
+        <div class="resource-embed-preview" id="${embedId}-preview"
+             onclick="playYouTubeEmbed('${embedId}','${escHtml(v.embedUrl)}','${escHtml(v.id)}')">
+          <img class="resource-thumb" src="${escHtml(v.thumbnail)}" alt="${escHtml(v.title)}"
+               loading="lazy" onerror="this.style.display='none'">
+          <div class="resource-play-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+        </div>
+        <div id="${embedId}-player" class="resource-embed-player" style="display:none"></div>
+        <div class="resource-info">
+          <div class="resource-title">${escHtml(v.title)}</div>
+          <div class="resource-channel">${escHtml(v.channel)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  rack.innerHTML = `<div class="resources-rack-title">🎥 Videos — ${escHtml(data.topic || query)}</div>${cardsHtml}`;
+};
+
+// Swap thumbnail preview with embedded iframe player
+window.playYouTubeEmbed = function (embedId, embedUrl, videoId) {
+  const preview = document.getElementById(`${embedId}-preview`);
+  const player  = document.getElementById(`${embedId}-player`);
+  if (!preview || !player) return;
+  preview.style.display = 'none';
+  player.style.display  = 'block';
+  player.innerHTML = `
+    <iframe
+      src="${escHtml(embedUrl)}"
+      title="YouTube video"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+      style="width:100%;height:200px;border-radius:8px;display:block">
+    </iframe>`;
+};
+
+// Helper: inject raw HTML as a div after an action row
+function _injectAfterRow(rowEl, html) {
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:4px 0 8px 40px';
+  div.innerHTML = html;
+  rowEl.after(div);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VOICE INTERACTION  — record → Groq Whisper → text → AI → TTS
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _mediaRecorder  = null;
+let _audioChunks    = [];
+let _voiceTimerInt  = null;
+let _voiceElapsed   = 0;          // seconds recorded
+const _MAX_RECORD_S = 120;        // hard cap — 2 min per voice note
+
+// ── Enable / disable mic button alongside chat enable/disable ─────────────────
+function _setMicEnabled(enabled) {
+  const btn = document.getElementById('mic-btn');
+  if (btn) btn.disabled = !enabled;
+}
+
+// Patch into enableChat / disableChat
+const _origEnableChat  = enableChat;  // eslint-disable-line no-use-before-define
+const _origDisableChat = disableChat;
+
+// ── Start / stop recording ────────────────────────────────────────────────────
+window.toggleVoiceInput = async function () {
+  if (_mediaRecorder && _mediaRecorder.state === 'recording') {
+    _stopRecording();
+  } else {
+    await _startRecording();
+  }
+};
+
+async function _startRecording() {
+  if (!documentContext) return;
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    _showVoiceError('Microphone access denied. Please allow mic access and try again.');
+    return;
+  }
+
+  // Pick the best supported MIME type
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+
+  _audioChunks   = [];
+  _mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+  _mediaRecorder.addEventListener('dataavailable', e => {
+    if (e.data?.size > 0) _audioChunks.push(e.data);
+  });
+  _mediaRecorder.addEventListener('stop', _handleRecordingStop);
+  _mediaRecorder.start(250); // collect chunks every 250 ms
+
+  // UI — recording state
+  const btn = document.getElementById('mic-btn');
+  btn.classList.add('recording');
+  document.getElementById('mic-icon-idle').style.display = 'none';
+  document.getElementById('mic-icon-stop').style.display = '';
+
+  const bar = document.getElementById('voice-status-bar');
+  bar.className = 'voice-status-bar visible';
+  document.getElementById('voice-status-text').textContent = 'Recording…';
+
+  _voiceElapsed  = 0;
+  _voiceTimerInt = setInterval(() => {
+    _voiceElapsed++;
+    document.getElementById('voice-timer').textContent = _fmtVoiceTime(_voiceElapsed);
+    if (_voiceElapsed >= _MAX_RECORD_S) _stopRecording();
+  }, 1000);
+}
+
+function _stopRecording() {
+  if (!_mediaRecorder) return;
+  clearInterval(_voiceTimerInt);
+  _mediaRecorder.stop();
+  _mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+
+  // UI — transcribing state
+  const btn = document.getElementById('mic-btn');
+  btn.classList.remove('recording');
+  btn.classList.add('transcribing');
+  document.getElementById('mic-icon-idle').style.display = '';
+  document.getElementById('mic-icon-stop').style.display = 'none';
+
+  const bar = document.getElementById('voice-status-bar');
+  bar.className = 'voice-status-bar transcribing visible';
+  document.getElementById('voice-status-text').textContent = 'Transcribing…';
+  document.getElementById('voice-timer').textContent = '';
+  document.getElementById('voice-cancel-btn') && (document.querySelector('.voice-cancel-btn').style.display = 'none');
+}
+
+window.cancelVoice = function () {
+  if (_mediaRecorder) {
+    _mediaRecorder.removeEventListener('stop', _handleRecordingStop);
+    _mediaRecorder.stop();
+    _mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+    _mediaRecorder = null;
+  }
+  clearInterval(_voiceTimerInt);
+  _resetVoiceUI();
+};
+
+async function _handleRecordingStop() {
+  _mediaRecorder = null;
+  if (!_audioChunks.length) { _resetVoiceUI(); return; }
+
+  const mimeType = _audioChunks[0].type || 'audio/webm';
+  const blob      = new Blob(_audioChunks, { type: mimeType });
+  _audioChunks    = [];
+
+  const ext  = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const form = new FormData();
+  form.append('audio', blob, `voice.${ext}`);
+
+  try {
+    const res  = await api.postForm('/brainstorm/transcribe', form);
+    const text = (res?.text || '').trim();
+    if (!text) {
+      _showVoiceError("Couldn't catch that — please try again.");
+      return;
+    }
+    _resetVoiceUI();
+    // Put transcribed text in the input and send immediately
+    const input = document.getElementById('chat-input');
+    input.value = text;
+    autoResize(input);
+    sendMessage();
+  } catch (err) {
+    _showVoiceError(err.message || 'Transcription failed.');
+  }
+}
+
+function _resetVoiceUI() {
+  clearInterval(_voiceTimerInt);
+  const btn = document.getElementById('mic-btn');
+  if (btn) {
+    btn.classList.remove('recording', 'transcribing');
+    btn.disabled = !documentContext;
+  }
+  document.getElementById('mic-icon-idle').style.display = '';
+  document.getElementById('mic-icon-stop').style.display = 'none';
+  const bar = document.getElementById('voice-status-bar');
+  if (bar) bar.className = 'voice-status-bar';
+  const cancelBtn = document.querySelector('.voice-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = '';
+}
+
+function _showVoiceError(msg) {
+  _resetVoiceUI();
+  const bar = document.getElementById('voice-status-bar');
+  if (!bar) return;
+  bar.className = 'voice-status-bar visible';
+  bar.style.background   = '#fef2f2';
+  bar.style.borderColor  = '#fecaca';
+  bar.style.color        = '#b91c1c';
+  bar.innerHTML = `<span>⚠️ ${escHtml(msg)}</span>
+    <button class="voice-cancel-btn" onclick="cancelVoice()">✕</button>`;
+  setTimeout(() => { if (bar) bar.className = 'voice-status-bar'; bar.style = ''; }, 4000);
+}
+
+function _fmtVoiceTime(s) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Sync mic enable/disable with document context
+function _syncMicBtn() {
+  _setMicEnabled(!!documentContext);
+}
+
+// ── Text-to-Speech ────────────────────────────────────────────────────────────
+let _currentUtterance = null;
+let _currentTtsBtn    = null;
+
+window.toggleTTS = function (btn) {
+  const bubble  = btn.closest('.msg')?.querySelector('.msg-bubble');
+  const rawText = bubble?.innerText || '';
+
+  // If already speaking this message — stop
+  if (_currentTtsBtn === btn && speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    _resetTtsBtn(btn);
+    return;
+  }
+
+  // Cancel any ongoing speech
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    if (_currentTtsBtn) _resetTtsBtn(_currentTtsBtn);
+  }
+
+  const utterance   = new SpeechSynthesisUtterance(rawText);
+  utterance.rate    = 0.95;
+  utterance.pitch   = 1;
+  utterance.volume  = 1;
+
+  // Prefer a natural-sounding voice
+  const voices = speechSynthesis.getVoices();
+  const pref   = voices.find(v =>
+    /Google|Natural|Premium|Enhanced|Microsoft|Samantha/i.test(v.name) && /en/i.test(v.lang)
+  ) || voices.find(v => /en/i.test(v.lang));
+  if (pref) utterance.voice = pref;
+
+  utterance.onstart = () => {
+    btn.classList.add('speaking');
+    btn.querySelector('.tts-tooltip').textContent = 'Stop';
+    btn.title = 'Stop';
+    _currentTtsBtn    = btn;
+    _currentUtterance = utterance;
+  };
+  utterance.onend = utterance.onerror = () => {
+    _resetTtsBtn(btn);
+    _currentTtsBtn    = null;
+    _currentUtterance = null;
+  };
+
+  speechSynthesis.speak(utterance);
+};
+
+function _resetTtsBtn(btn) {
+  if (!btn) return;
+  btn.classList.remove('speaking');
+  const tip = btn.querySelector('.tts-tooltip');
+  if (tip) tip.textContent = 'Listen';
+  btn.title = 'Listen to this message';
+}
+
+// Voices are loaded asynchronously — pre-load them
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices(); // warm up
+  speechSynthesis.addEventListener('voiceschanged', () => speechSynthesis.getVoices());
+}
 
 window.sendMessage = async function () {
   if (isWaiting || !documentContext) return;
@@ -1344,8 +2152,22 @@ window.sendMessage = async function () {
       model:        _selectedModel,
     });
     removeTyping(typingId);
-    appendBubble('assistant', res.reply);
+    const msgEl = appendBubble('assistant', res.reply);
     chatHistory.push({ role: 'assistant', content: res.reply });
+
+    // Attach action buttons below every assistant reply during a study session
+    const topicHint = _extractTopic(text, res.reply);
+    _appendMessageActions(msgEl, topicHint);
+
+    // If user seems confused, also auto-nudge with a visual button highlight
+    if (_isConfused(text)) {
+      const visBtn = msgEl.nextElementSibling?.querySelector('[id$="-vis"]');
+      if (visBtn) {
+        visBtn.style.borderColor = 'var(--primary)';
+        visBtn.style.color       = 'var(--primary)';
+      }
+    }
+
     _resetReadingTimers(); // user interacted — restart the inactivity clock
     _bsSave();
     // On mobile: show badge on UrPadi tab if user is on Document tab
@@ -1372,6 +2194,8 @@ function appendBubble(role, content) {
   const html = role === 'assistant' ? renderMarkdown(content) : escHtml(content);
   const el   = document.createElement('div');
   el.className = `msg ${role}`;
+
+  const ttsId   = `tts-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
   const copyBtn = role === 'assistant' ? `
     <button class="msg-copy-btn" title="Copy message" onclick="
       navigator.clipboard.writeText(this.closest('.msg').querySelector('.msg-bubble').innerText).then(() => {
@@ -1386,12 +2210,23 @@ function appendBubble(role, content) {
         <path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/>
       </svg>
       <span class="copy-tooltip">Copy</span>
+    </button>
+    <button class="msg-tts-btn" id="${ttsId}" title="Listen to this message"
+      onclick="toggleTTS(this)">
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+        <polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>
+        <path d='M19.07 4.93a10 10 0 010 14.14'/>
+        <path d='M15.54 8.46a5 5 0 010 7.07'/>
+      </svg>
+      <span class="tts-tooltip">Listen</span>
     </button>` : '';
+
   el.innerHTML = `
     <div class="msg-avatar">${role === 'user' ? _initials : 'UP'}</div>
     <div class="msg-bubble">${html}</div>${copyBtn}`;
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
+  return el;
 }
 
 function showTyping() {
@@ -1450,6 +2285,19 @@ let _timerInterval  = null;
 let _timerRunning   = false;
 let _timerChecksDone = new Set(); // which % checkpoints have fired
 
+const _TIMER_KEY = 'pritis_study_timer';
+
+function _timerSave() {
+  if (!_timerDuration) return;
+  localStorage.setItem(_TIMER_KEY, JSON.stringify({
+    duration:   _timerDuration,
+    remaining:  _timerRemaining,
+    running:    _timerRunning,
+    checksDone: [..._timerChecksDone],
+    savedAt:    Date.now(),
+  }));
+}
+
 function _timerTick() {
   if (_timerRemaining <= 0) {
     _timerFinish();
@@ -1458,16 +2306,18 @@ function _timerTick() {
   _timerRemaining--;
   _timerRender();
   _timerCheckpoint();
+  if (_timerRemaining % 5 === 0) _timerSave(); // persist every 5 s
 }
 
 function _timerRender() {
   const display  = document.getElementById('timer-display');
   const bar      = document.getElementById('timer-progress-bar');
-  if (!display) return;
 
   const m = String(Math.floor(_timerRemaining / 60)).padStart(2, '0');
   const s = String(_timerRemaining % 60).padStart(2, '0');
-  display.textContent = `${m}:${s}`;
+  const timeStr = `${m}:${s}`;
+
+  if (display) display.textContent = timeStr;
 
   const pct = _timerDuration > 0
     ? ((_timerDuration - _timerRemaining) / _timerDuration) * 100
@@ -1475,13 +2325,10 @@ function _timerRender() {
   if (bar) bar.style.width = pct + '%';
 
   // Colour states
-  const ratio = _timerRemaining / _timerDuration;
-  display.className = 'timer-display ' + (_timerRunning
-    ? ratio <= 0.1 ? 'warning' : 'running'
-    : '');
-  if (bar) {
-    bar.className = 'timer-progress-bar' + (ratio <= 0.1 ? ' warning' : '');
-  }
+  const ratio = _timerDuration > 0 ? _timerRemaining / _timerDuration : 1;
+  const colorState = _timerRunning ? (ratio <= 0.1 ? 'warning' : 'running') : '';
+  if (display) display.className = 'timer-display ' + colorState;
+  if (bar) bar.className = 'timer-progress-bar' + (ratio <= 0.1 ? ' warning' : '');
 
   // Update start/pause icon
   const icon = document.getElementById('timer-btn-icon');
@@ -1490,6 +2337,63 @@ function _timerRender() {
       ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
       : '<polygon points="5 3 19 12 5 21 5 3"/>';
   }
+
+  // ── Chat panel badge ──
+  const badge       = document.getElementById('chat-timer-badge');
+  const badgeDisplay = document.getElementById('chat-timer-display');
+  if (badge && badgeDisplay) {
+    badgeDisplay.textContent = timeStr;
+    badge.className = 'chat-timer-badge' + (ratio <= 0.1 ? ' warning' : '');
+  }
+
+  // ── Inline timer (doc panel header) ──
+  const inlinePill    = document.getElementById('inline-timer');
+  const inlineDisplay = document.getElementById('inline-timer-display');
+  if (inlinePill && inlineDisplay) {
+    inlineDisplay.textContent = timeStr;
+    inlinePill.className = 'inline-timer' + (ratio <= 0.1 ? ' warning' : '');
+  }
+
+  // ── Floating timer pill (fixed, always visible) ──
+  const floatPill    = document.getElementById('floating-timer');
+  const floatDisplay = document.getElementById('floating-timer-display');
+  if (floatPill && floatDisplay) {
+    floatDisplay.textContent = timeStr;
+    floatPill.className = 'floating-timer' + (ratio <= 0.1 ? ' warning' : '');
+  }
+}
+
+// Injects an AI message into the chat from the timer system.
+// Does NOT force-open the chat — shows a badge nudge on mobile instead.
+function _injectTimerChatMessage(markdown, { showActions = false } = {}) {
+  if (!documentContext) return null; // only relevant during an active study session
+
+  const container = document.getElementById('chat-messages');
+  if (!container) return null;
+
+  // Build bubble with raw HTML support (for quiz CTA links)
+  const el = document.createElement('div');
+  el.className = 'msg assistant';
+  el.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble">${renderMarkdown(markdown)}</div>`;
+  document.getElementById('chat-empty')?.remove();
+  container.appendChild(el);
+
+  if (showActions) {
+    const topic = _extractTopic('', markdown);
+    _appendMessageActions(el, topic);
+  }
+
+  container.scrollTop = container.scrollHeight;
+  chatHistory.push({ role: 'assistant', content: markdown });
+
+  // On mobile: nudge badge without force-opening chat
+  if (window.matchMedia('(max-width:768px)').matches && !_mobileChatOpen) {
+    const badge = document.getElementById('mobile-fab-badge');
+    if (badge) badge.classList.add('visible');
+  }
+  return el;
 }
 
 function _timerCheckpoint() {
@@ -1499,17 +2403,32 @@ function _timerCheckpoint() {
   if (!_timerChecksDone.has(25) && pct >= 0.25) {
     _timerChecksDone.add(25);
     _showTimerNotification("You're 25% through your study session — great start! Keep your focus.");
+    _injectTimerChatMessage(
+      "⏱️ **25% check-in!** You're making good progress.\n\n" +
+      "Staying focused? Try to summarise in one sentence what you've read so far — it helps lock it in. " +
+      "I'm here if you want to quiz yourself or clarify anything!",
+      { showActions: true }
+    );
   }
   if (!_timerChecksDone.has(50) && pct >= 0.5) {
     _timerChecksDone.add(50);
     _showTimerNotification("Halfway there! Pause and reflect — what are the key ideas so far?");
+    _injectTimerChatMessage(
+      "🎯 **Halfway through your session!**\n\n" +
+      "Great work so far. Try this: **can you explain the main concept in your own words?** " +
+      "Type it below and I'll give you feedback — or just ask me to recap the key ideas.",
+      { showActions: true }
+    );
   }
   if (!_timerChecksDone.has(80) && pct >= 0.8) {
     _timerChecksDone.add(80);
-    _showTimerNotification(
-      Math.ceil(_timerRemaining / 60) + ' minutes left. ' +
-      '<a href="ai-generate.html">Generate a quiz →</a>',
-      'warning'
+    const minsLeft = Math.ceil(_timerRemaining / 60);
+    _showTimerNotification(`${minsLeft} minutes left. <a href="ai-generate.html">Generate a quiz →</a>`, 'warning');
+    _injectTimerChatMessage(
+      `⚡ **Almost done — ${minsLeft} minutes left!**\n\n` +
+      "You've put in solid study time. Now let's test what you know.\n\n" +
+      `<a href="ai-generate.html?auto=1" class="quiz-cta-btn" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 16px;background:var(--primary);color:#fff;border-radius:8px;font-weight:700;font-size:0.84rem;text-decoration:none">` +
+      `📝 Generate Quiz from this Document</a>`
     );
   }
 }
@@ -1519,6 +2438,7 @@ function _timerFinish() {
   _timerInterval = null;
   _timerRunning  = false;
   _timerRemaining = 0;
+  localStorage.removeItem(_TIMER_KEY);
 
   const display = document.getElementById('timer-display');
   const bar     = document.getElementById('timer-progress-bar');
@@ -1530,11 +2450,294 @@ function _timerFinish() {
   if (startBtn) startBtn.style.display = 'none';
   if (stopBtn)  stopBtn.style.display  = 'none';
 
-  _showTimerNotification(
-    '<strong>Session complete!</strong> Great work. ' +
-    '<a href="ai-generate.html">Take a quiz →</a>',
-    'done'
-  );
+  // Update timer indicators to "Done"
+  const badge        = document.getElementById('chat-timer-badge');
+  const badgeDisplay = document.getElementById('chat-timer-display');
+  if (badge)        { badge.style.display = 'flex'; badge.className = 'chat-timer-badge done'; }
+  if (badgeDisplay) badgeDisplay.textContent = 'Done!';
+  const inlinePillD  = document.getElementById('inline-timer');
+  const inlineDispD  = document.getElementById('inline-timer-display');
+  if (inlinePillD)  { inlinePillD.style.display = 'flex'; inlinePillD.className = 'inline-timer done'; }
+  if (inlineDispD)  inlineDispD.textContent = 'Done!';
+  const pill        = document.getElementById('floating-timer');
+  const pillDisplay = document.getElementById('floating-timer-display');
+  if (pill)        { pill.style.display = 'flex'; pill.className = 'floating-timer done'; }
+  if (pillDisplay) pillDisplay.textContent = 'Done!';
+
+  _showTimerNotification('<strong>Session complete!</strong> Great work! 🎉', 'done');
+  _injectSessionEndChoice();
+}
+
+// ── Session-end interactive choice card ───────────────────────────────────────
+function _injectSessionEndChoice() {
+  if (!documentContext) return;
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+
+  document.getElementById('chat-empty')?.remove();
+
+  const card = document.createElement('div');
+  card.className = 'msg assistant';
+  card.id = 'session-end-card';
+  card.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble" style="max-width:340px">
+      <p style="margin:0 0 10px;font-weight:700;font-size:0.95rem">🎉 Session complete! Amazing work.</p>
+      <p style="margin:0 0 14px;font-size:0.88rem;color:var(--text-muted)">What would you like to do next?</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="extendStudyTime()" style="
+          padding:10px 14px;border-radius:8px;border:2px solid var(--primary);
+          background:transparent;color:var(--primary);font-weight:700;font-size:0.85rem;
+          cursor:pointer;text-align:left;transition:all .15s"
+          onmouseover="this.style.background='var(--primary)';this.style.color='#fff'"
+          onmouseout="this.style.background='transparent';this.style.color='var(--primary)'">
+          ⏱️ Extend my reading time
+        </button>
+        <button onclick="startInlineQuiz()" style="
+          padding:10px 14px;border-radius:8px;border:none;
+          background:var(--primary);color:#fff;font-weight:700;font-size:0.85rem;
+          cursor:pointer;text-align:left;transition:opacity .15s"
+          onmouseover="this.style.opacity='.85'"
+          onmouseout="this.style.opacity='1'">
+          📝 Attempt a short quiz (5 questions)
+        </button>
+      </div>
+    </div>`;
+  container.appendChild(card);
+  container.scrollTop = container.scrollHeight;
+
+  // Badge nudge on mobile
+  if (window.matchMedia('(max-width:768px)').matches && !_mobileChatOpen) {
+    document.getElementById('mobile-fab-badge')?.classList.add('visible');
+  }
+}
+
+// Extend time — replaces the choice card with quick extend options
+window.extendStudyTime = function () {
+  const card = document.getElementById('session-end-card');
+  if (card) {
+    const bubble = card.querySelector('.msg-bubble');
+    bubble.innerHTML = `
+      <p style="margin:0 0 10px;font-weight:700;font-size:0.92rem">⏱️ How much more time?</p>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+        <button onclick="applyExtension(15)" class="setup-duration-pill">+15 min</button>
+        <button onclick="applyExtension(30)" class="setup-duration-pill">+30 min</button>
+        <button onclick="applyExtension(45)" class="setup-duration-pill">+45 min</button>
+        <button onclick="applyExtension(60)" class="setup-duration-pill">+1 hr</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600">Custom:</span>
+        <input type="number" id="extend-custom-mins" min="1" max="480" placeholder="e.g. 20"
+               class="form-control" style="width:90px" />
+        <button onclick="applyExtension(parseInt(document.getElementById('extend-custom-mins').value)||0)"
+                style="padding:6px 12px;border-radius:7px;border:none;background:var(--primary);
+                       color:#fff;font-weight:700;font-size:0.82rem;cursor:pointer">Go</button>
+      </div>`;
+  }
+};
+
+window.applyExtension = function (mins) {
+  if (!mins || mins < 1) return;
+  const addSecs = mins * 60;
+  _timerDuration  += addSecs;
+  _timerRemaining  = addSecs;
+  _timerRunning    = false; // reset so timerStartPause restarts interval
+
+  // Re-enable timer UI
+  const display = document.getElementById('timer-display');
+  const bar     = document.getElementById('timer-progress-bar');
+  if (display) { display.className = 'timer-display'; }
+  if (bar)     { bar.className = 'timer-progress-bar'; }
+  const startBtn = document.getElementById('timer-start-btn');
+  const stopBtn  = document.getElementById('timer-stop-btn');
+  if (startBtn) startBtn.style.display = '';
+  if (stopBtn)  stopBtn.style.display  = '';
+
+  timerStartPause(); // auto-start
+
+  // Replace choice card with confirmation
+  const card = document.getElementById('session-end-card');
+  if (card) {
+    const bubble = card.querySelector('.msg-bubble');
+    bubble.innerHTML = `<p style="margin:0;font-size:0.9rem">⏱️ Got it! Added <strong>${mins} minutes</strong>. Keep going — you've got this! 💪</p>`;
+  }
+};
+
+// ── Inline 5-question quiz in chat ────────────────────────────────────────────
+let _inlineQuiz = null; // { questions, current, score, msgEl }
+
+window.startInlineQuiz = function () {
+  // Replace choice card with loading state
+  const card = document.getElementById('session-end-card');
+  if (card) {
+    const bubble = card.querySelector('.msg-bubble');
+    bubble.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+        <div class="typing-indicator"><span></span><span></span><span></span></div>
+        <span style="font-size:0.87rem;color:var(--text-muted)">Generating your quiz…</span>
+      </div>`;
+  }
+
+  const prompt =
+    'Generate exactly 5 multiple-choice quiz questions based on this document. ' +
+    'Return ONLY valid JSON in this exact format, no extra text:\n' +
+    '{"questions":[{"q":"Question text","options":["A","B","C","D"],"answer":0}]}\n' +
+    'answer is the 0-based index of the correct option.';
+
+  api.post('/brainstorm/chat', {
+    message: prompt,
+    context: documentContext,
+    history: [],
+    model: _selectedModel,
+  }).then(res => {
+    let parsed;
+    try {
+      const raw = res.reply.replace(/```json|```/g, '').trim();
+      const start = raw.indexOf('{');
+      const end   = raw.lastIndexOf('}');
+      parsed = JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      if (card) card.querySelector('.msg-bubble').innerHTML =
+        `<p style="color:var(--danger)">⚠️ Couldn't generate the quiz. <a href="ai-generate.html?auto=1" style="color:var(--primary);font-weight:700">Try the full quiz generator →</a></p>`;
+      return;
+    }
+
+    const questions = (parsed.questions || []).slice(0, 5);
+    if (!questions.length) {
+      if (card) card.querySelector('.msg-bubble').innerHTML =
+        `<p style="color:var(--danger)">⚠️ No questions returned. <a href="ai-generate.html?auto=1" style="color:var(--primary);font-weight:700">Try the full quiz generator →</a></p>`;
+      return;
+    }
+
+    _inlineQuiz = { questions, current: 0, score: 0 };
+
+    // Replace loading state with Q1
+    if (card) card.remove();
+    _renderInlineQuestion();
+  }).catch(() => {
+    if (card) card.querySelector('.msg-bubble').innerHTML =
+      `<p style="color:var(--danger)">⚠️ Something went wrong. <a href="ai-generate.html?auto=1" style="color:var(--primary);font-weight:700">Try the full quiz generator →</a></p>`;
+  });
+};
+
+function _renderInlineQuestion() {
+  const { questions, current } = _inlineQuiz;
+  const q = questions[current];
+  const container = document.getElementById('chat-messages');
+  if (!container || !q) return;
+
+  const el = document.createElement('div');
+  el.className = 'msg assistant';
+  el.id = `inline-q-${current}`;
+
+  const optionsHtml = q.options.map((opt, i) => `
+    <button onclick="answerInlineQuiz(${current},${i})" style="
+      display:block;width:100%;margin-bottom:6px;padding:8px 12px;
+      border-radius:8px;border:1.5px solid var(--border);background:var(--bg);
+      color:var(--text);font-size:0.85rem;text-align:left;cursor:pointer;
+      transition:all .15s"
+      onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'"
+      onmouseout="if(!this.disabled){this.style.borderColor='var(--border)';this.style.color='var(--text)'}">
+      <strong>${String.fromCharCode(65+i)}.</strong> ${escHtml(opt)}
+    </button>`).join('');
+
+  el.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble" style="max-width:380px">
+      <p style="margin:0 0 4px;font-size:0.75rem;color:var(--text-muted);font-weight:600">
+        QUESTION ${current + 1} OF ${questions.length}
+      </p>
+      <p style="margin:0 0 12px;font-weight:700;font-size:0.9rem">${escHtml(q.q)}</p>
+      <div id="inline-q-options-${current}">${optionsHtml}</div>
+    </div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+window.answerInlineQuiz = function (qIndex, chosenIndex) {
+  if (!_inlineQuiz || _inlineQuiz.current !== qIndex) return;
+  const q = _inlineQuiz.questions[qIndex];
+
+  // Disable all option buttons for this question
+  const optionsDiv = document.getElementById(`inline-q-options-${qIndex}`);
+  if (optionsDiv) {
+    optionsDiv.querySelectorAll('button').forEach((btn, i) => {
+      btn.disabled = true;
+      btn.style.cursor = 'default';
+      btn.onmouseover = null;
+      btn.onmouseout  = null;
+      if (i === q.answer) {
+        btn.style.background    = '#dcfce7';
+        btn.style.borderColor   = '#16a34a';
+        btn.style.color         = '#15803d';
+      } else if (i === chosenIndex) {
+        btn.style.background    = '#fee2e2';
+        btn.style.borderColor   = '#dc2626';
+        btn.style.color         = '#b91c1c';
+      }
+    });
+  }
+
+  const correct = chosenIndex === q.answer;
+  if (correct) _inlineQuiz.score++;
+
+  // Show brief feedback then advance
+  const feedbackEl = document.createElement('div');
+  feedbackEl.className = 'msg assistant';
+  feedbackEl.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble" style="padding:8px 14px;font-size:0.86rem">
+      ${correct
+        ? '✅ <strong>Correct!</strong> Well done.'
+        : `❌ <strong>Not quite.</strong> The correct answer was <strong>${String.fromCharCode(65 + q.answer)}. ${escHtml(q.options[q.answer])}</strong>.`}
+    </div>`;
+  const container = document.getElementById('chat-messages');
+  container.appendChild(feedbackEl);
+  container.scrollTop = container.scrollHeight;
+
+  _inlineQuiz.current++;
+
+  if (_inlineQuiz.current < _inlineQuiz.questions.length) {
+    setTimeout(_renderInlineQuestion, 600);
+  } else {
+    setTimeout(_showInlineQuizResult, 800);
+  }
+};
+
+function _showInlineQuizResult() {
+  const { score, questions } = _inlineQuiz;
+  const total   = questions.length;
+  const pct     = Math.round((score / total) * 100);
+  const emoji   = pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '📚';
+  const comment = pct >= 80
+    ? "Outstanding! You clearly understand the material."
+    : pct >= 60
+      ? "Good effort! A bit more review and you'll nail it."
+      : "Keep studying — practice makes perfect!";
+
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+
+  const el = document.createElement('div');
+  el.className = 'msg assistant';
+  el.innerHTML = `
+    <div class="msg-avatar">UP</div>
+    <div class="msg-bubble" style="max-width:340px">
+      <p style="margin:0 0 6px;font-size:1.3rem;text-align:center">${emoji}</p>
+      <p style="margin:0 0 4px;font-weight:700;font-size:1rem;text-align:center">
+        You scored ${score}/${total} (${pct}%)
+      </p>
+      <p style="margin:0 0 14px;font-size:0.87rem;color:var(--text-muted);text-align:center">${comment}</p>
+      <a href="ai-generate.html?auto=1"
+         style="display:block;padding:10px 16px;border-radius:8px;
+                background:var(--primary);color:#fff;font-weight:700;
+                font-size:0.87rem;text-align:center;text-decoration:none">
+        📝 Practice more questions from this document →
+      </a>
+    </div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+  _inlineQuiz = null;
 }
 
 window.onTimerPresetChange = function (val) {
@@ -1551,7 +2754,16 @@ window.onTimerPresetChange = function (val) {
   if (startBtn) startBtn.style.display = '';
   if (stopBtn)  stopBtn.style.display  = '';
 
+  // Show timer indicators whenever a preset is picked
+  const badge      = document.getElementById('chat-timer-badge');
+  if (badge) badge.style.display = 'flex';
+  const inlinePill = document.getElementById('inline-timer');
+  if (inlinePill) inlinePill.style.display = 'flex';
+  const floatPill  = document.getElementById('floating-timer');
+  if (floatPill) floatPill.style.display = 'flex';
+
   _timerRender();
+  _timerSave();
 };
 
 window.timerStartPause = function () {
@@ -1565,6 +2777,7 @@ window.timerStartPause = function () {
     _timerInterval = setInterval(_timerTick, 1000);
   }
   _timerRender();
+  _timerSave();
 };
 
 window.timerStop = function () {
@@ -1574,6 +2787,7 @@ window.timerStop = function () {
   _timerRemaining = 0;
   _timerDuration  = 0;
   _timerChecksDone.clear();
+  localStorage.removeItem(_TIMER_KEY);
 
   const display  = document.getElementById('timer-display');
   const bar      = document.getElementById('timer-progress-bar');
@@ -1585,6 +2799,14 @@ window.timerStop = function () {
   if (preset)   preset.value = '';
   if (startBtn) startBtn.style.display = 'none';
   if (stopBtn)  stopBtn.style.display  = 'none';
+
+  // Hide timer indicators
+  const badge      = document.getElementById('chat-timer-badge');
+  if (badge) badge.style.display = 'none';
+  const inlinePill = document.getElementById('inline-timer');
+  if (inlinePill) inlinePill.style.display = 'none';
+  const floatPill  = document.getElementById('floating-timer');
+  if (floatPill) floatPill.style.display = 'none';
 };
 
 // Show/hide the timer bar whenever a document is loaded / cleared
@@ -1593,6 +2815,52 @@ function _showTimerBar(show) {
   if (bar) bar.style.display = show ? '' : 'none';
   if (!show) timerStop();
 }
+
+// Restore timer state after navigating back to this page
+function _timerRestoreFromStorage() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(_TIMER_KEY)); } catch (_) {}
+  if (!saved || !saved.duration || saved.remaining <= 0) return;
+
+  // Subtract time that elapsed while the user was away
+  const elapsed   = saved.running ? Math.floor((Date.now() - saved.savedAt) / 1000) : 0;
+  const remaining = Math.max(0, saved.remaining - elapsed);
+
+  _timerDuration   = saved.duration;
+  _timerRemaining  = remaining;
+  _timerRunning    = false;
+  _timerChecksDone = new Set(saved.checksDone || []);
+
+  // Show timer UI elements
+  const startBtn  = document.getElementById('timer-start-btn');
+  const stopBtn   = document.getElementById('timer-stop-btn');
+  const badge     = document.getElementById('chat-timer-badge');
+  const inline    = document.getElementById('inline-timer');
+  const floatPill = document.getElementById('floating-timer');
+  const timerBar  = document.getElementById('study-timer-bar');
+  if (startBtn)  startBtn.style.display  = '';
+  if (stopBtn)   stopBtn.style.display   = '';
+  if (badge)     badge.style.display     = 'flex';
+  if (inline)    inline.style.display    = 'flex';
+  if (floatPill) floatPill.style.display = 'flex';
+  if (timerBar)  timerBar.style.display  = '';
+
+  if (remaining <= 0) {
+    _timerFinish();
+    return;
+  }
+
+  _timerRender();
+
+  // Auto-resume if the timer was running when the user left
+  if (saved.running) {
+    _timerRunning  = true;
+    _timerInterval = setInterval(_timerTick, 1000);
+    _timerRender();
+  }
+}
+
+_timerRestoreFromStorage();
 
 // ── Study Notifications (toast + bell badge) ──────────────────────────────────
 let _notifItems = [];
@@ -1697,53 +2965,60 @@ let _guidedModeActive = false;
 let _guidedStep       = 0;
 let _guidedTimer      = null;
 
-function _guidedStudyWelcome() {
+async function _guidedStudyWelcome() {
   if (!documentContext) return;
 
-  // ── Setup-completed path: doc is ready — shorter companion acknowledgment ──
-  if (_setupCompleted) {
-    const readyMsg = _setupGoal
+  // Auto-start timer when document is loaded (if configured)
+  if (_timerDuration > 0 && !_timerRunning) {
+    setTimeout(timerStartPause, 300);
+  }
+
+  // ── Ask AI for a tutor-style nudge about what to focus on ─────────────────
+  const isShort = documentContext.length < 2000;
+  const prompt  = isShort
+    ? `You are a study tutor. Read this document and write ONE short, direct sentence (max 20 words) telling the student what they most need to focus on. Start with "You need to focus on..." or "Pay attention to...". Be specific — name the actual topic.`
+    : `You are a study tutor. Read this document and write ONE short, direct sentence (max 25 words) telling the student the single most important thing to focus on. Start with "You need to focus on..." or similar. Name the specific topic or concept.`;
+
+  const fullPrompt = isShort
+    ? `Read this document and give me a focused study breakdown:\n1. The single most important concept (1 sentence)\n2. 3–4 key topics to understand\n3. One tip for studying this material effectively`
+    : `Read this document and give me a focused study breakdown:\n1. The single most important concept to master (1 sentence)\n2. Top 5 key topics in order of importance\n3. One practical tip for studying this material`;
+
+  let teaser   = '';  // short bubble text
+  let fullMsg  = '';  // full chat message
+
+  try {
+    // Two parallel calls: teaser (fast, short) + full breakdown
+    const [teaserRes, fullRes] = await Promise.all([
+      api.post('/brainstorm/chat', { message: prompt,      context: documentContext, history: [], model: _selectedModel }),
+      api.post('/brainstorm/chat', { message: fullPrompt,  context: documentContext, history: [], model: _selectedModel }),
+    ]);
+
+    // Teaser: strip markdown, keep to ~80 chars
+    teaser  = (teaserRes.reply || '').replace(/\*\*/g, '').replace(/\n.*/s, '').trim().slice(0, 100);
+    fullMsg = fullRes.reply || '';
+  } catch (_) {
+    teaser  = 'Your document is ready — tap to see what to focus on!';
+    fullMsg = _setupGoal
       ? `📄 Document loaded! Let's focus on **"${_setupGoal}"**. What would you like to start with?`
-      : "📄 Document loaded! I can see your content. What would you like to know about it?";
-    appendBubble('assistant', readyMsg);
-    chatHistory.push({ role: 'assistant', content: readyMsg });
-    document.getElementById('chat-messages').scrollTop = 9999;
-    // Auto-start timer now that session is truly underway
-    if (_timerDuration > 0 && !_timerRunning) {
-      setTimeout(timerStartPause, 300);
-    }
-    return;
+      : "📄 I've read your document. Ask me anything about it!";
   }
 
-  // ── Default path (history restore / no setup) ────────────────────────────
-  const welcomeMsg =
-    "👋 Welcome to your study session! I've loaded your document.\n\n" +
-    "**Would you like me to guide your study session?**\n" +
-    "I'll walk you through the material step-by-step, set mini checkpoints, and check your understanding along the way.";
+  // ── Show full breakdown in chat ───────────────────────────────────────────
+  const goalNote = _setupGoal ? `\n\n🎯 **Your goal:** "${_setupGoal}"` : '';
+  const chatMsg  = fullMsg + goalNote;
+  const welcomeMsgEl = appendBubble('assistant', chatMsg);
+  chatHistory.push({ role: 'assistant', content: chatMsg });
+  _appendMessageActions(welcomeMsgEl, _extractTopic('', fullMsg));
+  document.getElementById('chat-messages').scrollTop = 9999;
 
-  const el = document.createElement('div');
-  el.className = 'msg assistant guided-prompt';
-  el.innerHTML = `
-    <div class="msg-avatar">UP</div>
-    <div class="msg-bubble">
-      ${renderMarkdown(welcomeMsg)}
-      <div class="guided-prompt-btns" id="guided-prompt-btns">
-        <button class="guided-yes-btn" onclick="startGuidedMode()">✅ Yes, guide me</button>
-        <button class="guided-no-btn"  onclick="dismissGuidedPrompt()">📖 I'll study on my own</button>
-      </div>
-    </div>`;
-  const container = document.getElementById('chat-messages');
-  document.getElementById('chat-empty')?.remove();
-  container.appendChild(el);
-  container.scrollTop = container.scrollHeight;
-
-  // Open chat panel automatically so user sees the message
-  if (window.matchMedia('(max-width: 768px)').matches) {
-    setTimeout(() => _setMobileChatOpen(true), 400);
-  } else {
-    const layout = document.getElementById('bs-layout');
-    if (layout?.classList.contains('chat-collapsed')) toggleChatPanel();
-  }
+  // ── Show teaser in greeting bubble ────────────────────────────────────────
+  // Always show the document bubble regardless of whether user dismissed the setup one
+  _fabGreetingDismissed = false;
+  const bubbleHtml =
+    `<span style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:3px">📄 UrPadi has read your doc</span>` +
+    `<strong style="font-size:0.84rem">${escHtml(teaser)}</strong>` +
+    `<span style="display:block;margin-top:5px;color:var(--primary);font-size:0.76rem;font-weight:600">Open chat to see full breakdown 👀</span>`;
+  _showGreeting(bubbleHtml);
 }
 
 window.startGuidedMode = function () {
@@ -1843,6 +3118,8 @@ function _setMobileChatOpen(open) {
     if (backdrop)  backdrop.setAttribute('style',  _BACKDROP_OPEN_STYLE);
     layout?.classList.add('mobile-chat-active');
     if (badge) badge.classList.remove('visible');
+    // Hide greeting bubble when chat opens
+    dismissGreeting();
   } else {
     // Instant hide — set display:none inline (overrides any CSS display:flex)
     if (chatPanel) chatPanel.setAttribute('style', 'display:none');
@@ -1859,6 +3136,39 @@ window.toggleMobileChat = function () {
   _setMobileChatOpen(!_mobileChatOpen);
 };
 
+// ── Greeting bubble (desktop: beside restore tab; mobile: beside FAB) ────────
+
+window.dismissGreeting = function () {
+  _fabGreetingDismissed = true;
+  const el = document.getElementById('chat-greeting');
+  if (el) el.style.display = 'none';
+};
+
+// Keep old name as alias so any existing callers still work
+window.dismissFabGreeting = window.dismissGreeting;
+
+function _showGreeting(customText) {
+  if (_fabGreetingDismissed) return;
+  const el   = document.getElementById('chat-greeting');
+  const span = document.getElementById('chat-greeting-text');
+  if (!el) return;
+  if (customText && span) span.innerHTML = customText;
+  // Force re-animation
+  el.style.display = 'none';
+  void el.offsetWidth;
+  el.style.display = 'block';
+  // Auto-dismiss after 10 s if chat hasn't been opened
+  setTimeout(() => {
+    const isMobile   = window.matchMedia('(max-width:768px)').matches;
+    const chatClosed = isMobile ? !_mobileChatOpen
+      : document.getElementById('bs-layout')?.classList.contains('chat-collapsed');
+    if (chatClosed) dismissGreeting();
+  }, 10000);
+};
+
+// Keep old name as alias
+function _showFabGreeting(text) { _showGreeting(text); }
+
 // ── Chat panel collapse / restore (desktop) ───────────────────────────────────
 window.toggleChatPanel = function () {
   if (window.innerWidth <= 768) {
@@ -1874,6 +3184,8 @@ window.toggleChatPanel = function () {
   const isCollapsed = layout.classList.toggle('chat-collapsed');
   restoreBtn.classList.toggle('visible', isCollapsed);
   if (!isCollapsed) {
+    // Chat is opening — dismiss the greeting bubble
+    dismissGreeting();
     setTimeout(() => document.getElementById('chat-input')?.focus(), 350);
   }
 };
@@ -1899,23 +3211,27 @@ window.closeHistory = function () {
 window.startNewSession = function () {
   window.changeDocument();
   _setupCompleted = false;
-  _setupDuration  = 0;
+  _setupDuration  = 1800;
   _setupGoal      = '';
-  // Reset duration pills to "No timer"
+  // Reset duration pills to 30 min default
   document.querySelectorAll('.setup-duration-pill').forEach(p => {
-    p.classList.toggle('active', parseInt(p.dataset.secs) === 0);
+    p.classList.toggle('active', parseInt(p.dataset.secs) === 1800);
   });
   document.getElementById('setup-goal-input') && (document.getElementById('setup-goal-input').value = '');
+  const _customMins = document.getElementById('setup-custom-mins');
+  if (_customMins) _customMins.value = '';
   _showSetupOverlay();
 };
 
 async function loadHistory() {
-  const list = document.getElementById('history-list');
+  const list      = document.getElementById('history-list');
+  const slotCount = document.getElementById('history-slot-count');
   list.innerHTML = `
     <div class="history-empty">
       <div class="empty-icon">⏳</div>
       <p>Loading sessions…</p>
     </div>`;
+  if (slotCount) slotCount.innerHTML = '';
   try {
     const sessions = await api.get('/brainstorm/sessions');
     if (!sessions.length) {
@@ -1924,41 +3240,55 @@ async function loadHistory() {
           <div class="empty-icon">🕐</div>
           <p>No recent sessions yet.<br>Upload a document or paste text to start!</p>
         </div>`;
+      if (slotCount) slotCount.innerHTML = '0 of 5 slots used';
       return;
     }
-    list.innerHTML = sessions.map(renderSessionItem).join('');
+    // Render items as DOM nodes (not HTML strings) so we can attach event refs
+    list.innerHTML = '';
+    sessions.forEach(s => {
+      const el = document.createElement('div');
+      el.outerHTML; // dummy — we use insertAdjacentHTML
+      list.insertAdjacentHTML('beforeend', renderSessionItem(s));
+    });
+    const count = sessions.length;
+    if (slotCount) {
+      slotCount.innerHTML = `<span>${count}</span> of 5 slots used${count === 5 ? ' — oldest auto-removed on new upload' : ''}`;
+    }
   } catch (e) {
     list.innerHTML = `
       <div class="history-empty">
         <div class="empty-icon">⚠️</div>
-        <p>Failed to load history.<br>${escHtml(e.message)}</p>
+        <p>Failed to load sessions.<br>${escHtml(e.message)}</p>
       </div>`;
   }
 }
 
 function renderSessionItem(s) {
-  const icon  = fileTypeIcon(s.document?.file_type);
-  const date  = formatRelativeDate(s.updated_at);
-  const msgs  = s.message_count;
-  const title = escHtml(s.title);
+  const icon   = fileTypeIcon(s.document?.file_type);
+  const date   = formatRelativeDate(s.updated_at);
+  const msgs   = s.message_count;
+  const title  = escHtml(s.title);
   const active = s.id === currentSessionId ? ' active' : '';
+  const size   = s.document?.file_size_bytes
+    ? ' &middot; ' + _fmtBytes(s.document.file_size_bytes)
+    : '';
   return `
-    <div class="history-item${active}" onclick="openSession('${s.id}')">
+    <div class="history-item${active}" id="hist-item-${s.id}" onclick="openSession('${s.id}')">
       <div class="history-item-icon">${icon}</div>
       <div class="history-item-body">
         <div class="history-item-title" id="hist-title-${s.id}">${title}</div>
-        <div class="history-item-meta">${date} &middot; ${msgs} message${msgs !== 1 ? 's' : ''}</div>
+        <div class="history-item-meta">${date} &middot; ${msgs} message${msgs !== 1 ? 's' : ''}${size}</div>
       </div>
       <div class="history-item-actions">
-        <button class="history-action-btn" title="Rename"
+        <button class="history-action-btn" title="Rename session"
           onclick="event.stopPropagation();startRenameSession('${s.id}','${title}')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
         </button>
-        <button class="history-action-btn danger" title="Delete"
-          onclick="event.stopPropagation();deleteSession('${s.id}',this)">
+        <button class="history-action-btn danger" title="Delete session & all data"
+          onclick="event.stopPropagation();confirmDeleteSession('${s.id}')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/>
             <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
@@ -1968,6 +3298,13 @@ function renderSessionItem(s) {
         </button>
       </div>
     </div>`;
+}
+
+function _fmtBytes(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 async function _loadSessionIntoView(sessionId, closeHistoryPanel = true) {
@@ -2050,29 +3387,64 @@ window.openSession = async function (sessionId) {
   }
 };
 
-window.deleteSession = async function (sessionId, btn) {
-  const item = btn.closest('.history-item');
-  item.style.opacity = '0.4';
-  item.style.pointerEvents = 'none';
+// Step 1 — show inline confirmation row below the item
+window.confirmDeleteSession = function (sessionId) {
+  // Remove any other open confirms first
+  document.querySelectorAll('.history-delete-confirm').forEach(el => el.remove());
+
+  const item = document.getElementById(`hist-item-${sessionId}`);
+  if (!item) return;
+
+  const confirm = document.createElement('div');
+  confirm.className = 'history-delete-confirm';
+  confirm.id = `hist-confirm-${sessionId}`;
+  confirm.innerHTML = `
+    <span>Delete this session and all its data?</span>
+    <button class="confirm-no"
+      onclick="event.stopPropagation();document.getElementById('hist-confirm-${sessionId}')?.remove()">
+      Cancel
+    </button>
+    <button class="confirm-yes"
+      onclick="event.stopPropagation();deleteSession('${sessionId}')">
+      Delete
+    </button>`;
+  item.after(confirm);
+};
+
+// Step 2 — actually delete after confirmation
+window.deleteSession = async function (sessionId) {
+  const item    = document.getElementById(`hist-item-${sessionId}`);
+  const confirm = document.getElementById(`hist-confirm-${sessionId}`);
+
+  if (item) { item.style.opacity = '0.4'; item.style.pointerEvents = 'none'; }
+  if (confirm) confirm.remove();
+
   try {
     await api.del(`/brainstorm/sessions/${sessionId}`);
-    item.remove();
+    item?.remove();
+
     if (currentSessionId === sessionId) {
       currentSessionId = null;
       localStorage.removeItem('pritis_bs_session_id');
     }
-    // Show empty state if list is now empty
-    const list = document.getElementById('history-list');
-    if (!list.querySelector('.history-item')) {
+
+    // Update slot count
+    const list      = document.getElementById('history-list');
+    const remaining = list.querySelectorAll('.history-item').length;
+    const slotEl    = document.getElementById('history-slot-count');
+
+    if (remaining === 0) {
       list.innerHTML = `
         <div class="history-empty">
           <div class="empty-icon">🕐</div>
           <p>No recent sessions yet.<br>Upload a document or paste text to start!</p>
         </div>`;
+      if (slotEl) slotEl.innerHTML = '0 of 5 slots used';
+    } else {
+      if (slotEl) slotEl.innerHTML = `<span>${remaining}</span> of 5 slots used`;
     }
   } catch (e) {
-    item.style.opacity = '';
-    item.style.pointerEvents = '';
+    if (item) { item.style.opacity = ''; item.style.pointerEvents = ''; }
     alert('Could not delete session: ' + e.message);
   }
 };
@@ -2182,12 +3554,573 @@ window.addEventListener('beforeunload', _bsSave);
 // Ensure mobile chat is closed on every page load (never auto-open)
 _setMobileChatOpen(false);
 
-// Show setup overlay for new sessions; restore silently for returning sessions
+// Initialise: restore session or show setup overlay + greeting bubble
 (async () => {
-  const hasSaved = !!localStorage.getItem('pritis_bs_session_id');
-  if (!hasSaved) {
-    // Small delay so layout renders before overlay animates in
-    setTimeout(_showSetupOverlay, 120);
-  }
   await _bsRestore().catch(console.error);
+  if (!documentContext) {
+    // New / empty session — show setup overlay
+    setTimeout(_showSetupOverlay, 120);
+  } else {
+    // Returning session with a document — show greeting bubble only
+    setTimeout(() => _showGreeting(), 600);
+  }
 })();
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── Ask Your Friends ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+const _WS_BASE = (() => {
+  const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+  return isLocal ? 'ws://127.0.0.1:8000/api' : 'wss://www.pritis.name.ng/api';
+})();
+
+// State
+let _friendsOpen        = false;
+let _activeConvId       = null;
+let _activeOtherUser    = null;
+let _friendsWs          = null;
+let _friendsConvs       = [];
+let _friendsOnline      = false;
+let _friendsTypingTimer = null;
+let _typingSent         = false;
+let _friendsMsgPage     = [];
+let _wsReconnectTimer   = null;
+let _wsIntentionalClose = false;
+let _wsReconnectDelay   = 1500;  // ms; doubles on each failure, capped at 30 s
+
+// ── DOM helper ────────────────────────────────────────────────────────────────
+function _friendsEl(id) { return document.getElementById(id); }
+
+function _friendsAvatar(user, size) {
+  const sz = (size || 36) + 'px';
+  const fs = Math.round((size || 36) * 0.33) + 'px';
+  if (user && user.profile_picture_url) {
+    return '<div class="friends-user-avatar" style="width:' + sz + ';height:' + sz + '">' +
+           '<img src="' + escHtml(user.profile_picture_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></div>';
+  }
+  const initials = ((user && (user.full_name || user.username)) || '?').charAt(0).toUpperCase();
+  return '<div class="friends-user-avatar" style="width:' + sz + ';height:' + sz + ';font-size:' + fs + '">' + escHtml(initials) + '</div>';
+}
+
+function _fmtMsgTime(iso) {
+  const d = new Date(iso), now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+         d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function _fmtConvTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date();
+  if (d.toDateString() === now.toDateString())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const diff = Math.floor((now - d) / 86400000);
+  if (diff < 7) return d.toLocaleDateString([], { weekday: 'short' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+// ── Open / close ──────────────────────────────────────────────────────────────
+
+window.openFriendsModal = async function () {
+  const user = getUser();
+  if (!user || !user.profile_completed) {
+    _showFriendsLockState();
+    _friendsEl('friends-modal').classList.add('open');
+    _friendsOpen = true;
+    return;
+  }
+  _friendsEl('friends-modal').classList.add('open');
+  _friendsOpen = true;
+  await _loadConversations();
+};
+
+window.closeFriendsModal = function () {
+  _friendsEl('friends-modal').classList.remove('open');
+  _friendsOpen = false;
+  _disconnectFriendsWs();
+};
+
+window.onFriendsModalBackdrop = function (e) {
+  if (e.target === _friendsEl('friends-modal')) closeFriendsModal();
+};
+
+// ── Profile lock ──────────────────────────────────────────────────────────────
+
+function _showFriendsLockState() {
+  var listPanel = _friendsEl('friends-list-panel');
+  var chatPanel = _friendsEl('friends-chat-panel');
+  listPanel.innerHTML =
+    '<div class="friends-modal-head"><h2>Ask Your Friends</h2>' +
+    '<button class="friends-modal-close" onclick="closeFriendsModal()">×</button></div>' +
+    '<div class="friends-lock-state">' +
+    '<div class="friends-lock-icon">🔒</div>' +
+    '<div class="friends-lock-title">Profile Incomplete</div>' +
+    '<div class="friends-lock-desc">Complete your profile and set a username so classmates can find you!</div>' +
+    '<a href="settings.html?redirect=' + encodeURIComponent(window.location.pathname) + '&setup=1"' +
+    ' class="btn btn-primary btn-sm" style="text-decoration:none;margin-top:4px">Complete Profile →</a>' +
+    '</div>';
+  chatPanel.style.display = 'none';
+}
+
+// ── Conversations list ────────────────────────────────────────────────────────
+
+async function _loadConversations() {
+  var listEl = _friendsEl('friends-conv-list');
+  try {
+    _friendsConvs = await api.get('/friends/conversations');
+    _renderConvList();
+  } catch (err) {
+    listEl.innerHTML = '<div class="friends-empty-state"><p style="color:var(--danger)">' + escHtml(err.message) + '</p></div>';
+  }
+}
+
+function _renderConvList() {
+  var listEl = _friendsEl('friends-conv-list');
+  if (!_friendsConvs.length) {
+    listEl.innerHTML = '<div class="friends-empty-state"><div class="fe-icon">💬</div><p>No conversations yet.<br>Search for a friend above!</p></div>';
+    return;
+  }
+  var html = '<div class="friends-conv-section-label">Recent</div>';
+  for (var i = 0; i < _friendsConvs.length; i++) {
+    var conv = _friendsConvs[i];
+    var other = conv.other_user;
+    var latest = conv.latest_message;
+    var unread = conv.unread_count || 0;
+    var isActive = conv.id === _activeConvId;
+    var preview = latest
+      ? escHtml(latest.content.slice(0, 55) + (latest.content.length > 55 ? '…' : ''))
+      : '<em style="color:var(--text-muted)">No messages yet</em>';
+    var convData = escHtml(JSON.stringify(conv)).replace(/&quot;/g, '"');
+    html += '<div class="friends-conv-item' + (isActive ? ' active' : '') + '"' +
+      ' id="friends-conv-item-' + conv.id + '"' +
+      ' onclick=\'openConversation(' + JSON.stringify(conv).replace(/'/g, "\\'") + ')\'>' +
+      '<div class="friends-conv-avatar-wrap">' + _friendsAvatar(other, 38) +
+      '<span class="friends-conv-online-dot" id="friends-online-dot-' + conv.id + '" style="display:none"></span></div>' +
+      '<div class="friends-conv-body">' +
+      '<div class="friends-conv-name">' + escHtml(other.full_name) + '</div>' +
+      '<div class="friends-conv-preview">' + preview + '</div></div>' +
+      '<div class="friends-conv-meta">' +
+      '<span class="friends-conv-time">' + _fmtConvTime((latest && latest.created_at) || conv.created_at) + '</span>' +
+      (unread ? '<span class="friends-unread-badge">' + unread + '</span>' : '') +
+      '</div></div>';
+  }
+  listEl.innerHTML = html;
+}
+
+function _updateFriendsUnreadDot() {
+  var total = _friendsConvs.reduce(function(s, c) { return s + (c.unread_count || 0); }, 0);
+  var dot = _friendsEl('ask-friends-unread-dot');
+  if (dot) dot.classList.toggle('visible', total > 0);
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+window.searchFriend = async function () {
+  var input    = _friendsEl('friends-search-input');
+  var resultEl = _friendsEl('friends-search-result');
+  var btn      = _friendsEl('friends-search-btn');
+  var username = (input ? input.value : '').trim();
+  if (!username) return;
+  btn.disabled = true; btn.textContent = '…';
+  resultEl.innerHTML = '';
+  try {
+    var user = await api.get('/friends/search?username=' + encodeURIComponent(username));
+    var schoolMeta = user.school ? ' · ' + escHtml(user.school) : '';
+    resultEl.innerHTML =
+      '<div class="friends-user-card" onclick=\'startConversationWith(' + JSON.stringify(user).replace(/'/g, "\\'") + ')\'>' +
+      _friendsAvatar(user, 36) +
+      '<div class="friends-user-info">' +
+      '<div class="friends-user-name">' + escHtml(user.full_name) + '</div>' +
+      '<div class="friends-user-meta">@' + escHtml(user.username) + schoolMeta + '</div></div>' +
+      '<button class="friends-start-btn">Chat →</button></div>';
+  } catch (err) {
+    resultEl.innerHTML = '<div class="friends-search-error">' + escHtml(err.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Find';
+  }
+};
+
+window.startConversationWith = async function (user) {
+  var resultEl = _friendsEl('friends-search-result');
+  resultEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted);padding:4px 2px">Starting conversation…</div>';
+  try {
+    var conv = await api.post('/friends/conversations', { username: user.username });
+    var exists = _friendsConvs.find(function(c) { return c.id === conv.id; });
+    if (!exists) _friendsConvs.unshift(conv);
+    _renderConvList();
+    resultEl.innerHTML = '';
+    var inp = _friendsEl('friends-search-input');
+    if (inp) inp.value = '';
+    openConversation(conv);
+  } catch (err) {
+    resultEl.innerHTML = '<div class="friends-search-error">' + escHtml(err.message) + '</div>';
+  }
+};
+
+// ── Open conversation ─────────────────────────────────────────────────────────
+
+window.openConversation = async function (conv) {
+  _activeConvId    = conv.id;
+  _activeOtherUser = conv.other_user;
+  _renderConvList();
+
+  _friendsEl('friends-no-chat').style.display = 'none';
+  var activeChat = _friendsEl('friends-active-chat');
+  activeChat.style.display = 'flex';
+
+  // Header avatar
+  var avatarEl = _friendsEl('friends-chat-avatar');
+  if (_activeOtherUser.profile_picture_url) {
+    avatarEl.innerHTML = '<img src="' + escHtml(_activeOtherUser.profile_picture_url) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">';
+    avatarEl.style.background = 'transparent';
+  } else {
+    avatarEl.textContent = (_activeOtherUser.full_name || '?').charAt(0).toUpperCase();
+    avatarEl.style.background = 'var(--primary)';
+    avatarEl.style.color = '#fff';
+  }
+  _friendsEl('friends-chat-user-name').textContent = _activeOtherUser.full_name;
+  _setFriendsOnlineStatus(false);
+
+  // Mobile: swap panels
+  if (window.innerWidth <= 600) {
+    _friendsEl('friends-list-panel').classList.add('hidden');
+    _friendsEl('friends-chat-panel').classList.add('panel-active');
+  }
+
+  // Load messages
+  var msgsEl = _friendsEl('friends-chat-messages');
+  msgsEl.innerHTML = '<div style="text-align:center;font-size:0.78rem;color:var(--text-muted);padding:20px">Loading…</div>';
+  try {
+    var msgs = await api.get('/friends/conversations/' + conv.id + '/messages?limit=50');
+    _friendsMsgPage = msgs;
+    _renderFriendsMsgs(msgs);
+    _scrollFriendsChat();
+  } catch (e) {
+    msgsEl.innerHTML = '<div style="text-align:center;font-size:0.78rem;color:var(--danger);padding:20px">Failed to load messages</div>';
+  }
+
+  // Mark read
+  api.patch('/friends/conversations/' + conv.id + '/read').catch(function() {});
+  var c = _friendsConvs.find(function(x) { return x.id === conv.id; });
+  if (c) { c.unread_count = 0; _renderConvList(); }
+  _updateFriendsUnreadDot();
+
+  _connectFriendsWs(conv.id);
+  setTimeout(function() { var inp = _friendsEl('friends-chat-input'); if (inp) inp.focus(); }, 80);
+};
+
+window.backToFriendsList = function () {
+  _disconnectFriendsWs();
+  _activeConvId = null; _activeOtherUser = null;
+  _friendsEl('friends-no-chat').style.display = 'flex';
+  _friendsEl('friends-active-chat').style.display = 'none';
+  if (window.innerWidth <= 600) {
+    _friendsEl('friends-list-panel').classList.remove('hidden');
+    _friendsEl('friends-chat-panel').classList.remove('panel-active');
+  }
+};
+
+// ── Render messages ───────────────────────────────────────────────────────────
+
+function _renderFriendsMsgs(msgs) {
+  var msgsEl = _friendsEl('friends-chat-messages');
+  var me = getUser();
+  if (!msgs.length) {
+    msgsEl.innerHTML = '<div style="text-align:center;font-size:0.78rem;color:var(--text-muted);padding:30px 10px">No messages yet. Say hello! 👋</div>';
+    return;
+  }
+  var html = '', lastDate = '';
+  for (var i = 0; i < msgs.length; i++) {
+    var msg = msgs[i];
+    var isMe = String(msg.sender_id) === String(me && me.id);
+    var dStr = new Date(msg.created_at).toDateString();
+    if (dStr !== lastDate) {
+      lastDate = dStr;
+      var label = dStr === new Date().toDateString() ? 'Today'
+        : new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+      html += '<div class="friends-msg-date-sep">' + label + '</div>';
+    }
+    html += _buildMsgHtml(msg, isMe);
+  }
+  msgsEl.innerHTML = html;
+}
+
+function _buildMsgHtml(msg, isMe) {
+  var tick = isMe ? '<span class="friends-msg-read-tick" title="' + (msg.is_read ? 'Read' : 'Sent') + '">' + (msg.is_read ? '✓✓' : '✓') + '</span>' : '';
+  return '<div class="friends-msg ' + (isMe ? 'me' : 'them') + '" id="friends-msg-' + msg.id + '">' +
+    '<div class="friends-msg-bubble">' + escHtml(msg.content) + '</div>' +
+    '<div class="friends-msg-time">' + _fmtMsgTime(msg.created_at) + ' ' + tick + '</div></div>';
+}
+
+function _appendFriendsMsg(msg) {
+  var msgsEl = _friendsEl('friends-chat-messages');
+  if (!msgsEl) return;
+  var me = getUser();
+  var isMe = String(msg.sender_id) === String(me && me.id);
+  var ph = msgsEl.querySelector('div[style*="padding:30px"]');
+  if (ph) ph.remove();
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _buildMsgHtml(msg, isMe);
+  msgsEl.appendChild(tmp.firstElementChild);
+  _scrollFriendsChat();
+}
+
+function _scrollFriendsChat() {
+  var el = _friendsEl('friends-chat-messages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function _markFriendsMsgsRead() {
+  var me = getUser();
+  for (var i = 0; i < _friendsMsgPage.length; i++) {
+    var m = _friendsMsgPage[i];
+    if (String(m.sender_id) === String(me && me.id) && !m.is_read) {
+      var el = document.getElementById('friends-msg-' + m.id);
+      if (el) {
+        var tick = el.querySelector('.friends-msg-read-tick');
+        if (tick) { tick.textContent = '✓✓'; tick.title = 'Read'; }
+        m.is_read = true;
+      }
+    }
+  }
+}
+
+// ── Online status ─────────────────────────────────────────────────────────────
+
+function _setFriendsOnlineStatus(online) {
+  _friendsOnline = online;
+  var dot   = _friendsEl('friends-status-dot');
+  var label = _friendsEl('friends-status-label');
+  if (dot)   dot.className  = online ? 'online-dot'  : 'offline-dot';
+  if (label) label.textContent = online ? 'Online' : 'Offline';
+  if (_activeConvId) {
+    var d = _friendsEl('friends-online-dot-' + _activeConvId);
+    if (d) d.style.display = online ? 'block' : 'none';
+  }
+}
+
+// ── Typing indicator ──────────────────────────────────────────────────────────
+
+window.sendFriendsTyping = function () {
+  if (!_friendsWs || _friendsWs.readyState !== WebSocket.OPEN) return;
+  if (!_typingSent) {
+    _friendsWs.send(JSON.stringify({ type: 'typing', is_typing: true }));
+    _typingSent = true;
+  }
+  clearTimeout(_friendsTypingTimer);
+  _friendsTypingTimer = setTimeout(function() {
+    if (_friendsWs && _friendsWs.readyState === WebSocket.OPEN)
+      _friendsWs.send(JSON.stringify({ type: 'typing', is_typing: false }));
+    _typingSent = false;
+  }, 2000);
+};
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+function _connectFriendsWs(convId) {
+  _disconnectFriendsWs();
+  _wsIntentionalClose = false;
+  _wsReconnectDelay   = 1500;
+
+  function _doConnect() {
+    var token = getToken();
+    if (!token || _wsIntentionalClose || _activeConvId !== convId) return;
+
+    var url = _WS_BASE + '/friends/ws/' + convId + '?token=' + encodeURIComponent(token);
+    try { _friendsWs = new WebSocket(url); } catch (e) { _scheduleReconnect(); return; }
+
+    _friendsWs.addEventListener('open', function () {
+      _wsReconnectDelay = 1500; // reset backoff on successful connect
+      _friendsWs.send(JSON.stringify({ type: 'read' }));
+      _setFriendsWsStatus(true);
+    });
+
+    _friendsWs.addEventListener('message', function (e) {
+      var data;
+      try { data = JSON.parse(e.data); } catch (_) { return; }
+      var me = getUser();
+
+      if (data.type === 'message') {
+        if (String(data.sender_id) === String(me && me.id)) {
+          // Server echo for our own sent message — replace the optimistic temp bubble
+          _replaceTempMsg(data);
+        } else {
+          // Incoming message from the other person
+          _appendFriendsMsg(data);
+          // Immediately send read receipt over WS
+          if (_friendsWs && _friendsWs.readyState === WebSocket.OPEN)
+            _friendsWs.send(JSON.stringify({ type: 'read' }));
+          api.patch('/friends/conversations/' + convId + '/read').catch(function () {});
+        }
+        var c = _friendsConvs.find(function (x) { return x.id === convId; });
+        if (c) { c.latest_message = data; _renderConvList(); }
+      }
+
+      if (data.type === 'presence') {
+        if (_activeOtherUser && String(data.user_id) === String(_activeOtherUser.id))
+          _setFriendsOnlineStatus(data.online);
+      }
+
+      if (data.type === 'typing') {
+        if (_activeOtherUser && String(data.user_id) === String(_activeOtherUser.id)) {
+          var el = _friendsEl('friends-typing-indicator');
+          if (el) el.classList.toggle('visible', data.is_typing);
+        }
+      }
+
+      if (data.type === 'read_receipt') { _markFriendsMsgsRead(); }
+    });
+
+    _friendsWs.addEventListener('close', function () {
+      _setFriendsOnlineStatus(false);
+      _setFriendsWsStatus(false);
+      if (!_wsIntentionalClose && _activeConvId === convId) _scheduleReconnect();
+    });
+
+    _friendsWs.addEventListener('error', function () {
+      // 'close' fires right after 'error' — reconnect is handled there
+    });
+  }
+
+  function _scheduleReconnect() {
+    clearTimeout(_wsReconnectTimer);
+    _wsReconnectTimer = setTimeout(function () {
+      if (!_wsIntentionalClose && _activeConvId === convId) _doConnect();
+    }, _wsReconnectDelay);
+    _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, 30000); // exponential back-off, max 30 s
+  }
+
+  _doConnect();
+}
+
+function _disconnectFriendsWs() {
+  _wsIntentionalClose = true;
+  clearTimeout(_wsReconnectTimer);
+  if (_friendsWs) { try { _friendsWs.close(); } catch (_) {} _friendsWs = null; }
+}
+
+// Replace the last optimistic temp bubble with the confirmed server message
+function _replaceTempMsg(realMsg) {
+  var msgsEl = _friendsEl('friends-chat-messages');
+  if (msgsEl) {
+    var temps = Array.from(msgsEl.querySelectorAll('.friends-msg.me[id^="friends-msg-tmp-"]'));
+    if (temps.length) {
+      // Replace the most recent temp element's id so read-ticks work
+      temps[temps.length - 1].id = 'friends-msg-' + realMsg.id;
+    }
+  }
+  // Sync _friendsMsgPage: replace last temp entry with real message
+  for (var i = _friendsMsgPage.length - 1; i >= 0; i--) {
+    if (String(_friendsMsgPage[i].id).startsWith('tmp-')) {
+      _friendsMsgPage[i] = realMsg;
+      break;
+    }
+  }
+}
+
+// Show a subtle reconnecting hint in the chat header status area
+function _setFriendsWsStatus(connected) {
+  var label = _friendsEl('friends-status-label');
+  if (!label) return;
+  if (!connected && _friendsOnline) {
+    // Other user was online but WS dropped — keep Online badge but add hint
+    label.textContent = 'Online · reconnecting…';
+  } else if (!connected && !_friendsOnline) {
+    label.textContent = 'Offline';
+  }
+  // When reconnected, presence events from the server will restore the correct status
+}
+
+// ── Send message ──────────────────────────────────────────────────────────────
+
+window.sendFriendMessage = function () {
+  var input   = _friendsEl('friends-chat-input');
+  var content = input ? input.value.trim() : '';
+  if (!content || !_activeConvId) return;
+
+  // Clear input immediately so the user can type the next message
+  if (input) { input.value = ''; input.style.height = ''; }
+  clearTimeout(_friendsTypingTimer);
+  _typingSent = false;
+
+  var convId = _activeConvId;
+  var me = getUser();
+
+  if (_friendsWs && _friendsWs.readyState === WebSocket.OPEN) {
+    // ── WebSocket path ──
+    // Show optimistic bubble immediately; server echo will replace it with the real ID
+    var tmp = {
+      id: 'tmp-' + Date.now(),
+      sender_id: me && me.id,
+      content: content,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    _appendFriendsMsg(tmp);
+    _friendsMsgPage.push(tmp);
+    var c = _friendsConvs.find(function (x) { return x.id === convId; });
+    if (c) { c.latest_message = tmp; _renderConvList(); }
+
+    // Send over WS — server will persist and echo back the real message
+    _friendsWs.send(JSON.stringify({ type: 'message', content: content }));
+    // Stop typing indicator
+    _friendsWs.send(JSON.stringify({ type: 'typing', is_typing: false }));
+  } else {
+    // ── REST fallback (WS unavailable / reconnecting) ──
+    api.post('/friends/conversations/' + convId + '/messages', { content: content })
+      .then(function (msg) {
+        _appendFriendsMsg(msg);
+        _friendsMsgPage.push(msg);
+        var c2 = _friendsConvs.find(function (x) { return x.id === convId; });
+        if (c2) { c2.latest_message = msg; _renderConvList(); }
+      })
+      .catch(function (err) {
+        var msgsEl = _friendsEl('friends-chat-messages');
+        if (msgsEl) {
+          var d = document.createElement('div');
+          d.style.cssText = 'text-align:center;font-size:0.75rem;color:var(--danger);padding:6px';
+          d.textContent = 'Failed to send: ' + err.message;
+          msgsEl.appendChild(d);
+          msgsEl.scrollTop = msgsEl.scrollHeight;
+        }
+      });
+  }
+};
+
+window.onFriendsChatKey = function (e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFriendMessage(); }
+};
+
+window.autoResizeFriendsInput = function (el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+};
+
+// ── Background polling for unread counts ──────────────────────────────────────
+
+var _friendsPollTimer = null;
+
+async function _pollFriends() {
+  try {
+    var user = getUser();
+    if (!user || !user.profile_completed) return;
+    var convs = await api.get('/friends/conversations');
+    _friendsConvs = convs;
+    _updateFriendsUnreadDot();
+    if (_friendsOpen) _renderConvList();
+  } catch (e) {}
+}
+
+function _startFriendsPoll() {
+  clearInterval(_friendsPollTimer);
+  _friendsPollTimer = setInterval(_pollFriends, _friendsOpen ? 10000 : 30000);
+}
+
+// Kick off after 3 s so it doesn't compete with page init
+setTimeout(function() {
+  var user = getUser();
+  if (user && user.profile_completed) { _pollFriends(); _startFriendsPoll(); }
+}, 3000);

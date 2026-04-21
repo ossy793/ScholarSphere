@@ -95,7 +95,10 @@ def admin_stats(
 
     total_users   = db.query(func.count(User.id)).scalar() or 0
     active_users  = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0    # noqa: E712
-    premium_users = db.query(func.count(User.id)).filter(User.is_premium == True).scalar() or 0   # noqa: E712
+    free_users    = db.query(func.count(User.id)).filter(User.subscription_plan == "free").scalar() or 0
+    basic_users   = db.query(func.count(User.id)).filter(User.subscription_plan == "basic").scalar() or 0
+    pro_users     = db.query(func.count(User.id)).filter(User.subscription_plan == "pro").scalar() or 0
+    paid_users    = basic_users + pro_users
     new_today     = (
         db.query(func.count(User.id))
         .filter(func.date(User.created_at) == today)
@@ -121,8 +124,10 @@ def admin_stats(
         "total_users":              total_users,
         "active_users":             active_users,
         "inactive_users":           total_users - active_users,
-        "premium_users":            premium_users,
-        "free_users":               total_users - premium_users,
+        "free_users":               free_users,
+        "basic_users":              basic_users,
+        "pro_users":                pro_users,
+        "paid_users":               paid_users,
         "new_users_today":          new_today,
         "total_quizzes":            total_quizzes,
         "total_questions":          total_questions,
@@ -178,9 +183,9 @@ def admin_list_users(
     elif filter == "inactive":
         q = q.filter(User.is_active == False)       # noqa: E712
     elif filter == "premium":
-        q = q.filter(User.is_premium == True)       # noqa: E712
+        q = q.filter(User.subscription_plan.in_(["basic", "pro"]))
     elif filter == "free":
-        q = q.filter(User.is_premium == False)      # noqa: E712
+        q = q.filter(User.subscription_plan == "free")
 
     total = q.count()
     rows  = q.order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
@@ -192,7 +197,8 @@ def admin_list_users(
             "id":             str(u.id),
             "full_name":      u.full_name,
             "email":          u.email,
-            "is_premium":     u.is_premium,
+            "subscription_plan":   u.subscription_plan or "free",
+            "subscription_expiry": u.subscription_expiry.isoformat() if u.subscription_expiry else None,
             "is_active":      u.is_active,
             "is_admin":       u.is_admin,
             "created_at":     u.created_at.isoformat(),
@@ -346,7 +352,8 @@ def user_detail(
         "department":           user.department,
         "university":           user.university,
         "level":                user.level,
-        "is_premium":           user.is_premium,
+        "subscription_plan":   user.subscription_plan or "free",
+        "subscription_expiry": user.subscription_expiry.isoformat() if user.subscription_expiry else None,
         "is_active":            user.is_active,
         "is_admin":             user.is_admin,
         "created_at":           user.created_at.isoformat(),

@@ -39,17 +39,32 @@ def _render_pdf_pages(file_bytes: bytes, max_pages: int = _OCR_PAGE_LIMIT) -> li
     """
     Render up to max_pages PDF pages as JPEG images using pymupdf.
     Uses 3× zoom (216 DPI) for better quality on scanned/handwritten documents.
+    Falls back to 1× zoom if a page fails at high quality.
     """
     import fitz  # pymupdf
 
-    doc = fitz.open(stream=file_bytes, filetype="pdf")
-    mat = fitz.Matrix(3, 3)  # 3× zoom ≈ 216 DPI — sharper for handwritten/scanned docs
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+    except Exception as exc:
+        raise RuntimeError(f"Could not open PDF: {exc}") from exc
+
+    mat_hi  = fitz.Matrix(3, 3)  # 3× zoom ≈ 216 DPI
+    mat_lo  = fitz.Matrix(1, 1)  # 1× fallback
     pages_to_render = min(len(doc), max_pages)
     images = []
     for page_num in range(pages_to_render):
-        pix = doc[page_num].get_pixmap(matrix=mat)
-        images.append(pix.tobytes("jpeg", jpg_quality=90))
-        del pix  # free pixmap memory immediately
+        try:
+            pix = doc[page_num].get_pixmap(matrix=mat_hi)
+            images.append(pix.tobytes("jpeg", jpg_quality=90))
+            del pix
+        except Exception:
+            # Try lower quality on this page before giving up
+            try:
+                pix = doc[page_num].get_pixmap(matrix=mat_lo)
+                images.append(pix.tobytes("jpeg", jpg_quality=85))
+                del pix
+            except Exception as page_err:
+                logger.warning("Skipping PDF page %d: %s", page_num + 1, page_err)
     doc.close()
     return images
 
@@ -119,6 +134,43 @@ def _ocr_with_tesseract(page_images: list) -> str:
             logger.warning("Tesseract OCR failed on page %d: %s", i + 1, exc)
 
     return "\n\n".join(parts)
+
+
+def _gemini_extract_text(file_bytes: bytes) -> str:
+    """
+    Extract text from a scanned PDF by sending it natively to Gemini.
+    No page rendering required — Gemini reads the PDF bytes directly.
+    Returns '' if GEMINI_API_KEY is not set or the call fails.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        logger.warning("GEMINI_API_KEY not set — Gemini OCR unavailable")
+        return ""
+    try:
+        import google.genai as genai
+        from google.genai import types as gtypes
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=[
+                gtypes.Part.from_bytes(data=file_bytes, mime_type="application/pdf"),
+                gtypes.Part.from_text(
+                    "Extract ALL text from this document exactly as written. "
+                    "Preserve headings, numbered lists, bullet points, and document structure. "
+                    "If any text appears visually emphasized — bold, underlined, circled, starred, "
+                    "or otherwise marked — wrap it in **...**. "
+                    "Output only the extracted text — no commentary, no descriptions."
+                ),
+            ],
+        )
+        text = (response.text or "").strip()
+        if text:
+            logger.info("Gemini OCR succeeded — %d chars extracted.", len(text))
+        return text
+    except Exception as exc:
+        logger.warning("Gemini OCR failed: %s", exc)
+        return ""
 
 
 def _ocr_with_groq(page_images: list) -> str:
@@ -244,7 +296,6 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     if text:
         return text
 
-    # --- Strategy 2: OCR fallback ---
     logger.info("pdfplumber returned no text — attempting OCR fallback.")
 
     # Check total page count so we can warn when truncation occurs
@@ -254,6 +305,19 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     except Exception:
         total_pages = 0
 
+    # --- Strategy 2: Gemini native PDF reading (best for scanned docs) ---
+    text = _gemini_extract_text(file_bytes).strip()
+    if text:
+        logger.info("Gemini OCR succeeded — %d chars extracted.", len(text))
+        if total_pages > _OCR_PAGE_LIMIT:
+            text += (
+                f"\n\n[Note: This document has {total_pages} pages. "
+                f"OCR was applied to the first {_OCR_PAGE_LIMIT} pages only.]"
+            )
+        return text
+
+    # --- Strategy 3: Image-based OCR (Tesseract → Groq vision) ---
+    logger.info("Gemini OCR unavailable — falling back to image OCR.")
     text = _ocr_pdf(file_bytes).strip()
 
     if text:
@@ -515,7 +579,7 @@ def extract_text_from_image(file_bytes: bytes) -> str:
     return text
 
 
-def truncate_text(text: str, max_chars: int = 8000) -> str:
+def truncate_text(text: str, max_chars: int = 10000) -> str:
     """Truncate text to avoid exceeding LLM context limits."""
     if len(text) <= max_chars:
         return text

@@ -69,6 +69,9 @@
           </div>
         </div>
 
+        <!-- Plan status card -->
+        <div id="plan-card"></div>
+
         <!-- Best course highlight -->
         <div class="card mb-6" id="best-course-card" style="display:none">
           <div class="flex items-center gap-3">
@@ -82,6 +85,7 @@
 
         <!-- Quick Actions -->
         <h2 class="font-semibold mb-4" style="font-size:1rem;">Quick Actions</h2>
+        <div class="action-grid-wrap">
         <div class="action-grid">
           <!-- Update alert — hidden until a change is detected -->
           <div id="update-alert-card" class="action-card" style="display:none;cursor:pointer;border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7)" onclick="handleUpdateClick()">
@@ -101,7 +105,7 @@
           <a href="input-questions.html" class="action-card">
             <div class="action-card-icon purple">✏️</div>
             <div>
-              <h3>Input Questions</h3>
+              <h3>Create Quiz</h3>
               <p>Upload past questions in various document formats to create interactive quizzes and experience a real CBT-style testing environment for your courses.</p>
             </div>
           </a>
@@ -112,10 +116,10 @@
               <p>Upload a PDF, Word document, or paste text — let AI craft quiz questions from your material.</p>
             </div>
           </a>
-          <a href="my-questions.html" class="action-card">
+          <a href="question-bank.html" class="action-card">
             <div class="action-card-icon green">📋</div>
             <div>
-              <h3>My Questions</h3>
+              <h3>Question Bank</h3>
               <p>Browse your saved quizzes, take practice sessions, and share quizzes with others.</p>
             </div>
           </a>
@@ -133,7 +137,15 @@
               <p>Chat with AI about your uploaded documents. Ask questions and explore concepts deeply.</p>
             </div>
           </a>
+          <a href="challenge.html" class="action-card">
+            <div class="action-card-icon blue">⚔️</div>
+            <div>
+              <h3>Challenge Friends</h3>
+              <p>Host a live quiz battle, share a code, and compete with friends in real-time.</p>
+            </div>
+          </a>
         </div>
+        </div><!-- /.action-grid-wrap -->
       </main>
     </div>
   </div>
@@ -158,65 +170,6 @@
       }
     }
 
-    // ── Real-time update detection (polling) ────────────────────────────────
-    const POLL_INTERVAL = 30000; // 30 seconds
-    const TOKEN_KEY     = 'pritis_update_token';
-    const SEEN_KEY      = 'pritis_update_seen';
-    let _pollTimer      = null;
-
-    async function checkForUpdates() {
-      try {
-        const token = localStorage.getItem('ossyquiz_token');
-        if (!token) return; // not logged in
-        const res = await fetch('/api/analytics/update-token', {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        if (!res.ok) return;
-        const { token: newToken } = await res.json();
-        const lastToken = sessionStorage.getItem(TOKEN_KEY);
-        const wasSeen   = sessionStorage.getItem(SEEN_KEY);
-
-        if (!lastToken) {
-          // First load — record current state, no alert
-          sessionStorage.setItem(TOKEN_KEY, newToken);
-          return;
-        }
-
-        if (newToken !== lastToken && wasSeen !== newToken) {
-          // Something changed since we last stored the token
-          sessionStorage.setItem(TOKEN_KEY, newToken);
-          showUpdateAlert();
-        }
-      } catch { /* non-critical, fail silently */ }
-    }
-
-    function showUpdateAlert() {
-      const card = document.getElementById('update-alert-card');
-      if (card) card.style.display = '';
-    }
-
-    function handleUpdateClick() {
-      // Mark this token as seen so alert doesn't reappear until next change
-      const current = sessionStorage.getItem(TOKEN_KEY);
-      if (current) sessionStorage.setItem(SEEN_KEY, current);
-      location.reload();
-    }
-
-    // Start polling after a short delay (let dashboard load first)
-    setTimeout(() => {
-      checkForUpdates();
-      _pollTimer = setInterval(checkForUpdates, POLL_INTERVAL);
-    }, 5000);
-
-    // Stop polling when tab is hidden; resume when visible again
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        clearInterval(_pollTimer);
-      } else {
-        checkForUpdates();
-        _pollTimer = setInterval(checkForUpdates, POLL_INTERVAL);
-      }
-    });
   </script>
 </body>
 </html>

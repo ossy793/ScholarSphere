@@ -1,5 +1,6 @@
 import { api, getToken, getUser } from '../js/api.js';
 import { renderLayout } from '../js/layout.js';
+import { initCustomerService } from './customer-service.js';
 
 // ── Admin guard ───────────────────────────────────────────────────────────────
 if (!getToken()) {
@@ -665,6 +666,31 @@ window.sendNotification = async function () {
   await _origSend();
   setTimeout(() => loadNotificationHistory(), 500);
   _quickPushPending = false;
+};
+
+// ── Admin tab switching ───────────────────────────────────────────────────────
+window.switchAdminTab = function (tab) {
+  // Update tab button states
+  document.querySelectorAll('.admin-dash-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  // Show/hide panels — must remove the .hidden class (which uses !important)
+  const usersPanel   = document.getElementById('tab-users');
+  const supportPanel = document.getElementById('tab-support');
+
+  if (tab === 'support') {
+    usersPanel.classList.add('hidden');
+    supportPanel.classList.remove('hidden');
+    supportPanel.style.display = 'flex';
+    // Lazy-init the customer service dashboard
+    initCustomerService();
+  } else {
+    supportPanel.classList.add('hidden');
+    supportPanel.style.display = 'none';
+    usersPanel.classList.remove('hidden');
+    usersPanel.style.display   = '';
+  }
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

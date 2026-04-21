@@ -205,6 +205,18 @@
       width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;
       accent-color: var(--blue); cursor: pointer;
     }
+    .pw-wrap { position: relative; }
+    .pw-wrap .form-control { padding-right: 42px; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 0;
+      color: var(--text-muted); display: flex; align-items: center;
+      transition: color 0.15s;
+    }
+    .pw-toggle:hover { color: var(--blue); }
+    .pw-toggle svg { width: 18px; height: 18px; }
+    .field-error { font-size: 0.78rem; color: #DC2626; margin-top: 5px; font-weight: 500; }
+    .form-control.input-error { border-color: #DC2626 !important; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
 
     /* ── Section ── */
     section { padding: 88px 5%; }
@@ -498,6 +510,14 @@
           <button class="auth-tab" id="tab-register" onclick="showTab('register')">Create Account</button>
         </div>
 
+        <!-- Google Sign-In -->
+        <div id="google-signin-btn" style="margin-bottom:14px;display:flex;justify-content:center"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:0.75rem;color:var(--text-muted);font-weight:500">or continue with email</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+
         <!-- Login Form -->
         <div id="login-panel">
           <div id="login-alert" class="alert alert-error hidden"></div>
@@ -508,7 +528,12 @@
             </div>
             <div class="form-group">
               <label class="form-label">Password</label>
-              <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+              <div class="pw-wrap">
+                <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                <button type="button" class="pw-toggle" onclick="togglePw('login-password', this)" tabindex="-1">
+                  <svg id="login-password-eye" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary btn-lg btn-full" id="login-btn">Sign In</button>
             <p style="text-align:center;margin-top:12px;font-size:0.85rem">
@@ -520,33 +545,75 @@
         <!-- Register Form -->
         <div id="register-panel" class="hidden">
           <div id="register-alert" class="alert alert-error hidden"></div>
-          <form id="register-form" onsubmit="handleRegister(event)">
+          <form id="register-form" onsubmit="handleRegister(event)" novalidate>
             <div class="form-group">
               <label class="form-label">Full Name</label>
-              <input type="text" id="reg-name" class="form-control" placeholder="John Doe" required>
+              <input type="text" id="reg-name" class="form-control" placeholder="John Doe">
+              <p class="field-error hidden" id="err-reg-name"></p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username <span style="color:#ef4444">*</span></label>
+              <input type="text" id="reg-username" class="form-control" placeholder="e.g. john_doe123" minlength="3" maxlength="30">
+              <p class="form-hint">3–30 characters. Letters, numbers, and underscores only.</p>
+              <p class="field-error hidden" id="err-reg-username"></p>
             </div>
             <div class="form-group">
               <label class="form-label">Email Address</label>
-              <input type="email" id="reg-email" class="form-control" placeholder="you@example.com" required>
+              <input type="email" id="reg-email" class="form-control" placeholder="you@example.com">
+              <p class="field-error hidden" id="err-reg-email"></p>
             </div>
             <div class="form-group">
               <label class="form-label">Password</label>
-              <input type="password" id="reg-password" class="form-control" placeholder="Min 8 chars, upper, lower &amp; number/symbol" minlength="8" required>
+              <div class="pw-wrap">
+                <input type="password" id="reg-password" class="form-control" placeholder="Min 8 chars, upper, lower &amp; number/symbol" minlength="8">
+                <button type="button" class="pw-toggle" onclick="togglePw('reg-password', this)" tabindex="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
               <p class="form-hint">Must include uppercase, lowercase, and a number or symbol.</p>
+              <p class="field-error hidden" id="err-reg-password"></p>
             </div>
             <div class="form-group">
-              <label class="form-label">Department <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
-              <input type="text" id="reg-department" class="form-control" placeholder="e.g. Computer Science">
+              <label class="form-label">Confirm Password</label>
+              <div class="pw-wrap">
+                <input type="password" id="reg-confirm-password" class="form-control" placeholder="Re-enter your password">
+                <button type="button" class="pw-toggle" onclick="togglePw('reg-confirm-password', this)" tabindex="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p class="field-error hidden" id="err-reg-confirm-password"></p>
             </div>
-            <div class="form-grid-2">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">University <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
-                <input type="text" id="reg-university" class="form-control" placeholder="e.g. University of Lagos">
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Level <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
-                <input type="text" id="reg-level" class="form-control" placeholder="e.g. 300L">
-              </div>
+            <div class="form-group">
+              <label class="form-label">Course / Department <span style="color:#ef4444">*</span></label>
+              <input type="text" id="reg-department" class="form-control" placeholder="e.g. Computer Science">
+              <p class="field-error hidden" id="err-reg-department"></p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">University / Institution <span style="color:#ef4444">*</span></label>
+              <select id="reg-university" class="form-control">
+                <option value="">— Select your institution —</option>
+              </select>
+              <p class="field-error hidden" id="err-reg-university"></p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Level / Year <span style="color:#ef4444">*</span></label>
+              <select id="reg-level" class="form-control" required>
+                <option value="">— Select your level —</option>
+                <option>100L</option>
+                <option>200L</option>
+                <option>300L</option>
+                <option>400L</option>
+                <option>500L</option>
+                <option>600L</option>
+                <option>HND 1</option>
+                <option>HND 2</option>
+                <option>ND 1</option>
+                <option>ND 2</option>
+                <option>Masters</option>
+                <option>PhD</option>
+                <option>Postgraduate</option>
+              </select>
+              <p class="field-error hidden" id="err-reg-level"></p>
             </div>
 
             <!-- Terms & Conditions -->
@@ -576,9 +643,10 @@
                 <p><strong>Governing Law:</strong> These terms are governed by the laws of the Federal Republic of Nigeria.</p>
               </div>
               <label class="tc-check-row">
-                <input type="checkbox" id="tc-agree" required>
+                <input type="checkbox" id="tc-agree">
                 <span>I have read and agree to Pritis's Terms &amp; Conditions. I confirm I am 15 years of age or older.</span>
               </label>
+              <p class="field-error hidden" id="err-tc-agree"></p>
             </div>
 
             <button type="submit" class="btn btn-primary btn-lg btn-full" id="register-btn">Create Account</button>
@@ -757,7 +825,7 @@
           The AI-powered academic platform for students who want to<br>
           read deeper, brainstorm smarter, and track their mastery.
         </p>
-        <p class="footer-copy">© 2025 Pritis · All rights reserved · Governed under the laws of Nigeria</p>
+        <p class="footer-copy">© 2026 Pritis · All rights reserved · Governed under the laws of Nigeria</p>
       </div>
       <div class="footer-social">
         <span class="footer-social-label">Follow us</span>
@@ -784,6 +852,15 @@
   </footer>
 
   <script>
+    function togglePw(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.innerHTML = isHidden
+        ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
     // Navbar shadow on scroll
     const navbar = document.getElementById('navbar');
     window.addEventListener('scroll', () => {
@@ -832,6 +909,90 @@
     loadStats();
     setInterval(loadStats, 60_000);
 
+    // Populate university dropdown
+    const SCHOOLS = [
+      'Abia State University (ABSU)','Abubakar Tafawa Balewa University (ATBU)','Achievers University',
+      'Adamawa State University','Adekunle Ajasin University (AAUA)','Adeleke University',
+      'Afe Babalola University (ABUAD)','African University of Science and Technology (AUST)',
+      'Ahmadu Bello University (ABU)','Ajayi Crowther University','Akwa Ibom State University',
+      'Al-Hikmah University','Al-Qalam University','Ambrose Alli University (AAU)',
+      'American University of Nigeria (AUN)','Anchor University','Augustine University',
+      'Babcock University','Bauchi State University','Bayero University Kano (BUK)',
+      'Bells University of Technology','Benson Idahosa University','Benue State University',
+      'Bingham University','Bowen University','Caleb University',
+      'Caritas University','Chrisland University','Christopher University',
+      'Clifford University','Coal City University','Covenant University',
+      'Crawford University','Crescent University','Cross River University of Technology (CRUTECH)',
+      'Crown Hill University','Delta State University (DELSU)','Dominican University',
+      'Ebonyi State University (EBSU)','Edo University Iyamho','Edwin Clark University',
+      'Ekiti State University (EKSU)','El-Amin University','Elizade University',
+      'Enugu State University of Science and Technology (ESUT)','Evangel University',
+      'Federal University Birnin Kebbi','Federal University Dutse','Federal University Dutsin-Ma',
+      'Federal University Gashua','Federal University Gusau','Federal University Kashere',
+      'Federal University Lafia','Federal University Lokoja','Federal University Ndufu-Alike (FUNAI)',
+      'Federal University of Agriculture Abeokuta (FUNAAB)',
+      'Federal University of Agriculture Makurdi (FUAM)',
+      'Federal University of Petroleum Resources (FUPRE)',
+      'Federal University of Technology Akure (FUTA)',
+      'Federal University of Technology Minna (FUTMINNA)',
+      'Federal University of Technology Owerri (FUTO)',
+      'Federal University Otuoke','Federal University Oye-Ekiti (FUOYE)',
+      'Federal University Wukari','Fountain University',
+      'Godfrey Okoye University','Gombe State University',
+      'Gregory University','Hallmark University','Heidelberg University Nigeria',
+      'Ibrahim Badamasi Babangida University (IBBU)','Igbinedion University',
+      'Imo State University (IMSU)','Joseph Ayo Babalola University (JABU)',
+      'Kaduna State University (KASU)','Kano University of Science and Technology (KUST)',
+      'Kebbi State University of Science and Technology','Kings University',
+      'Kogi State University','Kwara State University (KWASU)',
+      'Lagos State University (LASU)','Landmark University',
+      'Lead City University','Legacy University',
+      'Madonna University','Mcpherson University',
+      'Michael Okpara University of Agriculture (MOUAU)','Micheal and Cecilia Ibru University',
+      'Mountain Top University','Nasarawa State University',
+      'Niger Delta University (NDU)','Nigerian Defence Academy (NDA)',
+      'Nile University of Nigeria','Nnamdi Azikiwe University (NAU)',
+      'Novena University','Obafemi Awolowo University (OAU)',
+      'Obong University','Oduduwa University',
+      'Olabisi Onabanjo University (OOU)','Ondo State University of Science and Technology',
+      'Osun State University (UNIOSUN)','Pan-Atlantic University',
+      'Paul University','Plateau State University',
+      'Precious Cornerstone University','Redeemers University',
+      'Renaissance University','Rhema University',
+      'Rivers State University (RSU)','Salem University',
+      'Samuel Adegboyega University','Skyline University Nigeria',
+      'Sokoto State University','Southeast University',
+      'Southwest University','Summit University',
+      'Tai Solarin University of Education (TASUED)',
+      'Tansian University','Taraba State University',
+      'The Technical University Ibadan','Thomas Adewumi University',
+      'Umaru Musa Yaradua University','University of Abuja',
+      'University of Benin (UNIBEN)','University of Calabar (UNICAL)',
+      'University of Ibadan (UI)','University of Ilorin (UNILORIN)',
+      'University of Jos (UNIJOS)','University of Lagos (UNILAG)',
+      'University of Maiduguri (UNIMAID)','University of Nigeria Nsukka (UNN)',
+      'University of Port Harcourt (UNIPORT)','University of Uyo (UNIUYO)',
+      'Usmanu Danfodiyo University (UDUS)','Veritas University',
+      'Wesley University','Western Delta University',
+      'Yobe State University','Zamfara State University',
+      'Federal Polytechnic Ado Ekiti','Federal Polytechnic Bida',
+      'Federal Polytechnic Idah','Federal Polytechnic Ilaro',
+      'Federal Polytechnic Mubi','Federal Polytechnic Nekede',
+      'Federal Polytechnic Offa','Federal Polytechnic Oko',
+      'Yaba College of Technology (YABATECH)',
+      'Lagos State Polytechnic (LASPOTECH)',
+      'Moshood Abiola Polytechnic (MAPOLY)',
+      'Other'
+    ];
+    const uniSel = document.getElementById('reg-university');
+    if (uniSel) {
+      SCHOOLS.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        uniSel.appendChild(opt);
+      });
+    }
+
     // Promo slot counter
     async function loadPromoStatus() {
       const fillEl = document.getElementById('promo-progress-fill');
@@ -878,7 +1039,30 @@
       if (btn) btn.style.display = 'none';
     }
   </script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="module" src="js/auth.js"></script>
+
+  <!-- 2FA Modal -->
+  <div id="tfa-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:400px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);overflow:hidden">
+      <div style="background:linear-gradient(135deg,#0077FF,#0044CC);padding:22px 24px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#fff;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;color:#0077FF">🔐</div>
+          <span style="color:#fff;font-weight:700;font-size:1rem">Two-Factor Verification</span>
+        </div>
+      </div>
+      <div style="padding:28px 24px">
+        <p style="color:#4A6080;font-size:0.875rem;margin:0 0 20px">Open your <strong>Google Authenticator</strong> app and enter the 6-digit code for Pritis.</p>
+        <div id="tfa-alert" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px 14px;color:#CC0000;font-size:0.85rem;margin-bottom:14px"></div>
+        <input type="text" id="tfa-code" inputmode="numeric" maxlength="6" placeholder="• • • • • •"
+          style="width:100%;padding:14px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:1.6rem;font-weight:700;letter-spacing:12px;text-align:center;font-family:monospace;outline:none;transition:border 0.15s;margin-bottom:16px"
+          onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'"
+          oninput="this.value=this.value.replace(/\D/g,'')">
+        <button onclick="submitTwoFA()" id="tfa-btn" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.95rem;cursor:pointer;font-family:inherit">Verify</button>
+        <button onclick="closeTwoFA()" style="width:100%;padding:10px;background:none;border:none;color:#4A6080;font-size:0.85rem;cursor:pointer;margin-top:8px;font-family:inherit">← Back to login</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Forgot Password Modal ── -->
   <div id="fp-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center">

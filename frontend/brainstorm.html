@@ -18,10 +18,18 @@
     /* ── Layout ── */
     /* Slim the top-header on this page so more space goes to the document */
     :root { --header-h: 40px; }
+
+    /* Lock the entire page to the viewport — no outer scrollbar */
+    html, body { height: 100%; overflow: hidden; }
+
     .top-header { height: 40px; min-height: 40px; padding: 0 16px; }
     .top-header h1 { font-size: 1rem; }
 
-    .page-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; flex: 1; }
+    /* app-layout and main-content must also be bounded */
+    .app-layout   { height: 100%; min-height: unset; overflow: hidden; }
+    .main-content { height: 100%; overflow: hidden; }
+
+    .page-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
     .bs-layout {
       display: flex;
@@ -428,29 +436,85 @@
       border: none;
       border-radius: 12px 0 0 12px;
       cursor: pointer;
-      padding: 22px 10px;
+      padding: 14px 10px;
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       box-shadow: -3px 0 18px rgba(0,119,255,0.35);
       transition: background 0.15s, box-shadow 0.15s;
     }
     .chat-restore-btn.visible { display: flex; animation: slideInRight 0.3s cubic-bezier(0.4,0,0.2,1); }
     .chat-restore-btn:hover { background: var(--primary-dark); box-shadow: -4px 0 22px rgba(0,119,255,0.45); }
-    .chat-restore-btn svg { width: 18px; height: 18px; }
+    .chat-restore-btn svg { width: 20px; height: 20px; }
     .chat-restore-btn-label {
       writing-mode: vertical-rl;
       text-orientation: mixed;
       transform: rotate(180deg);
-      font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
+      opacity: 0.85;
     }
     @keyframes slideInRight {
       from { transform: translateX(100%) translateY(-50%); }
       to   { transform: translateX(0)    translateY(-50%); }
+    }
+
+    /* ── Greeting speech bubble (desktop: beside restore tab; mobile: beside FAB) ── */
+    .chat-greeting {
+      position: fixed;
+      /* Desktop default: left of the restore tab (fixed right:0, top:50%) */
+      right: 52px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 9300;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 34px 12px 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+      font-size: 0.84rem;
+      line-height: 1.5;
+      color: var(--text);
+      max-width: 220px;
+      display: none;
+      animation: greetSlideIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    /* Arrow pointing right → toward the restore tab */
+    .chat-greeting::before {
+      content: '';
+      position: absolute;
+      right: -11px; top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-top: 9px solid transparent;
+      border-bottom: 9px solid transparent;
+      border-left: 11px solid var(--border);
+    }
+    .chat-greeting::after {
+      content: '';
+      position: absolute;
+      right: -9px; top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 9px solid var(--bg-card);
+    }
+    .chat-greeting-close {
+      position: absolute;
+      top: 6px; right: 8px;
+      background: none; border: none;
+      font-size: 1rem; line-height: 1;
+      color: var(--text-muted);
+      cursor: pointer; padding: 0;
+    }
+    .chat-greeting-close:hover { color: var(--text); }
+    @keyframes greetSlideIn {
+      from { opacity: 0; transform: translateY(-50%) translateX(10px) scale(0.93); }
+      to   { opacity: 1; transform: translateY(-50%) translateX(0)     scale(1); }
     }
 
     .chat-messages {
@@ -634,6 +698,346 @@
       .msg-copy-btn { opacity: 1; }
     }
 
+    /* ── Message action buttons (Flashcards / Visual / Resources) ── */
+    .msg-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px 0 8px 40px; /* align with bubble (avatar width + gap) */
+    }
+    .msg-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 11px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .msg-action-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: rgba(79,70,229,0.05);
+    }
+    .msg-action-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* ── Flashcard component ── */
+    .flashcard-deck {
+      padding: 4px 0 10px 40px;
+    }
+    .flashcard-header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .flashcard-viewport {
+      position: relative;
+      width: 320px;
+      max-width: 100%;
+    }
+    .flashcard-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .flashcard-nav-btn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .flashcard-nav-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .flashcard-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .flashcard-counter {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      flex: 1;
+      text-align: center;
+    }
+    /* 3-D flip card */
+    .flashcard-scene {
+      width: 100%;
+      height: 130px;
+      perspective: 900px;
+    }
+    .flashcard {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.45s cubic-bezier(.4,0,.2,1);
+      cursor: pointer;
+    }
+    .flashcard.flipped { transform: rotateY(180deg); }
+    .flashcard-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .flashcard-front {
+      background: var(--bg-card);
+    }
+    .flashcard-back {
+      background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+      transform: rotateY(180deg);
+    }
+    .flashcard-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .flashcard-text {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .flashcard-back .flashcard-label { color: var(--primary); }
+    .flashcard-hint {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* ── Visual Explanation component ── */
+    .visual-card {
+      padding: 4px 0 10px 40px;
+    }
+    .visual-card-inner {
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      max-width: 380px;
+    }
+    .visual-card-title {
+      background: linear-gradient(135deg, var(--primary), #6366f1);
+      color: #fff;
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .visual-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .visual-section:last-child { border-bottom: none; }
+    .visual-section-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .visual-section-heading .v-icon {
+      font-size: 1rem;
+    }
+    .visual-section ul {
+      margin: 0; padding-left: 18px;
+    }
+    .visual-section li {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 3px;
+    }
+
+    /* ── Visual Explanation — input prompt ── */
+    .visual-prompt-row { padding: 4px 0 10px 40px; }
+    .visual-prompt-box {
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      max-width: 440px;
+      background: var(--bg-card);
+    }
+    .visual-prompt-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
+    .visual-prompt-hint { font-size: 0.78rem; color: var(--text-muted); margin: 0 0 10px; line-height: 1.5; }
+    .visual-prompt-input-row { display: flex; gap: 8px; align-items: center; }
+    .visual-prompt-input {
+      flex: 1; padding: 8px 12px; border-radius: 8px;
+      border: 1.5px solid var(--border); font-size: 0.82rem;
+      background: var(--bg); color: var(--text); outline: none;
+      transition: border-color 0.15s;
+    }
+    .visual-prompt-input:focus { border-color: var(--primary); }
+    .visual-prompt-btn {
+      padding: 8px 14px; border-radius: 8px; background: var(--primary); color: #fff;
+      font-size: 0.82rem; font-weight: 600; border: none; cursor: pointer; white-space: nowrap;
+    }
+    .visual-prompt-btn:hover { opacity: 0.9; }
+
+    /* ── Mermaid diagram container ── */
+    .visual-diagram-wrap {
+      padding: 16px 12px; background: #fff;
+      overflow-x: auto; text-align: center; min-height: 80px;
+    }
+    .visual-diagram-wrap svg { max-width: 100%; height: auto; }
+    .visual-desc {
+      font-size: 0.8rem; color: var(--text-muted);
+      padding: 8px 16px; margin: 0; border-top: 1px solid var(--border);
+      line-height: 1.5;
+    }
+    .visual-actions {
+      display: flex; gap: 8px; padding: 10px 16px;
+      border-top: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .visual-action-btn {
+      padding: 5px 12px; border-radius: 7px; font-size: 0.78rem;
+      font-weight: 600; border: 1.5px solid var(--border);
+      background: var(--bg-card); color: var(--text); cursor: pointer;
+      transition: background 0.15s;
+    }
+    .visual-action-btn:hover { background: var(--border); }
+
+    /* ── Learning Resources (YouTube) ── */
+    .resources-rack {
+      padding: 4px 0 10px 40px;
+    }
+    .resources-rack-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .resource-card {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 7px;
+      text-decoration: none;
+      color: var(--text);
+      background: var(--bg-card);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      max-width: 380px;
+    }
+    .resource-card:hover { border-color: #ef4444; box-shadow: 0 2px 8px rgba(239,68,68,0.1); }
+    .resource-thumb {
+      width: 72px; height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--border);
+    }
+    .resource-info { flex: 1; min-width: 0; }
+    .resource-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .resource-channel {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .resource-yt-icon {
+      color: #ef4444;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .resource-fallback-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      color: #ef4444;
+      font-weight: 700;
+      font-size: 0.82rem;
+      text-decoration: none;
+    }
+    .resource-fallback-link:hover { background: #fee2e2; }
+
+    /* Embedded YouTube player cards */
+    .resource-card-embed {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0;
+      overflow: hidden;
+      max-width: 360px;
+    }
+    .resource-card-embed .resource-info {
+      padding: 8px 10px 10px;
+    }
+    .resource-embed-preview {
+      position: relative;
+      cursor: pointer;
+      background: #000;
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .resource-embed-preview .resource-thumb {
+      width: 100%;
+      height: 180px;
+      border-radius: 0;
+      object-fit: cover;
+      display: block;
+      opacity: 0.85;
+      transition: opacity 0.15s;
+    }
+    .resource-embed-preview:hover .resource-thumb { opacity: 0.7; }
+    .resource-play-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 48px;
+      height: 48px;
+      background: #ef4444;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .resource-embed-preview:hover .resource-play-btn {
+      transform: translate(-50%, -50%) scale(1.1);
+      background: #dc2626;
+    }
+    .resource-embed-player { background: #000; border-radius: 0; }
+
     /* Typing */
     .typing-indicator { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
     .typing-indicator span {
@@ -674,6 +1078,123 @@
     .send-btn:hover:not(:disabled) { background: var(--primary-dark); }
     .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .send-btn svg { width: 18px; height: 18px; color: #fff; }
+
+    /* ── Voice input ── */
+    .mic-btn {
+      width: 44px; height: 44px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .mic-btn svg { width: 18px; height: 18px; }
+    .mic-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Recording state */
+    .mic-btn.recording {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .mic-btn.recording::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: calc(var(--radius-sm) + 4px);
+      border: 2px solid #ef4444;
+      opacity: 0;
+      animation: micPulse 1.2s ease-out infinite;
+    }
+    @keyframes micPulse {
+      0%   { inset: -2px; opacity: 0.7; }
+      100% { inset: -10px; opacity: 0; }
+    }
+
+    /* Transcribing state */
+    .mic-btn.transcribing {
+      background: #fffbeb;
+      border-color: #f59e0b;
+      color: #f59e0b;
+      animation: micSpin 1s linear infinite;
+    }
+    @keyframes micSpin {
+      from { border-top-color: #f59e0b; }
+      50%  { border-top-color: transparent; }
+      to   { border-top-color: #f59e0b; }
+    }
+
+    /* Voice status bar above input */
+    .voice-status-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 20px;
+      background: #fef2f2;
+      border-top: 1px solid #fecaca;
+      font-size: 0.8rem;
+      color: #b91c1c;
+      font-weight: 600;
+    }
+    .voice-status-bar.visible { display: flex; }
+    .voice-status-bar.transcribing {
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+    .voice-timer {
+      font-variant-numeric: tabular-nums;
+      min-width: 34px;
+    }
+    .voice-waveform {
+      display: flex; gap: 3px; align-items: center;
+    }
+    .voice-waveform span {
+      display: block;
+      width: 3px; border-radius: 3px;
+      background: #ef4444;
+      animation: waveAnim 0.7s ease-in-out infinite;
+    }
+    .voice-waveform span:nth-child(1) { height: 8px;  animation-delay: 0s;    }
+    .voice-waveform span:nth-child(2) { height: 14px; animation-delay: 0.12s; }
+    .voice-waveform span:nth-child(3) { height: 10px; animation-delay: 0.24s; }
+    .voice-waveform span:nth-child(4) { height: 16px; animation-delay: 0.08s; }
+    .voice-waveform span:nth-child(5) { height: 8px;  animation-delay: 0.2s;  }
+    @keyframes waveAnim {
+      0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+      50%       { transform: scaleY(1);   opacity: 1;   }
+    }
+    .voice-cancel-btn {
+      margin-left: auto;
+      background: none; border: none; cursor: pointer;
+      color: #ef4444; font-size: 0.78rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .voice-cancel-btn:hover { background: rgba(239,68,68,.1); }
+
+    /* ── TTS speaker button on assistant messages ── */
+    .msg-tts-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 4px 5px;
+      border-radius: 6px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      margin-top: 6px; opacity: 0;
+      transition: opacity 0.15s, background 0.15s, color 0.15s;
+    }
+    .msg.assistant:hover .msg-tts-btn { opacity: 1; }
+    .msg-tts-btn:hover { background: var(--border); color: var(--primary); }
+    .msg-tts-btn.speaking { color: var(--primary); opacity: 1; }
+    .msg-tts-btn svg { width: 15px; height: 15px; }
+    .tts-tooltip {
+      font-size: 0.6rem; font-weight: 600; white-space: nowrap;
+      color: inherit; letter-spacing: 0.02em;
+    }
+    @media (max-width: 768px) { .msg-tts-btn { opacity: 1; } }
 
     /* Resize bar */
     .resize-bar {
@@ -784,6 +1305,42 @@
     }
     .history-empty .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
 
+    .history-slot-count {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 1px;
+    }
+    .history-slot-count span {
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* Delete confirm inline */
+    .history-delete-confirm {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: #fef2f2;
+      border-top: 1px solid #fecaca;
+      font-size: 0.78rem;
+      color: #b91c1c;
+    }
+    .history-delete-confirm span { flex: 1; font-weight: 500; }
+    .history-delete-confirm button {
+      padding: 3px 10px;
+      border-radius: 5px;
+      border: none;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .history-delete-confirm .confirm-yes { background: #dc2626; color: #fff; }
+    .history-delete-confirm .confirm-yes:hover { background: #b91c1c; }
+    .history-delete-confirm .confirm-no  { background: var(--border); color: var(--text); }
+    .history-delete-confirm .confirm-no:hover { background: var(--text-muted); color: #fff; }
+
     /* History button in doc panel header */
     .history-btn {
       display: flex;
@@ -884,6 +1441,22 @@
     .timer-progress-bar.warning { background: #f59e0b; }
     .timer-progress-bar.done    { background: #16a34a; width: 100% !important; }
 
+    /* ── Chat panel timer badge (desktop — always visible in chat header) ── */
+    .chat-timer-badge {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(0,119,255,0.08);
+      border: 1px solid rgba(0,119,255,0.2);
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      cursor: default;
+    }
+    .chat-timer-badge.warning { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+    .chat-timer-badge.done    { background: rgba(22,163,74,0.1);  border-color: rgba(22,163,74,0.3);  color: #16a34a; }
+
     /* ── Notification bell in timer bar ── */
     .timer-notif-btn {
       position: relative;
@@ -965,6 +1538,49 @@
     .notif-drawer-empty {
       padding: 24px; text-align: center;
       font-size: 0.82rem; color: var(--text-muted);
+    }
+
+    /* ── Inline timer beside Sessions button ── */
+    .inline-timer {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(0,119,255,0.08);
+      border: 1px solid rgba(0,119,255,0.22);
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .inline-timer.warning { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #f59e0b; }
+    .inline-timer.done    { background: rgba(22,163,74,0.1);  border-color: rgba(22,163,74,0.3);  color: #16a34a; }
+
+    /* ── Floating timer (fixed, anchored to Sessions button area) ── */
+    .floating-timer {
+      position: fixed;
+      top: 72px;   /* just below top-header (64px) + small gap */
+      right: 12px;
+      z-index: 19999;
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px 3px 8px;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1.5px solid rgba(0,119,255,0.28);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      cursor: default;
+      user-select: none;
+    }
+    .floating-timer.warning { border-color: rgba(245,158,11,0.4); color: #f59e0b; }
+    .floating-timer.done    { border-color: rgba(22,163,74,0.4);  color: #16a34a; }
+    @media (max-width: 768px) {
+      .floating-timer { top: auto; bottom: 78px; right: 14px; }
     }
 
     /* ── Toast notifications (fixed top-right) ── */
@@ -1160,6 +1776,25 @@
       }
       .mobile-fab-badge.visible { display: flex; }
 
+      /* Mobile override: greeting sits left of FAB (bottom-right) */
+      .chat-greeting {
+        top: auto; right: 86px; bottom: 28px;
+        transform: none;
+        max-width: 200px;
+        animation: greetSlideInMobile 0.32s cubic-bezier(0.34,1.56,0.64,1) both;
+      }
+      .chat-greeting::before {
+        top: auto; bottom: 18px; right: -11px;
+        transform: none;
+      }
+      .chat-greeting::after {
+        top: auto; bottom: 19px; right: -9px;
+        transform: none;
+      }
+      @keyframes greetSlideInMobile {
+        from { opacity: 0; transform: translateX(10px) scale(0.93); }
+        to   { opacity: 1; transform: translateX(0)    scale(1); }
+      }
 
       /* Hide desktop-only elements */
       .chat-collapse-btn { display: none !important; }
@@ -1193,10 +1828,11 @@
     /* ── Session Setup Overlay ── */
     .session-setup-overlay {
       position: fixed;
-      inset: 0;
+      top: 0; right: 0; bottom: 0;
+      left: var(--sidebar-w);   /* sits only over the main content, not the sidebar */
       background: rgba(10, 15, 30, 0.72);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       z-index: 10000;
       display: flex;
       align-items: center;
@@ -1206,9 +1842,13 @@
       pointer-events: none;
       transition: opacity 0.22s ease;
     }
+    body.nav-collapsed .session-setup-overlay { left: 0; }
     .session-setup-overlay.visible {
       opacity: 1;
       pointer-events: all;
+    }
+    @media (max-width: 768px) {
+      .session-setup-overlay { left: 0; }
     }
     .session-setup-card {
       background: var(--bg-card);
@@ -1301,7 +1941,13 @@
       color: var(--text-muted);
       line-height: 1.3;
     }
-    /* Duration pills */
+    /* Duration picker */
+    .setup-duration-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .setup-duration-pills {
       display: flex;
       flex-wrap: wrap;
@@ -1367,6 +2013,428 @@
     }
     .setup-start-btn:hover { background: var(--primary-dark); }
     .setup-start-btn:active { transform: scale(0.99); }
+    /* ── Ask Your Friends modal ── */
+    .friends-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 15, 30, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 15000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .friends-modal.open { display: flex; animation: fadeIn 0.18s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .friends-modal-inner {
+      background: var(--bg-card);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 64px rgba(0,0,0,.22);
+      width: 100%;
+      max-width: 760px;
+      height: min(620px, 90vh);
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left panel: conversations + search */
+    .friends-list-panel {
+      width: 280px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .friends-modal-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    .friends-modal-head h2 {
+      flex: 1;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+    .friends-modal-close {
+      background: none; border: none;
+      cursor: pointer; color: var(--text-muted);
+      font-size: 1.2rem; line-height: 1;
+      padding: 2px 5px; border-radius: 5px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .friends-modal-close:hover { background: var(--border); color: var(--text); }
+
+    .friends-search-area {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .friends-search-row {
+      display: flex;
+      gap: 6px;
+    }
+    .friends-search-input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: var(--text);
+      background: var(--bg-card);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .friends-search-input:focus { border-color: var(--primary); }
+    .friends-search-btn {
+      padding: 7px 12px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .friends-search-btn:hover { background: var(--primary-dark); }
+    .friends-search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .friends-search-result {
+      margin-top: 8px;
+    }
+    .friends-user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .friends-user-card:hover { border-color: var(--primary); background: rgba(0,119,255,0.04); }
+    .friends-user-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.82rem; font-weight: 700;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .friends-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .friends-user-info { flex: 1; min-width: 0; }
+    .friends-user-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .friends-user-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .friends-start-btn {
+      padding: 5px 10px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .friends-start-btn:hover { background: var(--primary-dark); }
+
+    .friends-search-error {
+      font-size: 0.78rem; color: #dc2626;
+      margin-top: 6px; padding: 0 2px;
+    }
+
+    .friends-conv-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .friends-conv-section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 10px 14px 5px;
+    }
+    .friends-conv-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.13s;
+    }
+    .friends-conv-item:hover { background: rgba(0,119,255,0.05); }
+    .friends-conv-item.active { background: rgba(0,119,255,0.09); }
+    .friends-conv-avatar-wrap { position: relative; flex-shrink: 0; }
+    .friends-conv-online-dot {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 9px; height: 9px;
+      background: #16a34a;
+      border-radius: 50%;
+      border: 2px solid var(--bg-card);
+    }
+    .friends-conv-body { flex: 1; min-width: 0; }
+    .friends-conv-name { font-size: 0.84rem; font-weight: 700; color: var(--text); }
+    .friends-conv-preview {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .friends-conv-meta { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .friends-conv-time { font-size: 0.68rem; color: var(--text-muted); }
+    .friends-unread-badge {
+      background: var(--primary);
+      color: #fff;
+      min-width: 18px; height: 18px;
+      border-radius: 9px;
+      padding: 0 5px;
+      font-size: 0.62rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .friends-empty-state {
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+    .friends-empty-state .fe-icon { font-size: 2rem; margin-bottom: 10px; }
+
+    /* Right panel: active chat */
+    .friends-chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg);
+    }
+    .friends-chat-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    .friends-chat-back-btn {
+      background: none; border: none;
+      cursor: pointer; color: var(--text-muted);
+      font-size: 0.78rem; padding: 3px 6px;
+      border-radius: 5px; display: none;
+      transition: background 0.12s;
+    }
+    .friends-chat-back-btn:hover { background: var(--border); }
+    .friends-chat-user { flex: 1; min-width: 0; }
+    .friends-chat-user-name {
+      font-size: 0.88rem; font-weight: 700; color: var(--text);
+    }
+    .friends-chat-status-text {
+      font-size: 0.72rem; color: var(--text-muted);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .friends-chat-status-text .online-dot {
+      width: 7px; height: 7px;
+      background: #16a34a;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .friends-chat-status-text .offline-dot {
+      width: 7px; height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .friends-typing-indicator {
+      font-size: 0.72rem;
+      color: var(--primary);
+      font-style: italic;
+      display: none;
+    }
+    .friends-typing-indicator.visible { display: block; }
+
+    .friends-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .friends-no-chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--text-muted);
+      padding: 32px;
+      gap: 10px;
+    }
+    .friends-no-chat .fn-icon { font-size: 2.6rem; }
+    .friends-no-chat p { font-size: 0.84rem; line-height: 1.5; max-width: 260px; }
+
+    /* Chat message bubbles */
+    .friends-msg {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+    }
+    .friends-msg.me { flex-direction: row-reverse; }
+    .friends-msg-bubble {
+      max-width: 72%;
+      padding: 8px 12px;
+      border-radius: 14px;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+    .friends-msg.me   .friends-msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+    .friends-msg.them .friends-msg-bubble { background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .friends-msg-time {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      margin-bottom: 2px;
+    }
+    .friends-msg-date-sep {
+      text-align: center;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 4px 0;
+      letter-spacing: 0.04em;
+    }
+    .friends-msg.me .friends-msg-time { text-align: right; }
+    .friends-msg-read-tick {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .friends-chat-input-bar {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .friends-chat-input {
+      flex: 1;
+      resize: none;
+      min-height: 38px;
+      max-height: 100px;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.86rem;
+      line-height: 1.4;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .friends-chat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,119,255,0.1); }
+    .friends-send-btn {
+      width: 38px; height: 38px;
+      background: var(--primary);
+      border: none; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .friends-send-btn:hover:not(:disabled) { background: var(--primary-dark); }
+    .friends-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .friends-send-btn svg { width: 16px; height: 16px; color: #fff; }
+
+    /* Profile incomplete lock */
+    .friends-lock-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 24px;
+      gap: 14px;
+      color: var(--text-muted);
+    }
+    .friends-lock-icon { font-size: 2.4rem; }
+    .friends-lock-title { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .friends-lock-desc { font-size: 0.82rem; line-height: 1.5; max-width: 280px; }
+
+    /* Mobile: single panel, back button shows */
+    @media (max-width: 600px) {
+      .friends-modal { padding: 0; align-items: flex-end; }
+      .friends-modal-inner {
+        max-width: 100%;
+        border-radius: 18px 18px 0 0;
+        height: 88vh;
+        flex-direction: column;
+      }
+      .friends-list-panel {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .friends-list-panel.hidden { display: none; }
+      .friends-chat-panel.panel-active { display: flex; }
+      .friends-chat-back-btn { display: flex !important; }
+    }
+
+    /* "Ask Friends" button in panel head */
+    .ask-friends-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 9px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+      position: relative;
+    }
+    .ask-friends-btn:hover { border-color: #16a34a; color: #16a34a; background: rgba(22,163,74,0.05); }
+    .ask-friends-btn svg { width: 13px; height: 13px; }
+    .ask-friends-unread-dot {
+      position: absolute;
+      top: -3px; right: -3px;
+      width: 8px; height: 8px;
+      background: var(--danger);
+      border-radius: 50%;
+      border: 1.5px solid var(--bg-card);
+      display: none;
+    }
+    .ask-friends-unread-dot.visible { display: block; }
+
     /* ── PPTX text-card fallback ── */
     .pptx-slides { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
     .pptx-slide {
@@ -1432,6 +2500,13 @@
               <button class="setup-duration-pill"        data-secs="5400" onclick="setupPickDuration(5400)">1.5 hr</button>
               <button class="setup-duration-pill"        data-secs="7200" onclick="setupPickDuration(7200)">2 hr</button>
             </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+              <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">Custom:</span>
+              <input type="number" id="setup-custom-mins" min="1" max="480" placeholder="e.g. 20"
+                     class="form-control" style="width:100px;"
+                     oninput="setupPickCustomDuration(this.value)" />
+              <span style="font-size:0.82rem;color:var(--text-muted);">minutes</span>
+            </div>
           </div>
 
           <!-- Goal -->
@@ -1463,6 +2538,13 @@
 
           <!-- Mobile: backdrop + floating UrPadi button (hidden on desktop) -->
           <div class="mobile-chat-backdrop" id="mobile-chat-backdrop" onclick="toggleMobileChat()"></div>
+
+          <!-- Greeting bubble — shown beside chat toggle before chat is opened (desktop + mobile) -->
+          <div class="chat-greeting" id="chat-greeting">
+            <button class="chat-greeting-close" onclick="dismissGreeting()" aria-label="Dismiss">×</button>
+            <span id="chat-greeting-text">👋 Hey! I'm <strong>UrPadi</strong>, your study companion.<br><span style="color:var(--text-muted);font-size:0.78rem">Click to start chatting!</span></span>
+          </div>
+
           <button class="mobile-fab" id="mobile-fab" onclick="toggleMobileChat()" aria-label="Open UrPadi AI chat">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1487,11 +2569,30 @@
               <!-- Page counter — updated by PDF.js as user scrolls -->
               <span id="pdf-page-counter" style="display:none;font-size:0.78rem;font-weight:600;color:var(--primary);background:rgba(0,119,255,0.09);border:1px solid rgba(0,119,255,0.18);border-radius:20px;padding:1px 10px;white-space:nowrap;letter-spacing:0.02em"></span>
               <div style="display:flex;align-items:center;gap:8px">
+                <!-- Inline timer beside Sessions button -->
+                <div id="inline-timer" class="inline-timer" style="display:none" title="Study timer">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                    width="12" height="12">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span id="inline-timer-display">00:00</span>
+                </div>
                 <button class="history-btn" onclick="openHistory()" id="history-btn" title="View recent study sessions">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
-                  Sessions
+                  Recent Sessions
+                </button>
+                <button class="ask-friends-btn" id="ask-friends-btn" onclick="openFriendsModal()" title="Ask a friend">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 010 7.75"/>
+                  </svg>
+                  Ask Friends
+                  <span class="ask-friends-unread-dot" id="ask-friends-unread-dot"></span>
                 </button>
                 <div id="doc-controls"></div>
               </div>
@@ -1604,11 +2705,14 @@
               <div class="doc-viewer-scroll" id="doc-viewer-scroll"></div>
             </div>
 
-            <!-- History area (shown when History button clicked) -->
+            <!-- Recent Sessions panel -->
             <div class="doc-history-area" id="doc-history-area">
               <div class="history-toolbar">
                 <button class="btn btn-secondary btn-sm" onclick="closeHistory()">← Back</button>
-                <span class="history-toolbar-title">Recent Sessions</span>
+                <div style="flex:1;text-align:center">
+                  <div class="history-toolbar-title">Recent Sessions</div>
+                  <div class="history-slot-count" id="history-slot-count"></div>
+                </div>
                 <button class="btn btn-primary btn-sm" onclick="startNewSession()">+ New</button>
               </div>
               <div class="history-list" id="history-list">
@@ -1641,6 +2745,16 @@
                 </div>
                 <div class="model-powered-label" id="model-powered-label">powered by <strong>Groq</strong></div>
               </div>
+              <!-- Timer badge — always visible in chat header when running -->
+              <div class="chat-timer-badge" id="chat-timer-badge" style="display:none" title="Study timer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                  width="13" height="13">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span id="chat-timer-display">00:00</span>
+              </div>
+
               <div style="display:flex;align-items:center;gap:7px">
                 <!-- Model selector -->
                 <div class="model-selector-wrap" id="model-selector-wrap">
@@ -1678,11 +2792,38 @@
               </div>
             </div>
 
+            <!-- Voice recording status bar (shown while recording / transcribing) -->
+            <div class="voice-status-bar" id="voice-status-bar">
+              <div class="voice-waveform">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <span id="voice-status-text">Recording…</span>
+              <span class="voice-timer" id="voice-timer">0:00</span>
+              <button class="voice-cancel-btn" onclick="cancelVoice()">✕ Cancel</button>
+            </div>
+
             <div class="chat-input-bar">
               <textarea id="chat-input" rows="1"
                 placeholder="Upload a document to start chatting with UrPadi…"
                 disabled onkeydown="onInputKeydown(event)"
                 oninput="autoResize(this)"></textarea>
+              <!-- Mic button -->
+              <button class="mic-btn" id="mic-btn" onclick="toggleVoiceInput()" disabled
+                title="Hold to record voice message">
+                <!-- Idle mic icon -->
+                <svg id="mic-icon-idle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                  <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                <!-- Stop icon (shown while recording) -->
+                <svg id="mic-icon-stop" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                  fill="currentColor" style="display:none">
+                  <rect x="6" y="6" width="12" height="12" rx="2"/>
+                </svg>
+              </button>
               <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled title="Send (Enter)">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1697,14 +2838,104 @@
 
         <!-- Floating UrPadi restore button (visible by default — users open chat manually) -->
         <button class="chat-restore-btn visible" id="chat-restore-btn"
-          onclick="toggleChatPanel()" title="Open UrPadi">
-          <span style="font-size:1rem;font-weight:900;letter-spacing:-0.02em;line-height:1">UP</span>
+          onclick="toggleChatPanel()" title="Open UrPadi chat">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
           <span class="chat-restore-btn-label">UrPadi</span>
         </button>
       </main>
 
+      <!-- ── Floating timer pill (fixed beside Sessions area, always visible when running) ── -->
+      <div id="floating-timer" class="floating-timer" title="Study timer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          width="13" height="13">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span id="floating-timer-display">00:00</span>
+      </div>
+
       <!-- ── Study notification toasts (fixed, top-right) ── -->
       <div id="study-notif-toasts" class="study-notif-toasts"></div>
+    </div>
+  </div>
+
+  <!-- ── Ask Your Friends Modal ── -->
+  <div id="friends-modal" class="friends-modal" onclick="onFriendsModalBackdrop(event)">
+    <div class="friends-modal-inner">
+
+      <!-- Left: Conversations list + search -->
+      <div class="friends-list-panel" id="friends-list-panel">
+        <div class="friends-modal-head">
+          <h2>👥 Ask Your Friends</h2>
+          <button class="friends-modal-close" onclick="closeFriendsModal()" title="Close">×</button>
+        </div>
+
+        <!-- Search bar -->
+        <div class="friends-search-area">
+          <div class="friends-search-row">
+            <input type="text" id="friends-search-input" class="friends-search-input"
+              placeholder="Enter username to search…"
+              onkeydown="if(event.key==='Enter') searchFriend()"
+              maxlength="30">
+            <button class="friends-search-btn" id="friends-search-btn" onclick="searchFriend()">Find</button>
+          </div>
+          <div id="friends-search-result" class="friends-search-result"></div>
+        </div>
+
+        <!-- Conversations -->
+        <div class="friends-conv-list" id="friends-conv-list">
+          <div class="friends-empty-state">
+            <div class="fe-icon">💬</div>
+            <p>Search for a friend by username to start chatting</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Active chat -->
+      <div class="friends-chat-panel" id="friends-chat-panel">
+
+        <!-- No chat selected state -->
+        <div class="friends-no-chat" id="friends-no-chat">
+          <div class="fn-icon">👋</div>
+          <p>Select a conversation or search for a friend to start chatting</p>
+        </div>
+
+        <!-- Active chat (hidden until a conversation is opened) -->
+        <div id="friends-active-chat" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+          <div class="friends-chat-head">
+            <button class="friends-chat-back-btn" id="friends-chat-back-btn" onclick="backToFriendsList()">← Back</button>
+            <div class="friends-user-avatar" id="friends-chat-avatar" style="width:34px;height:34px;font-size:0.78rem;flex-shrink:0"></div>
+            <div class="friends-chat-user">
+              <div class="friends-chat-user-name" id="friends-chat-user-name">—</div>
+              <div class="friends-chat-status-text" id="friends-chat-status-text">
+                <span class="offline-dot" id="friends-status-dot"></span>
+                <span id="friends-status-label">Offline</span>
+              </div>
+            </div>
+            <div class="friends-typing-indicator" id="friends-typing-indicator">typing…</div>
+          </div>
+
+          <div class="friends-chat-messages" id="friends-chat-messages"></div>
+
+          <div class="friends-chat-input-bar">
+            <textarea class="friends-chat-input" id="friends-chat-input"
+              rows="1" placeholder="Type a message… (Enter to send)"
+              onkeydown="onFriendsChatKey(event)"
+              oninput="autoResizeFriendsInput(this);sendFriendsTyping()"></textarea>
+            <button class="friends-send-btn" id="friends-send-btn" onclick="sendFriendMessage()">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
@@ -1712,6 +2943,9 @@
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <!-- jsPDF for client-side summary PDF generation -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <!-- Mermaid.js for visual diagram rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });</script>
   <script type="module" src="js/brainstorm.js"></script>
 </body>
 </html>

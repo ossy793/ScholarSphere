@@ -25,6 +25,23 @@ def create_access_token(user_id: str) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
 
+def create_pre_auth_token(user_id: str) -> str:
+    """Short-lived token issued after password check when 2FA is required."""
+    expire = datetime.utcnow() + timedelta(minutes=5)
+    payload = {"sub": user_id, "exp": expire, "type": "2fa_pending"}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+
+def decode_pre_auth_token(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("type") != "2fa_pending":
+            return None
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+
 def decode_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
@@ -47,10 +64,16 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    # Auto-expire promo premium if 5-week window has passed
-    if user.promo_expires_at and user.is_premium and datetime.now(timezone.utc) > user.promo_expires_at:
-        user.is_premium       = False
-        user.promo_expires_at = None
+
+    # Auto-downgrade expired paid subscriptions to free
+    if (
+        user.subscription_plan in ("basic", "pro")
+        and user.subscription_expiry is not None
+        and datetime.utcnow() > user.subscription_expiry
+    ):
+        user.subscription_plan   = "free"
+        user.subscription_expiry = None
+        user.subscription_start  = None
         db.commit()
 
     if not user.is_active:

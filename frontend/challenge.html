@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Challenge Friends – Pritis</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    /* ── Screens ── */
+    .ch-screen { display: none; flex-direction: column; }
+    .ch-screen.active { display: flex; }
+
+    /* ── Landing ── */
+    .ch-landing {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 24px; padding: 60px 24px; text-align: center;
+      flex: 1;
+    }
+    .ch-landing-icon {
+      width: 80px; height: 80px; border-radius: 24px;
+      background: linear-gradient(135deg, #0077ff, #005acc);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; box-shadow: 0 8px 32px rgba(0,119,255,.3);
+    }
+    .ch-landing h2 { font-size: 1.6rem; font-weight: 800; margin: 0; }
+    .ch-landing p  { color: var(--text-muted); font-size: .95rem; max-width: 400px; margin: 0; }
+    .ch-btn-row    { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .ch-big-btn {
+      padding: 14px 32px; border-radius: 12px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; border: 2px solid transparent; transition: all .15s;
+    }
+    .ch-big-btn.primary { background: var(--primary); color: #fff; }
+    .ch-big-btn.primary:hover { background: #005fcc; }
+    .ch-big-btn.outline { background: none; border-color: var(--border); color: var(--text); }
+    .ch-big-btn.outline:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── Cards ── */
+    .ch-card {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 16px; padding: 28px; max-width: 520px; width: 100%; margin: 0 auto;
+    }
+    .ch-card h3 { font-size: 1.1rem; font-weight: 800; margin: 0 0 20px; }
+
+    /* ── Form helpers ── */
+    .ch-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .ch-label { font-size: .8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+    .ch-input {
+      padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: .9rem; font-family: inherit;
+      outline: none; transition: border-color .15s;
+    }
+    .ch-input:focus { border-color: var(--primary); }
+    .ch-select {
+      padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: .9rem; font-family: inherit;
+      cursor: pointer; outline: none;
+    }
+    .ch-btn {
+      padding: 11px 24px; border-radius: 10px; font-size: .9rem; font-weight: 700;
+      cursor: pointer; border: 1.5px solid transparent; transition: all .15s; font-family: inherit;
+    }
+    .ch-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .ch-btn.primary:hover { background: #005fcc; }
+    .ch-btn.outline { background: none; border-color: var(--border); color: var(--text); }
+    .ch-btn.outline:hover { border-color: var(--primary); color: var(--primary); }
+    .ch-btn.danger  { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .ch-btn:disabled { opacity: .5; cursor: default; }
+    .ch-btn-row2 { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+
+    /* ── Challenge code display ── */
+    .ch-code-box {
+      background: linear-gradient(135deg, rgba(0,119,255,.08), rgba(0,119,255,.04));
+      border: 2px dashed rgba(0,119,255,.3); border-radius: 14px;
+      padding: 20px; text-align: center; margin-bottom: 20px;
+    }
+    .ch-code-lbl { font-size: .75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+    .ch-code-val {
+      font-size: 2.8rem; font-weight: 900; letter-spacing: .2em;
+      color: var(--primary); font-family: monospace; margin: 8px 0 4px;
+    }
+    .ch-code-copy { font-size: .78rem; color: var(--text-muted); cursor: pointer; }
+    .ch-code-copy:hover { color: var(--primary); }
+
+    /* ── Waiting room ── */
+    .ch-waiting-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .ch-waiting-title { font-size: .85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+    .ch-participant-count { font-size: .8rem; color: var(--text-muted); }
+    .ch-participant-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; min-height: 60px; }
+    .ch-participant-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      animation: ch-slide-in .2s ease;
+    }
+    @keyframes ch-slide-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    .ch-p-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, #0077ff, #005acc);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: .85rem; flex-shrink: 0;
+    }
+    .ch-p-name  { font-size: .88rem; font-weight: 600; flex: 1; }
+    .ch-p-badge { font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+    .ch-p-badge.host { background: rgba(0,119,255,.1); color: var(--primary); }
+    .ch-p-badge.you  { background: rgba(34,197,94,.1);  color: #16a34a; }
+
+    /* ── Question screen ── */
+    .ch-quiz-wrap {
+      max-width: 680px; width: 100%; margin: 0 auto; padding: 24px;
+      display: flex; flex-direction: column; gap: 18px; flex: 1;
+    }
+    .ch-progress-bar-wrap {
+      background: var(--border); border-radius: 99px; height: 6px; overflow: hidden;
+    }
+    .ch-progress-bar {
+      height: 100%; background: var(--primary); border-radius: 99px;
+      transition: width .3s ease;
+    }
+    .ch-q-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: .8rem; color: var(--text-muted);
+    }
+    .ch-timer {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 1.1rem; font-weight: 800; color: var(--primary);
+    }
+    .ch-timer.danger { color: #ef4444; }
+    .ch-timer svg { animation: ch-pulse 1s infinite; }
+    @keyframes ch-pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    .ch-question-text {
+      font-size: 1.1rem; font-weight: 700; line-height: 1.5;
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 20px 22px;
+    }
+    .ch-options { display: flex; flex-direction: column; gap: 10px; }
+    .ch-option {
+      padding: 13px 18px; border-radius: 12px; border: 2px solid var(--border);
+      background: var(--bg-card); cursor: pointer; font-size: .9rem; font-weight: 500;
+      transition: all .12s; text-align: left; font-family: inherit; color: var(--text);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .ch-option:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: rgba(0,119,255,.04); }
+    .ch-option.selected  { border-color: var(--primary); background: rgba(0,119,255,.1); color: var(--primary); }
+    .ch-option.correct   { border-color: #22c55e; background: rgba(34,197,94,.1); color: #16a34a; }
+    .ch-option.wrong     { border-color: #ef4444; background: rgba(239,68,68,.1);  color: #ef4444; }
+    .ch-option:disabled  { cursor: default; }
+    .ch-option-letter {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(0,119,255,.08); display: flex; align-items: center;
+      justify-content: center; font-size: .78rem; font-weight: 800; color: var(--primary);
+    }
+
+    /* short answer input */
+    .ch-short-input {
+      padding: 12px 16px; border-radius: 12px; border: 2px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: .9rem; font-family: inherit;
+      outline: none; width: 100%; box-sizing: border-box; transition: border-color .15s;
+    }
+    .ch-short-input:focus { border-color: var(--primary); }
+
+    /* feedback pill */
+    .ch-feedback {
+      padding: 10px 16px; border-radius: 10px; font-size: .88rem; font-weight: 600;
+      text-align: center; display: none;
+    }
+    .ch-feedback.correct { background: rgba(34,197,94,.12); color: #16a34a; display: block; }
+    .ch-feedback.wrong   { background: rgba(239,68,68,.12);  color: #ef4444;  display: block; }
+
+    /* score bar */
+    .ch-score-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 10px 16px; font-size: .85rem;
+    }
+    .ch-score-val { font-size: 1.1rem; font-weight: 800; color: var(--primary); }
+
+    /* ── Leaderboard screen ── */
+    .ch-lb-wrap { max-width: 560px; width: 100%; margin: 0 auto; padding: 24px; }
+    .ch-lb-title { font-size: 1.4rem; font-weight: 900; text-align: center; margin-bottom: 6px; }
+    .ch-lb-subtitle { text-align: center; color: var(--text-muted); font-size: .88rem; margin-bottom: 24px; }
+    .ch-lb-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .ch-lb-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 16px; border-radius: 12px;
+      background: var(--bg-card); border: 1.5px solid var(--border);
+    }
+    .ch-lb-item.top1 { border-color: #f59e0b; background: rgba(245,158,11,.06); }
+    .ch-lb-item.top2 { border-color: #94a3b8; background: rgba(148,163,184,.06); }
+    .ch-lb-item.top3 { border-color: #b45309; background: rgba(180,83,9,.06); }
+    .ch-lb-item.you  { border-color: var(--primary); background: rgba(0,119,255,.06); }
+    .ch-lb-rank { font-size: 1.1rem; font-weight: 900; width: 28px; text-align: center; flex-shrink: 0; }
+    .ch-lb-av {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#0077ff,#005acc);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: .9rem;
+    }
+    .ch-lb-name  { flex: 1; font-weight: 600; font-size: .9rem; }
+    .ch-lb-score { font-size: 1rem; font-weight: 800; color: var(--primary); }
+
+    /* your result card */
+    .ch-your-result {
+      background: rgba(0,119,255,.06); border: 2px solid rgba(0,119,255,.2);
+      border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px;
+    }
+    .ch-yr-rank  { font-size: 2.4rem; font-weight: 900; color: var(--primary); }
+    .ch-yr-score { font-size: 1.1rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Live scores sidebar (during quiz, host only) ── */
+    .ch-live-scores {
+      position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 14px; width: 200px; max-height: 70vh;
+      overflow-y: auto; z-index: 100; box-shadow: 0 4px 24px rgba(0,0,0,.1);
+    }
+    .ch-ls-title { font-size: .72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-muted); margin-bottom: 10px; }
+    .ch-ls-item { display: flex; align-items: center; gap: 8px; padding: 5px 0;
+      border-bottom: 1px solid var(--border); }
+    .ch-ls-item:last-child { border: none; }
+    .ch-ls-av {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: var(--primary); display: flex; align-items: center;
+      justify-content: center; color: #fff; font-size: .66rem; font-weight: 700;
+    }
+    .ch-ls-name  { flex: 1; font-size: .78rem; font-weight: 600; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .ch-ls-score { font-size: .78rem; font-weight: 800; color: var(--primary); }
+
+    /* ── Toast ── */
+    .ch-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff; padding: 10px 22px; border-radius: 10px;
+      font-size: .85rem; font-weight: 600; z-index: 999; pointer-events: none;
+      opacity: 0; transition: opacity .2s;
+    }
+    .ch-toast.show { opacity: 1; }
+
+    /* ── Connecting ── */
+    .ch-connecting {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .82rem; color: var(--text-muted); padding: 8px 0;
+    }
+    .ch-dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;
+      animation: ch-blink 1.2s infinite; }
+    .ch-dot:nth-child(2) { animation-delay: .2s; }
+    .ch-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes ch-blink { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+    /* ── Recent challenges ── */
+    .ch-recent { max-width: 600px; width: 100%; margin: 0 auto; padding: 0 24px 32px; }
+    .ch-recent-title { font-size: .8rem; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+    .ch-recent-list { display: flex; flex-direction: column; gap: 8px; }
+    .ch-recent-item {
+      display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+      border-radius: 12px; background: var(--bg-card); border: 1.5px solid var(--border);
+      cursor: pointer; transition: border-color .12s;
+    }
+    .ch-recent-item:hover { border-color: var(--primary); }
+    .ch-ri-info { flex: 1; min-width: 0; }
+    .ch-ri-title { font-size: .88rem; font-weight: 600; }
+    .ch-ri-sub   { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+    .ch-status-pill { padding: 3px 10px; border-radius: 20px; font-size: .68rem; font-weight: 700; }
+    .ch-status-waiting   { background: #fef3c7; color: #b45309; }
+    .ch-status-active    { background: #dcfce7; color: #166534; }
+    .ch-status-completed { background: var(--bg); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="ch-toast" id="ch-toast"></div>
+
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Challenge Friends</h1>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="badge badge-primary" id="user-badge" style="display:none">PREMIUM</span>
+          <div class="user-badge">
+            <span id="user-name"></span>
+            <div class="avatar" id="user-avatar"></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="page-body" style="display:flex;flex-direction:column;gap:0;padding:0">
+
+        <!-- ══ SCREEN: Landing ══ -->
+        <div class="ch-screen active" id="screen-landing">
+          <div class="ch-landing">
+            <div class="ch-landing-icon">⚔️</div>
+            <h2>Challenge Friends</h2>
+            <p>Host a live quiz battle, share a code, and compete with friends in real-time.</p>
+            <div class="ch-btn-row">
+              <button class="ch-big-btn primary" onclick="showHostCreate()">🏆 Host a Challenge</button>
+              <button class="ch-big-btn outline" onclick="showJoin()">🔑 Join a Challenge</button>
+            </div>
+          </div>
+          <div class="ch-recent" id="ch-recent-section" style="display:none">
+            <div class="ch-recent-title">Recent Challenges</div>
+            <div class="ch-recent-list" id="ch-recent-list"></div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Host Create ══ -->
+        <div class="ch-screen" id="screen-host-create" style="padding:24px">
+          <div class="ch-card">
+            <h3>🏆 Host a Challenge</h3>
+            <div class="ch-field">
+              <span class="ch-label">Select Quiz</span>
+              <select class="ch-select" id="host-quiz-select">
+                <option value="">Loading your quizzes…</option>
+              </select>
+            </div>
+            <div class="ch-field">
+              <span class="ch-label">Timer Mode</span>
+              <select class="ch-select" id="host-timer-mode">
+                <option value="per_question">Per Question (recommended)</option>
+                <option value="full_quiz">Full Quiz Timer</option>
+              </select>
+            </div>
+            <div class="ch-field">
+              <span class="ch-label">Seconds Per Question</span>
+              <input type="number" class="ch-input" id="host-duration" value="30" min="10" max="300">
+            </div>
+            <div class="ch-field">
+              <span class="ch-label">Max Participants (optional)</span>
+              <input type="number" class="ch-input" id="host-max-p" placeholder="Leave blank for unlimited" min="2">
+            </div>
+            <div class="ch-btn-row2">
+              <button class="ch-btn outline" onclick="showLanding()">Cancel</button>
+              <button class="ch-btn primary" id="host-create-btn" onclick="createChallenge()">Create Challenge</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Join ══ -->
+        <div class="ch-screen" id="screen-join" style="padding:24px">
+          <div class="ch-card">
+            <h3>🔑 Join a Challenge</h3>
+            <div class="ch-field">
+              <span class="ch-label">Challenge Code</span>
+              <input type="text" class="ch-input" id="join-code-input"
+                placeholder="Enter 6-character code" maxlength="6"
+                style="text-transform:uppercase;font-size:1.4rem;font-weight:900;letter-spacing:.15em;text-align:center"
+                oninput="this.value=this.value.toUpperCase()">
+            </div>
+            <div class="ch-btn-row2">
+              <button class="ch-btn outline" onclick="showLanding()">Cancel</button>
+              <button class="ch-btn primary" id="join-btn" onclick="joinChallenge()">Join</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Waiting Room ══ -->
+        <div class="ch-screen" id="screen-waiting" style="padding:24px">
+          <div class="ch-card" style="max-width:540px">
+            <div id="wr-code-section"><!-- code box for host --></div>
+            <div id="wr-quiz-info" style="margin-bottom:16px;font-size:.88rem;color:var(--text-muted)"></div>
+            <div class="ch-waiting-header">
+              <span class="ch-waiting-title">Participants</span>
+              <span class="ch-participant-count" id="wr-p-count">0 joined</span>
+            </div>
+            <div class="ch-participant-list" id="wr-participants">
+              <div style="font-size:.82rem;color:var(--text-muted);text-align:center;padding:16px">
+                Waiting for participants…
+              </div>
+            </div>
+            <div class="ch-connecting" id="wr-ws-status">
+              <span class="ch-dot"></span><span class="ch-dot"></span><span class="ch-dot"></span>
+              <span>Connecting…</span>
+            </div>
+            <div id="wr-host-actions" style="display:none;margin-top:4px">
+              <button class="ch-btn primary" style="width:100%" id="wr-start-btn" onclick="startChallenge()">
+                ▶ Start Challenge
+              </button>
+            </div>
+            <div id="wr-participant-msg" style="display:none;margin-top:8px;text-align:center;font-size:.88rem;color:var(--text-muted)">
+              Waiting for the host to start…
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Quiz ══ -->
+        <div class="ch-screen" id="screen-quiz">
+          <!-- Live scores sidebar (host only) -->
+          <div class="ch-live-scores" id="ch-live-scores" style="display:none">
+            <div class="ch-ls-title">Live Scores</div>
+            <div id="ch-ls-list"></div>
+          </div>
+
+          <div class="ch-quiz-wrap">
+            <!-- Progress -->
+            <div>
+              <div class="ch-q-meta">
+                <span id="q-counter">Question 1 / 10</span>
+                <div class="ch-timer" id="q-timer">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span id="q-timer-val">30</span>s
+                </div>
+              </div>
+              <div class="ch-progress-bar-wrap" style="margin-top:8px">
+                <div class="ch-progress-bar" id="q-progress" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Score bar -->
+            <div class="ch-score-bar">
+              <span style="font-size:.82rem;color:var(--text-muted)">Your score</span>
+              <span class="ch-score-val" id="q-my-score">0</span>
+            </div>
+
+            <!-- Question -->
+            <div class="ch-question-text" id="q-text">Loading question…</div>
+
+            <!-- Options -->
+            <div class="ch-options" id="q-options"></div>
+
+            <!-- Feedback -->
+            <div class="ch-feedback" id="q-feedback"></div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Leaderboard ══ -->
+        <div class="ch-screen" id="screen-leaderboard">
+          <div class="ch-lb-wrap">
+            <div class="ch-lb-title">🏆 Challenge Ended!</div>
+            <div class="ch-lb-subtitle" id="lb-subtitle"></div>
+
+            <!-- Participant: your result -->
+            <div class="ch-your-result" id="lb-your-result" style="display:none">
+              <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:4px">Your Rank</div>
+              <div class="ch-yr-rank" id="lb-your-rank">#1</div>
+              <div class="ch-yr-score" id="lb-your-score">0 points</div>
+            </div>
+
+            <div id="lb-section-title" style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px"></div>
+            <div class="ch-lb-list" id="lb-list"></div>
+
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+              <button class="ch-btn primary" onclick="showLanding()">New Challenge</button>
+              <button class="ch-btn outline" onclick="reloadChallenge()">View Full Results</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.page-body -->
+    </div><!-- /.main-content -->
+  </div><!-- /.app-layout -->
+
+  <script type="module" src="js/challenge.js"></script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings – Pritis</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    /* ── Settings layout ── */
+    .settings-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* Setup banner (shown when profile incomplete) */
+    .profile-setup-banner {
+      display: none;
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border: 1.5px solid #f59e0b;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-size: 0.88rem;
+      color: #92400e;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .profile-setup-banner.visible { display: flex; align-items: flex-start; gap: 12px; }
+    .profile-setup-banner .banner-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+    /* Completion progress */
+    .profile-progress-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .profile-progress-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .profile-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #6366f1);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+    .profile-progress-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+    .profile-progress-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Card */
+    .settings-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .settings-card-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-card-body { padding: 20px; }
+
+    /* Avatar upload */
+    .avatar-upload-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 8px;
+    }
+    .avatar-preview {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; font-weight: 700; color: #fff;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 2px solid var(--border);
+    }
+    .avatar-preview img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .avatar-upload-btns { display: flex; flex-direction: column; gap: 8px; }
+    .avatar-upload-btn {
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .avatar-upload-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .avatar-hint { font-size: 0.73rem; color: var(--text-muted); }
+
+    /* Form grid */
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 520px) {
+      .form-row-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Required asterisk */
+    .req { color: #ef4444; margin-left: 2px; }
+
+    /* Field states */
+    .form-control.valid   { border-color: #16a34a; }
+    .form-control.invalid { border-color: #ef4444; }
+    .field-error { font-size: 0.73rem; color: #ef4444; margin-top: 4px; }
+    .field-ok    { font-size: 0.73rem; color: #16a34a; margin-top: 4px; }
+
+    /* Username check indicator */
+    .username-status { display: flex; align-items: center; gap: 5px; }
+
+    /* Save button */
+    .save-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 8px;
+    }
+    .save-btn:hover:not(:disabled) { background: var(--primary-dark); }
+    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Toast */
+    .settings-toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff;
+      padding: 10px 22px; border-radius: 10px;
+      font-size: 0.86rem; font-weight: 600;
+      z-index: 9999; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+      white-space: nowrap;
+    }
+    .settings-toast.visible { opacity: 1; }
+    .settings-toast.success { background: #16a34a; }
+    .settings-toast.error   { background: #dc2626; }
+
+    /* Completion badge */
+    .completed-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      background: #dcfce7; color: #16a34a;
+      font-size: 0.78rem; font-weight: 700;
+      border: 1px solid #bbf7d0;
+    }
+    .incomplete-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      background: #fef3c7; color: #92400e;
+      font-size: 0.78rem; font-weight: 700;
+      border: 1px solid #fde68a;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main-content">
+      <header class="top-header">
+        <h1 id="page-title">Settings</h1>
+        <div class="user-badge">
+          <span id="user-name"></span>
+          <div class="avatar" id="user-avatar"></div>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <div class="settings-wrap">
+
+          <!-- Setup banner (visible when profile incomplete) -->
+          <div class="profile-setup-banner" id="setup-banner">
+            <span class="banner-icon">⚠️</span>
+            <div>
+              <strong>Please complete your profile to continue using the platform.</strong><br>
+              Fill in all required fields below and click Save to unlock all features.
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:0.82rem;font-weight:700;color:var(--text)">Profile Completion</span>
+              <span id="profile-badge"></span>
+            </div>
+            <div class="profile-progress-bar-wrap">
+              <div class="profile-progress-bar" id="profile-progress-bar" style="width:0%"></div>
+            </div>
+            <div class="profile-progress-status" id="profile-progress-status"></div>
+          </div>
+
+          <!-- ── Profile Card ── -->
+          <div class="settings-card">
+            <div class="settings-card-head">
+              👤 Profile Information
+            </div>
+            <div class="settings-card-body">
+
+              <!-- Avatar -->
+              <div class="avatar-upload-row">
+                <div class="avatar-preview" id="avatar-preview">
+                  <span id="avatar-initials">?</span>
+                </div>
+                <div class="avatar-upload-btns">
+                  <button class="avatar-upload-btn" onclick="document.getElementById('avatar-file').click()">
+                    📷 Upload Photo
+                  </button>
+                  <button class="avatar-upload-btn" id="avatar-remove-btn"
+                    onclick="removeAvatar()" style="display:none;color:#ef4444;border-color:#fecaca">
+                    🗑 Remove Photo
+                  </button>
+                  <span class="avatar-hint">JPG or PNG · Max 2 MB · Square recommended</span>
+                </div>
+                <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp"
+                  style="display:none" onchange="onAvatarSelected(event)">
+              </div>
+
+              <div style="margin-bottom:20px;border-top:1px solid var(--border);padding-top:20px">
+
+                <!-- Full Name + Username -->
+                <div class="form-row-2" style="margin-bottom:14px">
+                  <div>
+                    <label class="form-label">Full Name <span class="req">*</span></label>
+                    <input type="text" id="f-fullname" class="form-control"
+                      placeholder="e.g. Chukwuemeka Obi" maxlength="100"
+                      oninput="onFieldChange()">
+                    <div class="field-error" id="err-fullname"></div>
+                  </div>
+                  <div>
+                    <label class="form-label">Username <span class="req">*</span></label>
+                    <input type="text" id="f-username" class="form-control"
+                      placeholder="e.g. chukwu_obi" maxlength="30"
+                      oninput="onUsernameInput()">
+                    <div id="err-username" class="field-error"></div>
+                  </div>
+                </div>
+
+                <!-- School -->
+                <div style="margin-bottom:14px">
+                  <label class="form-label">School / University <span class="req">*</span></label>
+                  <select id="f-school" class="form-control" onchange="onFieldChange()">
+                    <option value="">— Select your institution —</option>
+                  </select>
+                  <div class="field-error" id="err-school"></div>
+                </div>
+
+                <!-- Level + Course -->
+                <div class="form-row-2" style="margin-bottom:14px">
+                  <div>
+                    <label class="form-label">Level / Year <span class="req">*</span></label>
+                    <select id="f-level" class="form-control" onchange="onFieldChange()">
+                      <option value="">— Select level —</option>
+                      <option>100L</option>
+                      <option>200L</option>
+                      <option>300L</option>
+                      <option>400L</option>
+                      <option>500L</option>
+                      <option>600L</option>
+                      <option>HND 1</option>
+                      <option>HND 2</option>
+                      <option>ND 1</option>
+                      <option>ND 2</option>
+                      <option>Masters</option>
+                      <option>PhD</option>
+                      <option>Postgraduate</option>
+                    </select>
+                    <div class="field-error" id="err-level"></div>
+                  </div>
+                  <div>
+                    <label class="form-label">Course / Programme <span class="req">*</span></label>
+                    <input type="text" id="f-course" class="form-control"
+                      placeholder="e.g. Computer Science" maxlength="150"
+                      oninput="onFieldChange()">
+                    <div class="field-error" id="err-course"></div>
+                  </div>
+                </div>
+
+              </div>
+
+              <button class="save-btn" id="save-btn" onclick="saveProfile()" disabled>
+                Save Profile
+              </button>
+              <div id="save-status" style="text-align:center;font-size:0.8rem;margin-top:8px;color:var(--text-muted)"></div>
+
+            </div>
+          </div>
+
+          <!-- Two-Factor Authentication -->
+          <div class="settings-card" id="tfa-card">
+            <div class="settings-card-head">🔐 Two-Factor Authentication</div>
+            <div class="settings-card-body">
+              <div id="tfa-status-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                  <div style="font-weight:600;font-size:0.9rem" id="tfa-status-text">Loading…</div>
+                  <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">Google Authenticator app required</div>
+                </div>
+                <span id="tfa-badge" style="font-size:0.72rem;font-weight:700;padding:4px 10px;border-radius:999px"></span>
+              </div>
+              <div id="tfa-disabled-ui">
+                <p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:14px">
+                  Add an extra layer of security. Each login will require a code from your authenticator app.
+                </p>
+                <button class="save-btn" style="margin-top:0" onclick="startTwoFASetup()">Enable 2FA</button>
+              </div>
+              <div id="tfa-enabled-ui" style="display:none">
+                <p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:14px">
+                  2FA is active. You'll need your authenticator app each time you sign in.
+                </p>
+                <button onclick="showDisableTwoFA()" style="width:100%;padding:11px;border-radius:var(--radius-sm);border:1.5px solid #ef4444;background:none;color:#ef4444;font-size:0.88rem;font-weight:600;cursor:pointer">Disable 2FA</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Account info (read-only) -->
+          <div class="settings-card">
+            <div class="settings-card-head">🔒 Account</div>
+            <div class="settings-card-body">
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.88rem">
+                  <span style="color:var(--text-muted)">Email</span>
+                  <strong id="acct-email">—</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.88rem">
+                  <span style="color:var(--text-muted)">Account type</span>
+                  <strong id="acct-type">—</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.88rem">
+                  <span style="color:var(--text-muted)">Member since</span>
+                  <strong id="acct-since">—</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-toast" id="settings-toast"></div>
+
+  <!-- 2FA Setup Modal -->
+  <div id="tfa-setup-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+      <div style="background:linear-gradient(135deg,#0077FF,#0044CC);padding:22px 24px;display:flex;align-items:center;justify-content:space-between">
+        <span style="color:#fff;font-weight:800;font-size:1rem">Set Up Two-Factor Auth</span>
+        <button onclick="closeTFASetup()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center">&times;</button>
+      </div>
+      <div style="padding:24px">
+        <!-- Step 1: Scan QR -->
+        <div id="tfa-step1">
+          <p style="font-size:0.85rem;color:#4A6080;margin:0 0 16px">1. Open <strong>Google Authenticator</strong>, tap <strong>+</strong>, and scan this QR code:</p>
+          <div id="tfa-qr" style="display:flex;justify-content:center;margin-bottom:12px"></div>
+          <p style="font-size:0.75rem;color:#94a3b8;text-align:center;margin-bottom:4px">Can't scan? Enter this code manually:</p>
+          <div id="tfa-secret-text" style="font-family:monospace;font-size:0.82rem;text-align:center;background:#f0f6ff;padding:8px;border-radius:6px;letter-spacing:2px;word-break:break-all;margin-bottom:20px"></div>
+          <p style="font-size:0.85rem;color:#4A6080;margin:0 0 10px">2. Enter the 6-digit code shown in the app:</p>
+          <div id="tfa-setup-alert" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px;color:#CC0000;font-size:0.83rem;margin-bottom:10px"></div>
+          <input type="text" id="tfa-setup-code" inputmode="numeric" maxlength="6" placeholder="• • • • • •"
+            style="width:100%;padding:13px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:1.5rem;font-weight:700;letter-spacing:12px;text-align:center;font-family:monospace;outline:none;transition:border 0.15s;margin-bottom:14px"
+            onfocus="this.style.borderColor='#0077FF'" onblur="this.style.borderColor='#D6E4F7'"
+            oninput="this.value=this.value.replace(/\D/g,'')">
+          <button onclick="confirmTwoFASetup()" id="tfa-confirm-btn" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.93rem;cursor:pointer;font-family:inherit">Confirm &amp; Enable</button>
+        </div>
+        <!-- Step 2: Success -->
+        <div id="tfa-step2" style="display:none;text-align:center;padding:12px 0">
+          <div style="font-size:3rem;margin-bottom:12px">✅</div>
+          <h3 style="margin:0 0 8px;color:#0A1628">2FA Enabled!</h3>
+          <p style="color:#4A6080;font-size:0.875rem;margin-bottom:20px">Your account is now protected. You'll need your authenticator app at each login.</p>
+          <button onclick="closeTFASetup()" style="width:100%;padding:12px;background:#0077FF;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.93rem;cursor:pointer;font-family:inherit">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2FA Disable Modal -->
+  <div id="tfa-disable-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,22,40,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:380px;margin:16px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+      <div style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:20px 24px">
+        <span style="color:#fff;font-weight:800;font-size:1rem">Disable Two-Factor Auth</span>
+      </div>
+      <div style="padding:24px">
+        <p style="font-size:0.85rem;color:#4A6080;margin:0 0 16px">Enter the 6-digit code from your authenticator app to confirm:</p>
+        <div id="tfa-disable-alert" style="display:none;background:#FFF0F0;border:1px solid #FFCCCC;border-radius:8px;padding:10px;color:#CC0000;font-size:0.83rem;margin-bottom:10px"></div>
+        <input type="text" id="tfa-disable-code" inputmode="numeric" maxlength="6" placeholder="• • • • • •"
+          style="width:100%;padding:13px;border:1.5px solid #D6E4F7;border-radius:8px;font-size:1.5rem;font-weight:700;letter-spacing:12px;text-align:center;font-family:monospace;outline:none;transition:border 0.15s;margin-bottom:14px"
+          onfocus="this.style.borderColor='#ef4444'" onblur="this.style.borderColor='#D6E4F7'"
+          oninput="this.value=this.value.replace(/\D/g,'')">
+        <button onclick="confirmDisableTwoFA()" id="tfa-disable-btn" style="width:100%;padding:12px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.93rem;cursor:pointer;font-family:inherit;margin-bottom:8px">Disable 2FA</button>
+        <button onclick="document.getElementById('tfa-disable-overlay').style.display='none'" style="width:100%;padding:10px;background:none;border:none;color:#4A6080;font-size:0.85rem;cursor:pointer;font-family:inherit">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script type="module" src="js/settings.js"></script>
+</body>
+</html>

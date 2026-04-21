@@ -145,59 +145,61 @@ def _extract_json_array(raw: str) -> list:
 
 def _build_type_instruction(allowed_types: List[str]) -> str:
     """
-    Convert a list of user-facing type labels into an AI prompt instruction
-    that constrains which question_type values the model may use.
+    Convert a list of user-facing type labels into an AI prompt instruction.
 
     User-facing labels:  "mcq", "short_answer", "essay"
-    DB types:            "mcq", "true_false", "short_answer"
+    DB types:            "mcq", "short_answer"
     """
-    has_mcq   = "mcq"          in allowed_types
-    has_short = "short_answer" in allowed_types
-    has_essay = "essay"        in allowed_types
+    has_mcq    = "mcq"          in allowed_types
+    has_short  = "short_answer" in allowed_types
+    has_theory = "theory"       in allowed_types or "essay" in allowed_types
 
-    if not (has_mcq or has_short or has_essay):
-        # Fallback — treat as all allowed
-        has_mcq = has_short = has_essay = True
+    if not (has_mcq or has_short or has_theory):
+        has_mcq = has_short = has_theory = True
 
-    db_types: List[str] = []
+    if has_theory and not has_mcq and not has_short:
+        return (
+            "Generate ONLY open-ended theory/essay questions. "
+            "question_type MUST be 'short_answer' for every entry. "
+            "Do NOT generate any MCQ or multiple-choice questions. "
+            "Each question should require a detailed, multi-sentence theoretical explanation as the answer."
+        )
+
+    if has_short and not has_mcq and not has_theory:
+        return (
+            "Generate ONLY short answer questions. "
+            "question_type MUST be 'short_answer' for every entry. "
+            "Do NOT generate any MCQ or multiple-choice questions. "
+            "Each answer should be concise: 1–2 sentences."
+        )
+
+    if has_mcq and not has_short and not has_theory:
+        return (
+            "Generate ONLY multiple choice questions. "
+            "question_type MUST be 'mcq' for every entry. "
+            "Each MCQ must have exactly 4 distinct options with one correct answer."
+        )
+
+    # Mixed
     desc_parts: List[str] = []
-
     if has_mcq:
-        db_types.extend(["mcq"])
-        desc_parts.append("multiple choice (mcq)")
-
-    if has_short or has_essay:
-        if "short_answer" not in db_types:
-            db_types.append("short_answer")
-        if has_short:
-            desc_parts.append("short answer questions (concise, 1-2 sentence answers)")
-        if has_essay:
-            desc_parts.append("theory/essay questions (short_answer type requiring detailed explanations)")
-
-    instruction = (
-        f"ONLY generate: {', '.join(desc_parts)}. "
-        f"Allowed question_type values: {', '.join(db_types)}."
+        desc_parts.append("multiple choice (mcq — 4 options, 1 correct)")
+    if has_short:
+        desc_parts.append("short answer (short_answer — concise 1-2 sentence answers)")
+    if has_theory:
+        desc_parts.append("theory/essay (short_answer type — detailed multi-sentence explanations)")
+    return (
+        f"Generate a mix of: {', '.join(desc_parts)}. "
+        f"Allowed question_type values: mcq, short_answer."
     )
 
-    if has_essay and not has_short:
-        instruction += (
-            " For short_answer entries, write essay-style questions that demand"
-            " detailed theoretical explanations (multiple paragraphs expected as answer)."
-        )
-    elif has_short and has_essay:
-        instruction += (
-            " Mix concise short_answer questions with essay-style questions"
-            " that require thorough theoretical explanations."
-        )
 
-    return instruction
+# ── Function-calling tool definitions ────────────────────────────────────────
+# Both tools use Groq llama-3.3-70b-versatile (OpenAI-compatible tool-calling).
+# Forcing the model to call the tool guarantees structured JSON output —
+# no fragile text parsing needed.
 
-
-# ── Function-calling tool definition ─────────────────────────────────────────
-# Groq's Llama 3.3 supports OpenAI-compatible function calling.
-# Forcing the model to call submit_quiz_questions guarantees the output is
-# valid JSON with the correct schema — no fragile text parsing needed.
-
+# Standard tool (existing generation paths)
 _QUIZ_FC_TOOL = {
     "type": "function",
     "function": {
@@ -214,7 +216,7 @@ _QUIZ_FC_TOOL = {
                         "properties": {
                             "question_text":  {"type": "string"},
                             "question_type":  {"type": "string", "enum": ["mcq", "short_answer"]},
-                            "options":        {"type": "array",  "items": {"type": "string"}},
+                            "options":        {"type": "array", "items": {"type": "string"}},
                             "correct_answer": {"type": "string"},
                             "explanation":    {"type": "string"},
                         },
@@ -227,37 +229,112 @@ _QUIZ_FC_TOOL = {
     },
 }
 
+# RAG-enhanced tool — includes difficulty + source metadata per question
+_QUIZ_RAG_FC_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "submit_quiz_questions",
+        "description": "Submit structured quiz questions generated from retrieved document context.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question_text": {"type": "string"},
+                            "question_type": {
+                                "type": "string",
+                                "enum": ["mcq", "short_answer"],
+                            },
+                            "difficulty": {
+                                "type": "string",
+                                "enum": ["easy", "medium", "hard"],
+                            },
+                            "options": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Exactly 4 options for MCQ; omit for short_answer",
+                            },
+                            "correct_answer": {"type": "string"},
+                            "explanation": {
+                                "type": "string",
+                                "description": "One sentence explaining why the answer is correct",
+                            },
+                            "source": {
+                                "type": "object",
+                                "description": "Document reference for this question",
+                                "properties": {
+                                    "page":    {"type": "integer"},
+                                    "chapter": {"type": "string"},
+                                },
+                            },
+                        },
+                        "required": [
+                            "question_text", "question_type", "difficulty",
+                            "correct_answer", "explanation",
+                        ],
+                    },
+                }
+            },
+            "required": ["questions"],
+        },
+    },
+}
+
 
 def _call_with_fc(messages: list, temperature: float, max_tokens: int) -> list:
-    """
-    Call OpenAI gpt-4o-mini with function-calling forced to submit_quiz_questions.
-    Returns the raw questions list from the tool arguments.
-    Falls back to text-based extraction if the tool call is missing.
-    """
+    """Call OpenAI gpt-4o-mini with function-calling for quiz generation."""
     client = _get_openai_client()
     response = client.chat.completions.create(
-        model      = "gpt-4o-mini",
-        messages   = messages,
-        tools      = [_QUIZ_FC_TOOL],
-        tool_choice= {"type": "function", "name": "submit_quiz_questions"},
-        temperature= temperature,
-        max_tokens = max_tokens,
+        model       = "gpt-4o-mini",
+        messages    = messages,
+        tools       = [_QUIZ_FC_TOOL],
+        tool_choice = {"type": "function", "function": {"name": "submit_quiz_questions"}},
+        temperature = temperature,
+        max_tokens  = max_tokens,
     )
     choice = response.choices[0]
 
-    # Primary path: tool call with guaranteed-valid JSON arguments
     if choice.message.tool_calls:
         tc = choice.message.tool_calls[0]
         if tc.function.name == "submit_quiz_questions":
-            args = json.loads(tc.function.arguments)
+            args      = json.loads(tc.function.arguments)
             questions = args.get("questions", [])
             if questions:
                 logger.debug("FC: received %d questions via tool call", len(questions))
                 return questions
 
-    # Fallback: model returned plain text instead of calling the tool
     raw = choice.message.content or ""
     logger.warning("FC: tool call absent — falling back to text extraction")
+    return _extract_json_array(raw)
+
+
+def _call_with_rag_fc(messages: list, temperature: float, max_tokens: int) -> list:
+    """Call OpenAI gpt-4o-mini with RAG-enhanced tool schema (includes difficulty + source)."""
+    client = _get_openai_client()
+    response = client.chat.completions.create(
+        model       = "gpt-4o-mini",
+        messages    = messages,
+        tools       = [_QUIZ_RAG_FC_TOOL],
+        tool_choice = {"type": "function", "function": {"name": "submit_quiz_questions"}},
+        temperature = temperature,
+        max_tokens  = max_tokens,
+    )
+    choice = response.choices[0]
+
+    if choice.message.tool_calls:
+        tc = choice.message.tool_calls[0]
+        if tc.function.name == "submit_quiz_questions":
+            args      = json.loads(tc.function.arguments)
+            questions = args.get("questions", [])
+            if questions:
+                logger.debug("RAG-FC: received %d questions via tool call", len(questions))
+                return questions
+
+    raw = choice.message.content or ""
+    logger.warning("RAG-FC: tool call absent — falling back to text extraction")
     return _extract_json_array(raw)
 
 
@@ -407,6 +484,138 @@ def parse_and_generate_from_content(content: str, answer_hint: str = "") -> List
     return all_validated
 
 
+_RAG_SYSTEM_PROMPT = """You are an expert academic quiz generator. You will receive relevant excerpts from a student's study document, each labelled with its page number. Generate quiz questions STRICTLY from the provided context — never invent facts not present in the excerpts.
+
+Each question must:
+- Be directly answerable from the provided context
+- Be clear and unambiguous
+- Test a DISTINCT concept — absolutely no two questions may test the same idea
+- Have an 'explanation' that begins with the page reference in this exact format:
+  "Page X, <your explanation here>"
+  Example: "Page 3, The entrepreneur bears financial and personal risk in exchange for profit."
+
+Difficulty guidelines:
+  easy   → direct recall, basic definitions
+  medium → understanding, explanation, concept application
+  hard   → critical thinking, multi-step reasoning, analysis
+
+CRITICAL: You MUST generate the EXACT number of questions requested. Do not stop early.
+You MUST call submit_quiz_questions with your complete list of questions."""
+
+_RAG_DIFFICULTY_INSTRUCTIONS = {
+    "easy":   "Generate easy questions: direct recall and basic definitions only.",
+    "medium": "Generate medium questions: require understanding and concept application, not just recall.",
+    "hard":   "Generate hard questions: require critical thinking, multi-step reasoning, or analysis.",
+    "mixed":  "Mix difficulty levels: roughly one-third each easy, medium, and hard.",
+}
+
+
+def generate_questions_rag(
+    chunks:        List[Dict[str, Any]],  # retrieved chunks from rag_service
+    context_text:  str,                   # pre-formatted context string
+    question_type: str  = "mcq",          # "mcq" | "short_answer" | "theory"
+    difficulty:    str  = "medium",       # "easy" | "medium" | "hard" | "mixed"
+    count:         int  = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Generate quiz questions using RAG-retrieved document context and Groq
+    function calling.  Questions include difficulty and source metadata.
+
+    question_type mapping:
+      "mcq"          → MCQ only
+      "short_answer" → short-answer only
+      "theory"       → essay-style short_answer questions
+    """
+    if not context_text.strip():
+        raise ValueError("No document context — RAG retrieval returned nothing.")
+
+    # Map user-facing type to allowed DB types + AI instruction
+    if question_type == "mcq":
+        type_instr  = "Generate ONLY multiple-choice questions (question_type = mcq). Each must have exactly 4 options with one correct answer."
+        allowed_db  = ["mcq"]
+    elif question_type == "theory":
+        type_instr  = "Generate ONLY open-ended essay/theory questions (question_type = short_answer). Questions should require detailed, multi-sentence explanations as answers."
+        allowed_db  = ["short_answer"]
+    else:  # short_answer
+        type_instr  = "Generate ONLY short-answer questions (question_type = short_answer) with concise, 1-2 sentence expected answers."
+        allowed_db  = ["short_answer"]
+
+    diff_instr = _RAG_DIFFICULTY_INSTRUCTIONS.get(difficulty, _RAG_DIFFICULTY_INSTRUCTIONS["medium"])
+
+    # Build chunk metadata summary for the AI
+    unique_pages = sorted({c["page"] for c in chunks})
+    page_summary = f"Context spans pages: {', '.join(str(p) for p in unique_pages)}"
+
+    # Request extra questions as buffer so deduplication still leaves us with `count`
+    request_count = count + max(3, count // 4)
+
+    user_prompt = (
+        f"Generate EXACTLY {request_count} quiz questions from the document excerpts below. "
+        f"You MUST produce all {request_count} questions — do not stop at fewer.\n"
+        f"{type_instr}\n"
+        f"{diff_instr}\n"
+        f"Each explanation MUST start with 'Page X, ' where X is the page number from the excerpt used.\n"
+        f"{page_summary}\n\n"
+        f"--- DOCUMENT EXCERPTS ---\n{context_text}\n--- END OF EXCERPTS ---\n\n"
+        f"Call submit_quiz_questions with all {request_count} questions now."
+    )
+
+    raw_questions = _call_with_rag_fc(
+        messages=[
+            {"role": "system", "content": _RAG_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+        ],
+        temperature=0.45,
+        max_tokens=6000,
+    )
+
+    # Validate, dedup, normalise — then trim to the user's requested count
+    validated = _validate_rag_questions(raw_questions, allowed_db, difficulty)
+    if not validated:
+        raise ValueError("AI returned no valid questions from the document context. Please try again.")
+
+    return validated[:count]
+
+
+def _validate_rag_questions(
+    questions: list,
+    allowed_types: List[str],
+    target_difficulty: str,
+) -> List[Dict[str, Any]]:
+    """
+    Validate and normalise RAG-generated questions.
+    Extends _validate_questions with difficulty normalisation and source defaulting.
+    """
+    valid_difficulties = {"easy", "medium", "hard"}
+    base_validated = _validate_questions(questions)   # dedup + type check
+
+    result = []
+    for q in base_validated:
+        # Enforce allowed types
+        if q.get("question_type") not in allowed_types:
+            q["question_type"] = allowed_types[0]
+
+        # Normalise difficulty
+        diff = (q.get("difficulty") or "").lower()
+        if diff not in valid_difficulties:
+            q["difficulty"] = target_difficulty if target_difficulty in valid_difficulties else "medium"
+
+        # Default source if missing
+        if not q.get("source"):
+            q["source"] = {"page": None, "chapter": None}
+        else:
+            src = q["source"]
+            if not isinstance(src, dict):
+                q["source"] = {"page": None, "chapter": None}
+            else:
+                if "page" not in src:    src["page"]    = None
+                if "chapter" not in src: src["chapter"] = None
+
+        result.append(q)
+
+    return result
+
+
 RECOMMENDATIONS_SYSTEM_PROMPT = """You are an expert educational analyst specialising in personalised study plans.
 You will receive a student's quiz performance data grouped by course and topic, including their actual wrong answers.
 
@@ -523,7 +732,7 @@ def _validate_questions(questions: list) -> List[Dict[str, Any]]:
             if not seen_words:
                 continue
             overlap = len(norm_words & seen_words) / max(len(norm_words), len(seen_words), 1)
-            if overlap > 0.75:  # >75% word overlap = likely duplicate
+            if overlap > 0.85:  # >85% word overlap = likely duplicate
                 is_duplicate = True
                 break
 
@@ -788,3 +997,76 @@ def parse_questions_from_images(
         )
 
     return _validate_questions(all_validated)   # final dedup across all batches
+
+
+def parse_questions_from_pdf_gemini(
+    file_bytes: bytes,
+    answer_hint: str = "",
+) -> List[Dict[str, Any]]:
+    """
+    Extract MCQ questions from a PDF using Gemini's native PDF support.
+    No page rendering or OCR required — Gemini reads the PDF directly.
+    Works for both text-based and scanned PDFs.
+    """
+    import google.genai as genai
+    from google.genai import types as gtypes
+
+    api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        raise ValueError("Gemini API key not configured. Please add GEMINI_API_KEY to .env")
+
+    client = genai.Client(api_key=api_key)
+
+    hint_line = (
+        f"\nUSER INSTRUCTION ABOUT ANSWER FORMAT: {answer_hint.strip()}"
+        if answer_hint and answer_hint.strip() else ""
+    )
+
+    prompt = (
+        "This is an academic exam paper or question document. "
+        "Extract ALL questions from this document — multiple choice, short answer, theory, "
+        "fill-in-the-blank, true/false, and any other question type.\n"
+        "For each question:\n"
+        "- Determine the best type: use 'mcq' for multiple-choice questions, "
+        "'short_answer' for open-ended, theory, definition, calculation, or yes/no questions.\n"
+        "- For MCQ: preserve ALL original answer options exactly as written (2–6 options, plain text without A/B/C prefixes).\n"
+        "- Determine the correct answer using any answer keys, markings, bold text, "
+        "annotations, or context clues present in the document.\n"
+        f"{hint_line}\n"
+        "Answer detection — check these in order:\n"
+        "1. Answer key at end (e.g. '1. C  2. A  3. True') — match back to question by number.\n"
+        "2. Inline answer after question (e.g. 'Answer: C', 'Ans: B', 'The answer is D').\n"
+        "3. Marked option — bold, asterisk (*), checkmark (✓), or 'ANS:' label on one option.\n"
+        "4. If no answer found, generate the most likely correct answer from context.\n"
+        "Rules:\n"
+        "- Include EVERY question — do not skip any.\n"
+        "- Do NOT generate duplicate questions.\n"
+        "- For MCQ 'correct_answer': use the exact option text (not the letter).\n"
+        "- For short_answer 'correct_answer': provide a concise factual answer.\n"
+        "- 'options' is an array for mcq; use null for short_answer.\n"
+        "- Add a one-sentence 'explanation' for why the answer is correct.\n"
+        "Output ONLY a valid JSON array. Each element:\n"
+        "{\"question_text\": \"...\", \"question_type\": \"mcq\" or \"short_answer\", "
+        "\"options\": [...] or null, \"correct_answer\": \"...\", \"explanation\": \"...\"}\n"
+        "Start your response with [ and end with ]."
+    )
+
+    response = client.models.generate_content(
+        model="gemini-1.5-flash",
+        contents=[
+            gtypes.Part.from_bytes(data=file_bytes, mime_type="application/pdf"),
+            gtypes.Part.from_text(prompt),
+        ],
+    )
+
+    raw = response.text or ""
+    items = _extract_json_array(raw)
+    validated = _validate_questions(items)
+
+    if not validated:
+        raise ValueError(
+            "Could not detect any questions in this document. "
+            "Please ensure the document contains readable questions and try again."
+        )
+
+    return validated
