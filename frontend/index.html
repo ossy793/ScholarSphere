@@ -363,20 +363,41 @@
     @media (max-width: 768px) {
       .nav-links { display: none; }
       .steps::before { display: none; }
-      .hero-cta { flex-direction: column; align-items: center; }
+      .hero { padding: 96px 5% 60px; }
+      .hero-cta { flex-direction: column; align-items: stretch; max-width: 340px; margin: 0 auto; }
+      .hero-cta .btn { width: 100%; justify-content: center; }
+      .hero-visual { margin-top: 40px; }
+      .hero-mockup { padding: 14px; }
       .form-grid-2 { grid-template-columns: 1fr; }
       .auth-card { padding: 24px 18px; }
+      section { padding: 60px 5%; }
+      .steps { gap: 20px; }
+      .features-grid { grid-template-columns: 1fr; gap: 14px; }
+      .promo-cards { grid-template-columns: 1fr; gap: 14px; }
+      .promo-section { padding: 64px 5%; }
+      .cta-section { padding: 64px 5%; }
     }
     @media (max-width: 540px) {
       .nav { padding: 0 14px; }
       .nav-cta { gap: 6px; }
       .nav-cta .btn { padding: 7px 12px; font-size: 0.8rem; white-space: nowrap; }
+      .hero { padding: 88px 16px 48px; }
+      .hero-badge { font-size: 0.72rem; padding: 5px 14px; }
+      .hero p { font-size: 0.95rem; }
+      .auth-section { padding: 56px 16px; }
+      .stats-bar { padding: 20px 16px; gap: 20px; }
+      .stat-number { font-size: 1.4rem; }
+      .section-sub { font-size: 0.92rem; }
+      footer { padding: 36px 16px; }
     }
     @media (max-width: 390px) {
       .nav-logo-wordmark { display: none; }
       .nav-logo { gap: 0; }
       .nav-cta .btn-ghost { padding: 7px 10px; }
       .nav-cta .btn-primary { padding: 7px 11px; }
+      .hero { padding: 80px 14px 40px; }
+      .hero-cta { max-width: 100%; }
+      .auth-card { padding: 20px 14px; }
     }
   </style>
 </head>

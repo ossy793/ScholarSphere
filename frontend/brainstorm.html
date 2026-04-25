@@ -239,21 +239,24 @@
       /* Row 2: button group wraps to its own full-width row */
       .doc-panel > .panel-head > div:last-child {
         width: 100%;
-        gap: 5px;
+        gap: 4px;
         flex-wrap: nowrap;
+        overflow: hidden;
       }
 
       /* Compact all doc-head buttons uniformly */
       .doc-panel > .panel-head .history-btn,
       .doc-panel > .panel-head #doc-controls .btn,
-      .doc-panel > .panel-head #summary-btn {
-        padding: 3px 9px !important;
-        font-size: 0.72rem !important;
+      .doc-panel > .panel-head #summary-btn,
+      .doc-panel > .panel-head .ask-friends-btn {
+        padding: 3px 8px !important;
+        font-size: 0.7rem !important;
         height: 26px !important;
         min-height: 26px !important;
         white-space: nowrap;
-        flex-shrink: 0;
+        flex-shrink: 1;
         line-height: 1 !important;
+        min-width: 0;
       }
     }
 
@@ -1791,6 +1794,39 @@
       }
       .mobile-fab-badge.visible { display: flex; }
 
+      /* ── Chat panel header on mobile: compact layout ── */
+      .chat-panel > .panel-head {
+        padding: 18px 10px 8px !important;
+        gap: 6px;
+        flex-wrap: nowrap;
+        align-items: center;
+      }
+      .chat-panel > .panel-head .panel-head-title {
+        flex-shrink: 1;
+        min-width: 0;
+      }
+      .chat-panel > .panel-head .panel-head-title > div:first-child {
+        font-size: 0.88rem;
+      }
+      /* Shrink "Clear Chat" button on small screens */
+      .chat-panel .btn.btn-secondary.btn-sm {
+        padding: 4px 8px !important;
+        font-size: 0.7rem !important;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      /* Shrink model selector button */
+      .chat-panel .model-selector-btn {
+        font-size: 0.68rem;
+        padding: 3px 6px;
+      }
+      /* Shrink timer badge */
+      .chat-panel .chat-timer-badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        flex-shrink: 0;
+      }
+
       /* Mobile override: greeting sits left of FAB (bottom-right) */
       .chat-greeting {
         top: auto; right: 86px; bottom: 28px;
@@ -1832,9 +1868,34 @@
         -webkit-tap-highlight-color: transparent;
       }
 
-      .chat-input-bar  { padding: 10px 12px; }
+      .chat-input-bar  {
+        padding: 10px 12px;
+        /* Add space for iOS home indicator */
+        padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+      }
       .chat-messages   { padding: 14px; }
       .doc-upload-area { padding: 14px; }
+
+      /* ── Very small phones (≤ 390px): icon-only doc-head buttons ── */
+      @media (max-width: 390px) {
+        /* Hide button text (plain text nodes) by zeroing font-size;
+           SVG icons use CSS width/height so they remain visible */
+        .history-btn,
+        .ask-friends-btn {
+          font-size: 0 !important;
+          padding: 3px 7px !important;
+          min-width: 28px;
+          justify-content: center;
+          gap: 0;
+        }
+        .history-btn svg,
+        .ask-friends-btn svg {
+          width: 14px; height: 14px; flex-shrink: 0;
+        }
+        /* Collapse model selector label to just the dot */
+        #model-btn-label { display: none; }
+        .model-selector-btn { padding: 3px 6px; gap: 4px; }
+      }
     }
     @keyframes bs-chat-slide-up {
       from { transform: translateY(100%); }

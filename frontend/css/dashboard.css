@@ -154,15 +154,309 @@
 }
 .plan-upgrade-btn.pro-btn:hover { opacity: .88; }
 
+/* ── Community + Ambassador row ── */
+.dash-extra-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 28px;
+  margin-bottom: 8px;
+}
+
+/* Shared base for all three info cards */
+.wa-banner,
+.ambassador-card,
+.care-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+.wa-banner:hover,
+.ambassador-card:hover,
+.care-card:hover {
+  box-shadow: 0 6px 24px rgba(0,119,255,0.15);
+  transform: translateY(-2px);
+}
+
+/* ── WhatsApp banner ── light blue */
+.wa-banner {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1.5px solid #93c5fd;
+  text-decoration: none;
+  color: var(--text);
+}
+.wa-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,119,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+.wa-banner:hover { border-color: #60a5fa; text-decoration: none; color: var(--text); }
+.wa-banner-icon {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0,119,255,0.35);
+}
+.wa-banner-body { flex: 1; min-width: 0; }
+.wa-banner-title {
+  font-size: 0.92rem; font-weight: 800; color: #1e3a8a; margin: 0 0 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wa-banner-sub { font-size: 0.76rem; color: #1d4ed8; margin: 0; line-height: 1.45; }
+.wa-banner-cta {
+  white-space: nowrap; flex-shrink: 0;
+  background: var(--primary); color: #fff;
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 0.8rem; font-weight: 700;
+  transition: background 0.15s;
+}
+.wa-banner:hover .wa-banner-cta { background: var(--primary-dark); }
+
+/* ── Campus Ambassador card ── light blue */
+.ambassador-card {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1.5px solid #93c5fd;
+  cursor: default;
+}
+.ambassador-glow {
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 100px; height: 100px;
+  background: radial-gradient(circle, rgba(0,119,255,0.14) 0%, transparent 70%);
+  pointer-events: none;
+}
+.ambassador-emoji {
+  font-size: 2.2rem; flex-shrink: 0; line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0,119,255,0.25));
+}
+.ambassador-body { flex: 1; min-width: 0; }
+.ambassador-title { font-size: 0.92rem; font-weight: 800; color: #1e3a8a; margin: 0 0 4px; }
+.ambassador-sub  { font-size: 0.76rem; color: #1d4ed8; margin: 0; line-height: 1.5; }
+.ambassador-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem; font-weight: 800;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--primary);
+  color: #fff;
+  padding: 5px 11px; border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,119,255,0.3);
+}
+
+/* ── Customer Care card ── light blue */
+.care-card {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 1.5px solid #93c5fd;
+  text-decoration: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.care-card:hover { border-color: #60a5fa; text-decoration: none; color: var(--text); }
+.care-card-icon {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0,119,255,0.35);
+}
+.care-card-body { flex: 1; min-width: 0; }
+.care-card-title { font-size: 0.92rem; font-weight: 800; color: #1e3a8a; margin: 0 0 3px; }
+.care-card-sub   { font-size: 0.76rem; color: #1d4ed8; margin: 0; line-height: 1.45; }
+.care-card-num {
+  white-space: nowrap; flex-shrink: 0;
+  background: var(--primary); color: #fff;
+  padding: 8px 14px; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background 0.15s;
+}
+.care-card:hover .care-card-num { background: var(--primary-dark); }
+
+/* ── Dashboard pricing section ── */
+.dash-pricing-section {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.dash-pricing-header { margin-bottom: 20px; }
+.dash-pricing-title  { font-size: 1rem; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+.dash-pricing-sub    { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+
+.dash-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.dash-price-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  transition: box-shadow 0.18s, transform 0.18s;
+  overflow: hidden;
+}
+.dash-price-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Highlighted (Basic) */
+.dash-price-highlight {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0,119,255,0.1);
+}
+.dash-price-highlight:hover { box-shadow: 0 6px 28px rgba(0,119,255,0.2); }
+
+/* Pro card */
+.dash-price-pro {
+  background: linear-gradient(160deg, #0a0f1e 0%, #0d1a40 100%);
+  border-color: rgba(0,119,255,0.4);
+}
+.dash-price-pro .dash-plan-name,
+.dash-price-pro .dash-plan-amount,
+.dash-price-pro .dash-plan-amount span,
+.dash-price-pro .dash-plan-tagline { color: rgba(255,255,255,0.9); }
+.dash-price-pro .dash-plan-feats li { color: rgba(255,255,255,0.7); }
+.dash-price-pro .dash-plan-feats li.yes::before { color: #60efff; }
+.dash-price-pro .dash-plan-feats li.no { color: rgba(255,255,255,0.3); }
+.dash-price-pro:hover { box-shadow: 0 8px 32px rgba(0,119,255,0.3); }
+
+.dash-popular-badge, .dash-pro-badge {
+  position: absolute;
+  top: 12px; right: 14px;
+  font-size: 0.58rem; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px;
+}
+.dash-popular-badge {
+  background: rgba(0,119,255,0.12);
+  color: var(--primary);
+  border: 1px solid rgba(0,119,255,0.25);
+}
+.dash-pro-badge {
+  background: linear-gradient(90deg, #0077FF, #00C8FF);
+  color: #fff;
+}
+
+.dash-price-card-top { margin-bottom: 14px; }
+
+.dash-plan-icon  { font-size: 1.6rem; margin-bottom: 8px; line-height: 1; }
+.dash-plan-name  { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.dash-plan-amount {
+  font-size: 1.4rem; font-weight: 900; color: var(--text); line-height: 1.2; margin-bottom: 6px;
+}
+.dash-plan-amount span { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); }
+.dash-orig-price  {
+  font-size: 0.78rem; color: var(--text-muted); text-decoration: line-through; font-weight: 500;
+  margin-right: 4px;
+}
+.dash-off-badge {
+  font-size: 0.58rem; font-weight: 800; background: #dcfce7; color: #15803d;
+  border-radius: 4px; padding: 1px 5px;
+}
+.dash-plan-tagline { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+
+.dash-plan-feats {
+  list-style: none; padding: 0; margin: 0 0 18px; flex: 1;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.dash-plan-feats li {
+  font-size: 0.77rem; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px;
+  line-height: 1.4;
+}
+.dash-plan-feats li::before { font-size: 0.78rem; flex-shrink: 0; margin-top: 1px; }
+.dash-plan-feats li.yes::before { content: '✓'; color: #16a34a; font-weight: 700; }
+.dash-plan-feats li.no::before  { content: '✗'; color: #d1d5db; }
+
+/* Plan buttons */
+.dash-plan-btn {
+  display: block; text-align: center; text-decoration: none;
+  padding: 10px 16px; border-radius: 9px;
+  font-size: 0.84rem; font-weight: 700;
+  transition: all 0.15s; margin-top: auto; border: none; cursor: pointer;
+  font-family: inherit;
+}
+.dash-plan-btn-ghost {
+  background: var(--bg); color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.dash-plan-btn-ghost:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+.dash-plan-btn-primary {
+  background: var(--primary); color: #fff;
+  box-shadow: 0 2px 10px rgba(0,119,255,0.3);
+}
+.dash-plan-btn-primary:hover { background: var(--primary-dark); color: #fff; text-decoration: none; }
+.dash-plan-btn-pro {
+  background: linear-gradient(135deg, #0077FF, #00AAFF); color: #fff;
+  box-shadow: 0 2px 14px rgba(0,119,255,0.4);
+}
+.dash-plan-btn-pro:hover { opacity: 0.9; color: #fff; text-decoration: none; }
+
+/* ── Responsive ── */
 @media (max-width: 1100px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+@media (max-width: 900px) {
+  /* Info cards: 2-col then stack last one */
+  .dash-extra-row { grid-template-columns: 1fr 1fr; }
+  .care-card      { grid-column: 1 / -1; }
+  /* Pricing: 2-col */
+  .dash-pricing-grid { grid-template-columns: 1fr 1fr; }
+  .dash-price-pro    { grid-column: 1 / -1; }
+}
+
 @media (max-width: 640px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
-  .stat-card { padding: 14px; gap: 10px; }
-  .stat-icon { width: 38px; height: 38px; font-size: 18px; }
+  .stat-card  { padding: 14px; gap: 10px; }
+  .stat-icon  { width: 38px; height: 38px; font-size: 18px; }
   .stat-info h3 { font-size: 1.25rem; }
-  .action-card { width: 180px; padding: 16px; gap: 10px; }
+  .action-card      { width: 180px; padding: 16px; gap: 10px; }
   .action-card-icon { width: 40px; height: 40px; font-size: 18px; }
+
+  /* All 3 info cards stack on small phones */
+  .dash-extra-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .care-card { grid-column: unset; }
+
+  /* Compact card internals */
+  .wa-banner,
+  .ambassador-card,
+  .care-card {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .wa-banner-icon,
+  .care-card-icon { width: 44px; height: 44px; border-radius: 10px; }
+  .wa-banner-cta  { width: 100%; text-align: center; padding: 9px; }
+  .care-card-num  { width: 100%; text-align: center; padding: 9px; }
+  .ambassador-badge { order: -1; }
+
+  /* Pricing */
+  .dash-pricing-grid { grid-template-columns: 1fr; gap: 12px; }
+  .dash-price-pro    { grid-column: unset; }
+  .dash-price-card   { padding: 18px 16px 14px; }
+  .dash-plan-amount  { font-size: 1.2rem; }
+  .dash-plan-feats   { gap: 5px; }
 }

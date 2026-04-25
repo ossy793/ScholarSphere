@@ -3203,12 +3203,15 @@ function _setMobileChatOpen(open) {
   const badge     = document.getElementById('mobile-fab-badge');
   const backdrop  = document.getElementById('mobile-chat-backdrop');
   const layout    = document.getElementById('bs-layout');
+  const fab       = document.getElementById('mobile-fab');
 
   if (open) {
     if (chatPanel) chatPanel.setAttribute('style', _CHAT_OPEN_STYLE);
     if (backdrop)  backdrop.setAttribute('style',  _BACKDROP_OPEN_STYLE);
     layout?.classList.add('mobile-chat-active');
     if (badge) badge.classList.remove('visible');
+    // Hide FAB while chat is open so it doesn't cover the send button
+    if (fab) fab.style.display = 'none';
     // Hide greeting bubble when chat opens
     dismissGreeting();
   } else {
@@ -3216,6 +3219,8 @@ function _setMobileChatOpen(open) {
     if (chatPanel) chatPanel.setAttribute('style', 'display:none');
     if (backdrop)  backdrop.setAttribute('style',  'display:none');
     layout?.classList.remove('mobile-chat-active');
+    // Restore FAB — remove inline style so the !important CSS takes over
+    if (fab) fab.style.display = '';
   }
 }
 
