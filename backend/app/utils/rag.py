@@ -26,6 +26,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# ── pgvector availability flag ────────────────────────────────────────────────
+# Set to False on first failure; avoids log spam on every subsequent call.
+_pgvector_ok: bool | None = None   # None = not yet checked
+
+
+def _check_pgvector(db: "Session") -> bool:
+    global _pgvector_ok
+    if _pgvector_ok is not None:
+        return _pgvector_ok
+    try:
+        db.execute(sql_text("SELECT 1::vector(1)"))
+        _pgvector_ok = True
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        _pgvector_ok = False
+        logger.warning(
+            "pgvector extension not available — RAG will fall back to keyword search. "
+            "To enable vector search, run: CREATE EXTENSION IF NOT EXISTS vector; "
+            "(or enable it in Supabase Dashboard → Database → Extensions → vector)"
+        )
+    return _pgvector_ok
+
+
 # ── OpenAI embedding client — lazy-loaded ─────────────────────────────────────
 
 _openai_client = None
@@ -74,6 +100,7 @@ def store_chunks(
     Embed *chunks* and insert them into brainstorm_chunks.
     Deletes any existing chunks for this document first (idempotent).
     Each chunk dict must have {"index": int, "text": str}.
+    When pgvector is not installed, stores text-only rows for keyword search.
     """
     # Clear stale chunks for this document
     db.execute(
@@ -85,15 +112,20 @@ def store_chunks(
         db.commit()
         return
 
-    texts = [c["text"] for c in chunks]
-    try:
-        embeddings = _embed(texts)
-    except Exception as exc:
-        logger.warning("Embedding generation failed — storing chunks without vectors: %s", exc)
-        embeddings = [None] * len(chunks)
+    use_vectors = _check_pgvector(db)
+
+    # Only generate embeddings if pgvector is available
+    embeddings: list = [None] * len(chunks)
+    if use_vectors:
+        texts = [c["text"] for c in chunks]
+        try:
+            embeddings = _embed(texts)
+        except Exception as exc:
+            logger.warning("Embedding generation failed — storing chunks without vectors: %s", exc)
+            embeddings = [None] * len(chunks)
 
     for chunk, emb in zip(chunks, embeddings):
-        if emb is not None:
+        if emb is not None and use_vectors:
             db.execute(
                 sql_text("""
                     INSERT INTO brainstorm_chunks

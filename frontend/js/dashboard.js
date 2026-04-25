@@ -56,19 +56,17 @@ async function loadPlanCard() {
   const user = getUser();
   if (!user) return;
 
-  const plan = user.subscription_plan || 'free';
   const isAdmin = user.is_admin;
   const container = document.getElementById('plan-card');
   if (!container) return;
 
-  // Admin badge — no usage tracking needed
   if (isAdmin) {
     container.innerHTML = `
-      <div class="plan-status-card plan-admin">
+      <div class="plan-status-card plan-pro">
         <div class="plan-status-left">
-          <div class="plan-status-icon admin">⚡</div>
+          <div class="plan-status-icon pro">⚡</div>
           <div class="plan-status-info">
-            <h3>Admin — Full Pro Access</h3>
+            <h3>Admin — Full Max Access</h3>
             <p>Unlimited access to all features, no restrictions.</p>
           </div>
         </div>
@@ -76,62 +74,92 @@ async function loadPlanCard() {
     return;
   }
 
-  // Fetch usage data (best-effort — if it fails just show plan name)
-  let usage = {};
-  try {
-    usage = await api.get('/payment/usage') || {};
-  } catch {}
+  // Fetch live usage from backend (includes dates + per-feature counts)
+  let data = {};
+  try { data = await api.get('/payment/usage') || {}; } catch {}
 
-  const expiry = user.subscription_expiry
-    ? new Date(user.subscription_expiry).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+  const plan          = data.plan || user.subscription_plan || 'free';
+  const usage         = data.usage || {};
+  const daysRemaining = data.days_remaining ?? null;
+  const daysUsed      = data.days_used ?? null;
+
+  const fmtDate = iso => iso
+    ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
+  const startStr  = fmtDate(data.start);
+  const expiryStr = fmtDate(data.expiry);
 
   const planMeta = {
-    free:  { label: 'Free Plan',  icon: '📌', cls: 'free',  iconCls: 'free' },
+    free:  { label: 'Free Plan',  icon: '📌', cls: 'free', iconCls: 'free' },
     basic: { label: 'Basic Plan', icon: '✨', cls: 'basic', iconCls: 'basic' },
-    pro:   { label: 'Pro Plan',   icon: '🚀', cls: 'pro',   iconCls: 'pro'  },
+    pro:   { label: 'Max Plan',   icon: '🚀', cls: 'pro',  iconCls: 'pro'  },
+    max:   { label: 'Max Plan',   icon: '🚀', cls: 'pro',  iconCls: 'pro'  },
   };
   const meta = planMeta[plan] || planMeta.free;
+
+  // ── Usage bar helper ──────────────────────────────────────────────────────
+  const usageBar = (label, used, limit) => {
+    const pct     = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+    const fillCls = pct >= 100 ? 'full' : pct >= 67 ? 'warn' : '';
+    return `
+      <div class="plan-usage-item">
+        <div class="plan-usage-label">${label}</div>
+        <div class="plan-usage-bar">
+          <div class="plan-usage-fill ${fillCls}" style="width:${pct}%"></div>
+        </div>
+        <div class="plan-usage-count">${used}/${limit} used</div>
+      </div>`;
+  };
+
+  // ── Subscription date row ─────────────────────────────────────────────────
+  const dateRow = (start, expiry, remaining) => {
+    if (!expiry) return '';
+    const remLabel = remaining !== null ? `<span style="color:var(--primary);font-weight:600">${remaining}d left</span>` : '';
+    return `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.75rem;color:var(--text-muted);margin-bottom:10px">
+        ${start  ? `<span>Started: <strong>${start}</strong></span>` : ''}
+        ${expiry ? `<span>Expires: <strong>${expiry}</strong></span>` : ''}
+        ${remLabel}
+      </div>`;
+  };
 
   let rightSection = '';
 
   if (plan === 'free') {
-    // Show usage bars for the three limited features
     const items = [
-      { key: 'ai_generate',    label: 'AI Generate',   limit: 3  },
-      { key: 'study_zone',     label: 'Study Zone',    limit: 3  },
-      { key: 'input_questions',label: 'Create Quiz',    limit: 2  },
+      { key: 'ai_generate',     label: 'AI Generate',    limit: usage.ai_generate?.limit     ?? 3 },
+      { key: 'study_zone',      label: 'Study Zone',     limit: usage.study_zone?.limit      ?? 3 },
+      { key: 'input_questions', label: 'Input Questions', limit: usage.input_questions?.limit ?? 3 },
     ];
-    const bars = items.map(({ key, label, limit }) => {
-      const used = usage[key]?.used ?? 0;
-      const pct  = Math.min(100, Math.round((used / limit) * 100));
-      const fillCls = pct >= 100 ? 'full' : pct >= 67 ? 'warn' : '';
-      return `
-        <div class="plan-usage-item">
-          <div class="plan-usage-label">${label}</div>
-          <div class="plan-usage-bar"><div class="plan-usage-fill ${fillCls}" style="width:${pct}%"></div></div>
-          <div class="plan-usage-count">${used}/${limit} used</div>
-        </div>`;
-    }).join('');
+    const bars = items.map(({ key, label, limit }) =>
+      usageBar(label, usage[key]?.used ?? 0, limit)
+    ).join('');
 
     rightSection = `
       <div class="plan-usage-row">${bars}</div>
       <a href="upgrade.html" class="plan-upgrade-btn">Upgrade ↗</a>`;
 
   } else if (plan === 'basic') {
-    const expiryText = expiry ? `Renews / expires ${expiry}` : 'Active';
-    rightSection = `
-      <div class="plan-status-info" style="text-align:right">
-        <p style="font-size:.78rem;color:var(--text-muted)">${expiryText}</p>
-      </div>
-      <a href="upgrade.html" class="plan-upgrade-btn pro-btn">Go Pro ↗</a>`;
+    const resourcesUsed = usage.youtube_resources?.used  ?? 0;
+    const resourcesLim  = usage.youtube_resources?.limit ?? 10;
+    const visualUsed    = usage.visual_explanation?.used  ?? 0;
+    const visualLim     = usage.visual_explanation?.limit ?? 10;
 
-  } else if (plan === 'pro') {
-    const expiryText = expiry ? `Active until ${expiry}` : 'Active';
     rightSection = `
-      <div class="plan-status-info" style="text-align:right">
-        <p style="font-size:.78rem;color:var(--text-muted)">${expiryText}</p>
-      </div>`;
+      ${dateRow(startStr, expiryStr, daysRemaining)}
+      <div class="plan-usage-row" style="flex-wrap:wrap;gap:6px">
+        ${usageBar('Resources', resourcesUsed, resourcesLim)}
+        ${usageBar('Visual Explain', visualUsed, visualLim)}
+      </div>
+      <a href="upgrade.html" class="plan-upgrade-btn pro-btn">Go Max ↗</a>`;
+
+  } else {
+    // max / pro
+    rightSection = `
+      ${dateRow(startStr, expiryStr, daysRemaining)}
+      <p style="font-size:.78rem;color:var(--text-muted);margin:0">
+        Full access · All models including Claude · No limits
+      </p>`;
   }
 
   container.innerHTML = `
@@ -143,13 +171,15 @@ async function loadPlanCard() {
           <p>${_planDesc(plan)}</p>
         </div>
       </div>
-      ${rightSection}
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;min-width:200px">
+        ${rightSection}
+      </div>
     </div>`;
 }
 
 function _planDesc(plan) {
-  if (plan === 'free')  return 'Limited access — 3 AI Generates, 3 Study sessions, 2 Input uploads';
-  if (plan === 'basic') return 'Unlimited sessions · YouTube & Visual Explanation · All models';
-  if (plan === 'pro')   return 'Full access · No limits · Priority features';
+  if (plan === 'free')  return '3 AI Generates · 3 Study sessions · 3 Input uploads (15 questions max)';
+  if (plan === 'basic') return 'Unlimited core · Claude model · 10 Resources & Visual/month';
+  if (plan === 'pro' || plan === 'max') return 'Full access · All models (Groq, ChatGPT, Claude) · No limits';
   return '';
 }

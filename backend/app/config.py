@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     GROQ_API_KEY: str
     OPENAI_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
+    CLAUDE_API_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_DAYS: int = 30
 
     # CORS — allowed frontend origins

@@ -65,7 +65,7 @@ export function getUserPlan() {
 
 /** Returns true if user's plan is at least the given tier. */
 export function hasPlan(minPlan) {
-  const order = { free: 0, basic: 1, pro: 2 };
+  const order = { free: 0, basic: 1, pro: 2, max: 2 };
   const user  = getUser();
   if (user?.is_admin) return true;
   return (order[getUserPlan()] || 0) >= (order[minPlan] || 0);
@@ -275,6 +275,13 @@ function apiFetchFormWithProgress(path, form, { onProgress, onUploadComplete } =
       if (xhr.status === 204) { resolve(null); return; }
       let data;
       try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+      if (xhr.status === 402) {
+        const detail = data?.detail || {};
+        const err = new Error(detail.message || 'Upgrade required to use this feature.');
+        err.upgradeRequired = true;
+        err.upgradeInfo = typeof detail === 'object' ? detail : { message: String(detail) };
+        reject(err); return;
+      }
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(data);
       } else {
@@ -331,4 +338,31 @@ export const api = {
   postFormProgress: (path, form, cbs) => apiFetchFormWithProgress(path, form, cbs || {}),
   postFormBlob:     (path, form)      => apiFetchBlob(path, form),
   getBuffer:        (path)            => apiFetchBuffer(path),
+
+  /** POST and return the raw Response so the caller can read it as a stream. */
+  stream: async (path, body) => {
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 300000);
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST', headers, body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (res.status === 401) {
+        clearToken();
+        const base = window.location.pathname.replace(/\/frontend\/.*$/, '/frontend/');
+        window.location.href = base + 'index.html';
+        return null;
+      }
+      return res;
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+      throw new Error('Network error. Please check your connection.');
+    } finally {
+      clearTimeout(timer);
+    }
+  },
 };

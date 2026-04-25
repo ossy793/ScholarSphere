@@ -60,7 +60,7 @@ img { max-width: 100%; display: block; }
   top: 0; left: 0; bottom: 0;
   z-index: 100;
   overflow: hidden;
-  transition: width 0.25s ease, transform 0.25s ease;
+  transition: transform 0.3s ease;
 }
 
 .sidebar-logo {
@@ -70,7 +70,6 @@ img { max-width: 100%; display: block; }
   gap: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   flex-shrink: 0;
-  min-width: var(--sidebar-w);        /* keeps items aligned during transition */
 }
 
 .sidebar-logo .logo-icon {
@@ -117,7 +116,6 @@ img { max-width: 100%; display: block; }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: var(--sidebar-w);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -165,35 +163,34 @@ img { max-width: 100%; display: block; }
 .sidebar-footer {
   padding: 16px 12px;
   border-top: 1px solid rgba(255,255,255,0.08);
-  min-width: var(--sidebar-w);
 }
 
-/* ── Collapsed sidebar ── */
-body.nav-collapsed .sidebar      { width: 0; }
+/* ── Collapsed sidebar (desktop) ── */
+body.nav-collapsed .sidebar      { transform: translateX(-100%); }
 body.nav-collapsed .main-content { margin-left: 0; }
+/* Show hamburger in header to re-open when collapsed */
+body.nav-collapsed .header-menu-btn { display: flex; }
 
-/* Floating expand button – visible only when sidebar is collapsed */
-.sidebar-expand-btn {
+/* Floating expand button removed — header hamburger handles expand on all sizes */
+.sidebar-expand-btn { display: none !important; }
+
+/* ── Mobile sidebar close (X) button ── */
+.sidebar-close-btn {
   display: none;
-  position: fixed;
-  top: 14px;
-  left: 8px;
-  z-index: 200;
-  width: 36px; height: 36px;
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 32px; height: 32px;
   border: none;
-  background: #04132B;
-  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
   cursor: pointer;
   align-items: center;
   justify-content: center;
   color: #99CCFF;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   transition: background 0.15s, color 0.15s;
 }
-.sidebar-expand-btn:hover { background: #0A2A60; color: #fff; }
-.sidebar-expand-btn svg { width: 18px; height: 18px; }
-
-body.nav-collapsed .sidebar-expand-btn { display: flex; }
+.sidebar-close-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+.sidebar-close-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 .main-content {
   margin-left: var(--sidebar-w);
@@ -201,7 +198,7 @@ body.nav-collapsed .sidebar-expand-btn { display: flex; }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  transition: margin-left 0.25s ease;
+  transition: margin-left 0.3s ease;
   overflow-x: hidden;
 }
 
@@ -487,24 +484,7 @@ tr:hover td { background: #f8fafc; }
 .grid-3 { grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-4 { grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
-@media (max-width: 900px) {
-  .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 640px) {
-  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
-  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); }
-  .main-content { margin-left: 0; }
-  .header-menu-btn { display: flex; }
-  .mobile-signout-btn { display: flex !important; }
-  .sidebar-expand-btn { display: none !important; }
-  .top-header { padding: 0 14px; gap: 8px; }
-  .top-header h1 { font-size: 1rem; }
-  .page-body { padding: 16px; }
-  .user-badge span { display: none; }  /* hide name, show avatar only */
-}
-
-/* ── Mobile hamburger button (shown in top-header on mobile) ── */
+/* ── Mobile hamburger button (shown in header on mobile + desktop collapsed) ── */
 .header-menu-btn {
   display: none;
   background: none;
@@ -540,13 +520,36 @@ tr:hover td { background: #f8fafc; }
 }
 .mobile-signout-btn:hover { background: rgba(10,22,40,0.08); }
 
+@media (max-width: 900px) {
+  .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  /* Sidebar: hidden off-screen by default, slides in as overlay above all content */
+  .sidebar { transform: translateX(-100%); width: var(--sidebar-w); z-index: 200; }
+  .main-content { margin-left: 0; }
+  .header-menu-btn { display: flex; }
+  .mobile-signout-btn { display: flex !important; }
+  .sidebar-expand-btn { display: none !important; }
+  /* Swap chevron (desktop) for X (mobile) inside sidebar header */
+  .sidebar-toggle-btn { display: none; }
+  .sidebar-close-btn  { display: flex; }
+  .top-header { padding: 0 14px; gap: 8px; }
+  .top-header h1 { font-size: 1rem; }
+  .page-body { padding: 16px; }
+  .user-badge span { display: none; }
+}
+
 /* ── Sidebar overlay (mobile) ── */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 99;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 150;  /* above content, below mobile sidebar (z-index:200) */
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
 }
 body.sidebar-open .sidebar-overlay { display: block; }
 body.sidebar-open .sidebar { transform: translateX(0) !important; }

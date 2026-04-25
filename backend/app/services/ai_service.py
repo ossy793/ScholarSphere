@@ -719,9 +719,16 @@ def _validate_questions(questions: list) -> List[Dict[str, Any]]:
             q["question_type"] = "mcq"
             q_type = "mcq"
 
-        # Ensure options exist for MCQ
-        if q_type == "mcq" and not q.get("options"):
-            continue  # skip MCQ with no options
+        # Ensure options exist for MCQ — strip blanks, fall back to short_answer
+        if q_type == "mcq":
+            clean_opts = [str(o).strip() for o in (q.get("options") or []) if str(o).strip()]
+            if len(clean_opts) < 2:
+                # Not enough real options — treat as short_answer instead of dropping
+                q["question_type"] = "short_answer"
+                q["options"] = None
+                q_type = "short_answer"
+            else:
+                q["options"] = clean_opts
 
         # Deduplicate: skip if question text is too similar to an already-accepted one
         norm = _normalize_text(q["question_text"])
@@ -999,39 +1006,61 @@ def parse_questions_from_images(
     return _validate_questions(all_validated)   # final dedup across all batches
 
 
-def parse_questions_from_pdf_gemini(
+def parse_questions_from_pdf(
     file_bytes: bytes,
     answer_hint: str = "",
 ) -> List[Dict[str, Any]]:
-    """
-    Extract MCQ questions from a PDF using Gemini's native PDF support.
-    No page rendering or OCR required — Gemini reads the PDF directly.
-    Works for both text-based and scanned PDFs.
-    """
-    import google.genai as genai
-    from google.genai import types as gtypes
+    """Extract questions from a PDF via text extraction + ChatGPT (Groq fallback)."""
+    from ..utils.file_parser import extract_text_from_pdf
 
-    api_key = settings.GEMINI_API_KEY
-    if not api_key:
-        raise ValueError("Gemini API key not configured. Please add GEMINI_API_KEY to .env")
+    text = extract_text_from_pdf(file_bytes)
+    if not text or not text.strip():
+        raise ValueError(
+            "Could not extract text from this PDF. "
+            "If it is a scanned document, please ensure your internet connection is active "
+            "so the AI-powered OCR can process it, then try again."
+        )
 
-    client = genai.Client(api_key=api_key)
+    # Try ChatGPT first, fall back to Groq
+    openai_key = settings.OPENAI_API_KEY
+    if openai_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_key)
+            hint_line = (
+                f"\nUSER INSTRUCTION ABOUT ANSWER FORMAT: {answer_hint.strip()}"
+                if answer_hint and answer_hint.strip() else ""
+            )
+            prompt = _build_question_extraction_prompt(text, hint_line)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=4096,
+            )
+            raw = response.choices[0].message.content or ""
+            items = _extract_json_array(raw)
+            validated = _validate_questions(items)
+            if validated:
+                return validated
+        except Exception as exc:
+            logger.warning("ChatGPT PDF extraction failed (%s) — falling back to Groq.", exc)
 
-    hint_line = (
-        f"\nUSER INSTRUCTION ABOUT ANSWER FORMAT: {answer_hint.strip()}"
-        if answer_hint and answer_hint.strip() else ""
-    )
+    return parse_and_generate_from_content(text, answer_hint)
 
-    prompt = (
+
+def _build_question_extraction_prompt(text: str, hint_line: str = "") -> str:
+    return (
         "This is an academic exam paper or question document. "
         "Extract ALL questions from this document — multiple choice, short answer, theory, "
         "fill-in-the-blank, true/false, and any other question type.\n"
         "For each question:\n"
-        "- Determine the best type: use 'mcq' for multiple-choice questions, "
+        "- Determine the best type: use 'mcq' for multiple-choice, "
         "'short_answer' for open-ended, theory, definition, calculation, or yes/no questions.\n"
-        "- For MCQ: preserve ALL original answer options exactly as written (2–6 options, plain text without A/B/C prefixes).\n"
+        "- For MCQ: preserve ALL original answer options exactly as written (2–6 options, "
+        "plain text without A/B/C prefixes).\n"
         "- Determine the correct answer using any answer keys, markings, bold text, "
-        "annotations, or context clues present in the document.\n"
+        "annotations, or context clues in the document.\n"
         f"{hint_line}\n"
         "Answer detection — check these in order:\n"
         "1. Answer key at end (e.g. '1. C  2. A  3. True') — match back to question by number.\n"
@@ -1048,25 +1077,6 @@ def parse_questions_from_pdf_gemini(
         "Output ONLY a valid JSON array. Each element:\n"
         "{\"question_text\": \"...\", \"question_type\": \"mcq\" or \"short_answer\", "
         "\"options\": [...] or null, \"correct_answer\": \"...\", \"explanation\": \"...\"}\n"
-        "Start your response with [ and end with ]."
+        "Start your response with [ and end with ].\n\n"
+        f"DOCUMENT TEXT:\n{text}"
     )
-
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=[
-            gtypes.Part.from_bytes(data=file_bytes, mime_type="application/pdf"),
-            gtypes.Part.from_text(prompt),
-        ],
-    )
-
-    raw = response.text or ""
-    items = _extract_json_array(raw)
-    validated = _validate_questions(items)
-
-    if not validated:
-        raise ValueError(
-            "Could not detect any questions in this document. "
-            "Please ensure the document contains readable questions and try again."
-        )
-
-    return validated

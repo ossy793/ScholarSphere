@@ -4,7 +4,7 @@ Unified AI model adapter for Study Zone chat.
 Supported model IDs:
   "groq"   — Groq  / Llama 3.3 70B Versatile  (default, free)
   "openai" — OpenAI / GPT-4o mini
-  "gemini" — Google / Gemini 2.0 Flash
+  "claude" — Anthropic / Claude Sonnet 4.6
 
 Each adapter accepts the same OpenAI-style messages list:
   [{"role": "system"|"user"|"assistant", "content": "..."}]
@@ -17,7 +17,10 @@ Function calling (quiz suggestion):
   so the frontend can render a "Take Quiz" button.
 """
 
+import asyncio
 import logging
+import queue as _queue
+import threading
 from typing import Optional
 from ..config import settings
 
@@ -41,13 +44,13 @@ MODELS = {
         "model":        "gpt-4o-mini",
         "available":    bool(settings.OPENAI_API_KEY),
     },
-    "gemini": {
-        "id":           "gemini",
-        "name":         "Gemini 2.0 Flash",
-        "provider":     "Google",
-        "display_name": "Gemini",
-        "model":        "gemini-2.0-flash",
-        "available":    bool(settings.GEMINI_API_KEY),
+    "claude": {
+        "id":           "claude",
+        "name":         "Claude Sonnet 4.6",
+        "provider":     "Anthropic",
+        "display_name": "Claude",
+        "model":        "claude-sonnet-4-6",
+        "available":    bool(settings.CLAUDE_API_KEY),
     },
 }
 
@@ -75,13 +78,13 @@ _QUIZ_TOOL_OPENAI = {
     },
 }
 
-_QUIZ_TOOL_GEMINI = {
+_QUIZ_TOOL_CLAUDE = {
     "name": "suggest_quiz",
     "description": (
         "Call this when the student would benefit from testing their "
         "understanding with a short quiz based on the document."
     ),
-    "parameters": {
+    "input_schema": {
         "type": "object",
         "properties": {
             "reason": {
@@ -101,8 +104,9 @@ _QUIZ_SUFFIX = (
 
 
 # ── Lazy clients ──────────────────────────────────────────────────────────────
-_openai_client = None
-_groq_client   = None
+_openai_client  = None
+_groq_client    = None
+_claude_client  = None
 
 
 def _get_groq():
@@ -119,6 +123,14 @@ def _get_openai():
         from openai import OpenAI
         _openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
     return _openai_client
+
+
+def _get_claude():
+    global _claude_client
+    if _claude_client is None:
+        import anthropic
+        _claude_client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
+    return _claude_client
 
 
 # ── Adapters ──────────────────────────────────────────────────────────────────
@@ -165,62 +177,40 @@ def _chat_openai(messages: list, temperature: float, max_tokens: int) -> str:
     return (choice.message.content or "").strip()
 
 
-def _chat_gemini(messages: list, temperature: float, max_tokens: int) -> str:
-    import google.generativeai as genai
-    from google.generativeai.types import FunctionDeclaration, Tool
+def _chat_claude(messages: list, temperature: float, max_tokens: int) -> str:
+    client = _get_claude()
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-
-    # Convert OpenAI-style messages to Gemini format
-    # Gemini uses "user" / "model" roles and a separate system_instruction
-    system_instruction = ""
-    gemini_history = []
-
+    # Claude takes system as a top-level param, not inside messages
+    system = ""
+    claude_messages = []
     for msg in messages:
-        role    = msg["role"]
-        content = msg["content"]
-        if role == "system":
-            system_instruction = content
-        elif role == "user":
-            gemini_history.append({"role": "user", "parts": [content]})
-        elif role == "assistant":
-            gemini_history.append({"role": "model", "parts": [content]})
+        if msg["role"] == "system":
+            system = msg["content"]
+        else:
+            claude_messages.append({"role": msg["role"], "content": msg["content"]})
 
-    quiz_fn = FunctionDeclaration(
-        name        = "suggest_quiz",
-        description = _QUIZ_TOOL_GEMINI["description"],
-        parameters  = _QUIZ_TOOL_GEMINI["parameters"],
+    kwargs = dict(
+        model      = "claude-sonnet-4-6",
+        max_tokens = max(max_tokens, 1024),
+        temperature= temperature,
+        messages   = claude_messages,
+        tools      = [_QUIZ_TOOL_CLAUDE],
     )
-    quiz_tool = Tool(function_declarations=[quiz_fn])
+    if system:
+        kwargs["system"] = system
 
-    model = genai.GenerativeModel(
-        model_name          = "gemini-2.0-flash",
-        system_instruction  = system_instruction or None,
-        tools               = [quiz_tool],
-        generation_config   = genai.types.GenerationConfig(
-            temperature      = temperature,
-            max_output_tokens= max_tokens,
-        ),
-    )
+    response = client.messages.create(**kwargs)
 
-    # All messages except the last become history; the last is the new message
-    if gemini_history:
-        *history, last_turn = gemini_history
-        chat = model.start_chat(history=history)
-        response = chat.send_message(last_turn["parts"][0])
-    else:
-        chat = model.start_chat()
-        response = chat.send_message("")
-
-    # Check for function call
-    candidate = response.candidates[0]
-    for part in candidate.content.parts:
-        if hasattr(part, "function_call") and part.function_call.name == "suggest_quiz":
-            reason = dict(part.function_call.args).get("reason", "")
+    # Check for tool use block
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "suggest_quiz":
+            reason = (block.input or {}).get("reason", "")
             text = reason or "A quiz would help reinforce what you've learned."
             return text + _QUIZ_SUFFIX
 
-    return response.text.strip()
+    # Collect text blocks
+    text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
+    return "\n".join(text_parts).strip()
 
 
 # ── Public interface ──────────────────────────────────────────────────────────
@@ -233,26 +223,136 @@ def chat_with_model(
 ) -> str:
     """
     Route a chat request to the appropriate AI model.
-    Falls back to Groq if the requested model is unavailable.
+    Falls back to Groq if the requested model is unavailable or its API fails.
     """
     model_id = model_id.lower().strip()
 
-    if model_id == "openai":
-        if not settings.OPENAI_API_KEY:
-            logger.warning("OpenAI key not set — falling back to Groq")
-            return _chat_groq(messages, temperature, max_tokens)
-        return _chat_openai(messages, temperature, max_tokens)
+    _adapters = {
+        "openai": (_chat_openai, settings.OPENAI_API_KEY),
+        "claude": (_chat_claude, settings.CLAUDE_API_KEY),
+    }
 
-    if model_id == "gemini":
-        if not settings.GEMINI_API_KEY:
-            logger.warning("Gemini key not set — falling back to Groq")
-            return _chat_groq(messages, temperature, max_tokens)
-        return _chat_gemini(messages, temperature, max_tokens)
+    if model_id in _adapters:
+        fn, key = _adapters[model_id]
+        if not key:
+            raise ValueError(f"{model_id.title()} API key is not configured on this server.")
+        return fn(messages, temperature, max_tokens)
 
-    # Default: Groq
+    # Default (groq or unknown)
     return _chat_groq(messages, temperature, max_tokens)
 
 
 def get_available_models() -> list:
     """Return all model metadata; each entry carries an 'available' flag."""
     return list(MODELS.values())
+
+
+# ── Streaming adapters ────────────────────────────────────────────────────────
+
+async def _stream_groq(messages: list, temperature: float, max_tokens: int):
+    """Yields text chunks from Groq (sync SDK wrapped in a background thread)."""
+    q: _queue.SimpleQueue = _queue.SimpleQueue()
+
+    def _run() -> None:
+        try:
+            client = _get_groq()
+            for chunk in client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=True,
+            ):
+                content = chunk.choices[0].delta.content
+                if content:
+                    q.put(content)
+        except Exception as exc:
+            q.put(exc)
+        finally:
+            q.put(None)
+
+    threading.Thread(target=_run, daemon=True).start()
+    loop = asyncio.get_running_loop()
+    while True:
+        item = await loop.run_in_executor(None, q.get)
+        if item is None:
+            break
+        if isinstance(item, Exception):
+            raise item
+        yield item
+
+
+async def _stream_openai(messages: list, temperature: float, max_tokens: int):
+    """Yields text chunks from OpenAI using the async client."""
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    stream = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True,
+    )
+    async for chunk in stream:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content
+
+
+async def _stream_claude(messages: list, temperature: float, max_tokens: int):
+    """Yields text chunks from Claude using the async Anthropic client."""
+    import anthropic
+    client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY)
+
+    system = ""
+    claude_messages: list = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system = msg["content"]
+        else:
+            claude_messages.append({"role": msg["role"], "content": msg["content"]})
+
+    kwargs: dict = dict(
+        model      = "claude-sonnet-4-6",
+        max_tokens = max(max_tokens, 1024),
+        temperature= temperature,
+        messages   = claude_messages,
+    )
+    if system:
+        kwargs["system"] = system
+
+    async with client.messages.stream(**kwargs) as stream:
+        async for text in stream.text_stream:
+            yield text
+
+
+async def stream_with_model(
+    model_id:    str,
+    messages:    list,
+    temperature: float = 0.3,
+    max_tokens:  int   = 1024,
+):
+    """
+    Async generator that routes streaming to the appropriate AI model.
+    Falls back to Groq if the requested model is unavailable or its API fails.
+    If the primary model fails BEFORE yielding any content, Groq takes over
+    seamlessly. If it fails mid-stream (already yielded), the exception propagates.
+    """
+    model_id = model_id.lower().strip()
+
+    _stream_adapters = {
+        "openai": (_stream_openai, settings.OPENAI_API_KEY),
+        "claude": (_stream_claude, settings.CLAUDE_API_KEY),
+    }
+
+    if model_id in _stream_adapters:
+        fn, key = _stream_adapters[model_id]
+        if not key:
+            raise ValueError(f"{model_id.title()} API key is not configured on this server.")
+        async for chunk in fn(messages, temperature, max_tokens):
+            yield chunk
+        return
+
+    # Default (groq or unknown)
+    async for chunk in _stream_groq(messages, temperature, max_tokens):
+        yield chunk

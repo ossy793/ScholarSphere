@@ -3,9 +3,8 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import declarative_base, sessionmaker
 from .config import settings
 
-# NullPool: no persistent connections — each request gets its own connection
-# and releases it immediately. Required for Supabase free tier (very low
-# connection limit) and for Transaction mode (port 6543) compatibility.
+# NullPool: required for Supabase (Transaction mode, port 6543) — very low
+# connection limit means each request must open/close its own connection.
 engine = create_engine(
     settings.DATABASE_URL,
     poolclass=NullPool,

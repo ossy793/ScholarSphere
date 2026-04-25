@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, status
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -28,11 +28,26 @@ from ..utils.pdf_converter import convert_to_pdf, IMAGE_TYPES
 from ..utils.chunker import chunk_text, chunk_pages_aware
 from ..utils.rag import store_chunks, retrieve_chunks, chunks_exist
 from ..services.ai_service import get_groq_client
-from ..services.model_service import chat_with_model, get_available_models
+from ..services.model_service import chat_with_model, get_available_models, stream_with_model
 from ..utils.access import check_access, enforce_model_access, effective_plan
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brainstorm", tags=["brainstorm"])
+
+
+def _clean_model_error(exc: Exception) -> str:
+    """Extract a user-friendly message from an AI model exception."""
+    msg = str(exc)
+    # Google API: 'message': 'API key expired...'
+    m = _re.search(r"'message':\s*'([^']+)'", msg)
+    if m:
+        return m.group(1)
+    # OpenAI / Anthropic: "message": "..."
+    m = _re.search(r'"message":\s*"([^"]+)"', msg)
+    if m:
+        return m.group(1)
+    # Trim to 120 chars for anything else
+    return msg[:120] if len(msg) > 120 else msg
 
 _MAX_UPLOAD     = 50 * 1024 * 1024  # 50 MB
 _MAX_STORED_CHARS = 200_000          # ~50 000 tokens — full document stored for RAG
@@ -100,7 +115,7 @@ class ChatRequest(BaseModel):
     history: List[HistoryItem] = []
     session_id: Optional[str] = None
     current_page: int = 1   # PDF viewer's current page — used for visual Q&A page selection
-    model: str = "groq"     # AI model to use: "groq" | "openai" | "gemini"
+    model: str = "groq"     # AI model to use: "groq" | "openai" | "claude"
 
 
 class SummaryRequest(BaseModel):
@@ -822,7 +837,7 @@ def brainstorm_chat(
     if not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-    # Enforce model access per plan (gemini blocked on free)
+    # Enforce model access per plan (claude blocked on free)
     enforce_model_access(current_user, payload.model)
 
     # ── Resolve session ───────────────────────────────────────────────────────
@@ -929,7 +944,7 @@ def brainstorm_chat(
             messages_to_send.append({"role": item.role, "content": item.content})
     messages_to_send.append({"role": "user", "content": payload.message})
 
-    # ── Call AI model (Groq / OpenAI / Gemini) ────────────────────────────────
+    # ── Call AI model (Groq / OpenAI / Claude) ────────────────────────────────
     try:
         reply = chat_with_model(
             model_id    = payload.model,
@@ -940,7 +955,7 @@ def brainstorm_chat(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI error: {str(e)}",
+            detail=f"AI error: {_clean_model_error(e)}",
         )
 
     # ── Persist messages ──────────────────────────────────────────────────────
@@ -963,6 +978,165 @@ def brainstorm_chat(
     plan   = _ep(current_user)
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get("study_zone") or {}
     return {"reply": reply, "session_mins": limits.get("session_mins")}
+
+
+# ── Streaming chat ────────────────────────────────────────────────────────────
+
+@router.post("/chat/stream")
+async def brainstorm_chat_stream(
+    payload:      ChatRequest,
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+):
+    """
+    Streaming version of /chat.  Yields plain-text chunks as the AI generates
+    them so the frontend can display them in real time.
+
+    Error before streaming starts  → normal HTTP error response (4xx/5xx).
+    Error during streaming         → yields the sentinel "__STREAM_ERR__:msg"
+                                     as the only/last chunk so the frontend
+                                     can detect and surface it.
+    """
+    if not payload.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    enforce_model_access(current_user, payload.model)
+
+    # ── Resolve session ───────────────────────────────────────────────────────
+    active_session = None
+    session_uuid   = None
+    if payload.session_id:
+        try:
+            session_uuid = uuid_module.UUID(payload.session_id)
+            active_session = db.query(BrainstormSession).filter(
+                BrainstormSession.id == session_uuid,
+                BrainstormSession.user_id == current_user.id,
+            ).first()
+        except Exception:
+            active_session = None
+
+    # ── RAG retrieval ─────────────────────────────────────────────────────────
+    context = ""
+    rag_used = False
+    if session_uuid and chunks_exist(db, session_uuid):
+        try:
+            retrieved = retrieve_chunks(db, session_uuid, payload.message, top_k=7)
+            if retrieved:
+                context  = "\n\n---\n\n".join(retrieved)
+                rag_used = True
+        except Exception as exc:
+            logger.warning("RAG retrieval error (stream) for session %s: %s", session_uuid, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    if not context:
+        if session_uuid:
+            try:
+                doc_record = db.query(BrainstormDocument).filter(
+                    BrainstormDocument.session_id == session_uuid
+                ).first()
+                if doc_record and doc_record.extracted_text:
+                    context = truncate_text(doc_record.extracted_text, max_chars=60000)
+            except Exception as exc:
+                logger.warning("Could not load document text from DB (stream): %s", exc)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+    if not context:
+        context = payload.context.strip()
+
+    # ── Visual Q&A for scanned documents ──────────────────────────────────────
+    if len(context) < 300 and session_uuid:
+        try:
+            doc_record = db.query(BrainstormDocument).filter(
+                BrainstormDocument.session_id == session_uuid
+            ).first()
+            if _is_scanned_doc(doc_record):
+                visual_reply = _visual_qa_chat(
+                    doc_record,
+                    payload.message,
+                    [h.dict() for h in payload.history],
+                    payload.current_page,
+                )
+                if visual_reply:
+                    # Persist and stream the entire reply as one chunk
+                    if active_session:
+                        try:
+                            db.add(BrainstormMessage(session_id=active_session.id, role="user",      content=payload.message))
+                            db.add(BrainstormMessage(session_id=active_session.id, role="assistant", content=visual_reply))
+                            active_session.updated_at = datetime.utcnow()
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+
+                    async def _single_chunk():
+                        yield visual_reply
+
+                    return StreamingResponse(_single_chunk(), media_type="text/plain; charset=utf-8")
+        except Exception as exc:
+            logger.warning("Visual Q&A pipeline error (stream): %s", exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    if not context:
+        raise HTTPException(status_code=400, detail="No document loaded.")
+
+    # ── Build messages ────────────────────────────────────────────────────────
+    system_prompt    = BRAINSTORM_SYSTEM.format(context=context)
+    messages_to_send = [{"role": "system", "content": system_prompt}]
+    for item in payload.history[-20:]:
+        if item.role in ("user", "assistant"):
+            messages_to_send.append({"role": item.role, "content": item.content})
+    messages_to_send.append({"role": "user", "content": payload.message})
+
+    # Capture values needed inside the generator (avoids closure over mutable state)
+    _session_id  = active_session.id if active_session else None
+    _user_id     = current_user.id
+    _user_msg    = payload.message
+    _model_id    = payload.model
+
+    async def generate():
+        full_reply = ""
+        try:
+            async for chunk in stream_with_model(
+                _model_id, messages_to_send, temperature=0.3, max_tokens=1024,
+            ):
+                full_reply += chunk
+                yield chunk
+        except Exception as exc:
+            logger.error("Streaming error for model %s: %s", _model_id, exc)
+            if not full_reply:
+                yield f"__STREAM_ERR__:{_clean_model_error(exc)}"
+        finally:
+            # Persist to DB using a fresh session (request session may be closing)
+            if _session_id and full_reply.strip():
+                _db = SessionLocal()
+                try:
+                    s = _db.query(BrainstormSession).filter(
+                        BrainstormSession.id == _session_id,
+                        BrainstormSession.user_id == _user_id,
+                    ).first()
+                    if s:
+                        _db.add(BrainstormMessage(session_id=s.id, role="user",      content=_user_msg))
+                        _db.add(BrainstormMessage(session_id=s.id, role="assistant", content=full_reply))
+                        s.updated_at = datetime.utcnow()
+                        _db.commit()
+                except Exception as db_exc:
+                    logger.warning("Failed to persist streamed chat: %s", db_exc)
+                    try:
+                        _db.rollback()
+                    except Exception:
+                        pass
+                finally:
+                    _db.close()
+
+    return StreamingResponse(generate(), media_type="text/plain; charset=utf-8")
 
 
 _SUMMARY_SYSTEM_PROMPT = (
@@ -1315,8 +1489,7 @@ async def generate_visual(
         "Generate a Mermaid diagram. Return valid JSON with title, diagram_type, mermaid, description."
     )
 
-    # Try models — Gemini preferred for diagram quality
-    model_order = ["gemini", "openai", "groq"]
+    model_order = ["claude", "openai", "groq"]
     if payload.model in model_order:
         model_order = [payload.model] + [m for m in model_order if m != payload.model]
 

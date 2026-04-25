@@ -482,3 +482,21 @@
   border-radius: 99px;
   white-space: nowrap;
 }
+
+/* PDF export button */
+.pdf-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pdf-export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.pdf-export-btn svg { flex-shrink: 0; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

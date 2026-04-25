@@ -1,4 +1,4 @@
-import { api, requireAuth, getUser, getToken } from './api.js';
+import { api, requireAuth, getUser, getToken, showUpgradeModal } from './api.js';
 import { renderLayout } from './layout.js';
 
 if (!requireAuth()) throw new Error('unauthenticated');
@@ -13,32 +13,28 @@ let currentSessionId = null; // DB session ID (null = unsaved)
 let currentFilename  = 'Document'; // used for summary PDF filename
 
 // ── Model selection ───────────────────────────────────────────────────────────
-const _MODEL_COLORS = { groq: '#f97316', openai: '#10a37f', gemini: '#4285f4' };
 
-// SVG logos for each provider
-const _MODEL_LOGOS = {
-  groq: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="24" height="24" rx="6" fill="#f97316"/>
-    <path d="M12 5.5C8.41 5.5 5.5 8.41 5.5 12C5.5 15.59 8.41 18.5 12 18.5C15.59 18.5 18.5 15.59 18.5 12V10.5H12V13.5H15.6C15.03 15.48 13.68 16.5 12 16.5C9.52 16.5 7.5 14.48 7.5 12C7.5 9.52 9.52 7.5 12 7.5C13.12 7.5 14.14 7.92 14.91 8.62L16.74 6.79C15.49 5.67 13.82 5 12 5.5Z" fill="white"/>
-  </svg>`,
-  openai: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="24" height="24" rx="6" fill="#10a37f"/>
-    <path d="M19.2 9.46a4.36 4.36 0 0 0-.38-3.59 4.41 4.41 0 0 0-4.74-2.11A4.42 4.42 0 0 0 3.71 5.88a4.36 4.36 0 0 0-2.91 2.12 4.41 4.41 0 0 0 .54 5.17 4.36 4.36 0 0 0 .37 3.59 4.41 4.41 0 0 0 4.75 2.11 4.36 4.36 0 0 0 3.28 1.46 4.41 4.41 0 0 0 4.21-3.06 4.36 4.36 0 0 0 2.91-2.12 4.41 4.41 0 0 0-.54-5.69zM12.74 18.5a3.27 3.27 0 0 1-2.1-.76l.1-.06 3.49-2.01a.58.58 0 0 0 .29-.5V10.8l1.47.85a.05.05 0 0 1 .03.04v4.07a3.29 3.29 0 0 1-3.28 3.28zM5.66 15.8a3.27 3.27 0 0 1-.39-2.2l.1.06 3.49 2.01a.56.56 0 0 0 .57 0l4.26-2.46v1.7a.06.06 0 0 1-.02.05L9.44 17.1a3.29 3.29 0 0 1-3.78-1.3zM4.9 8.63a3.27 3.27 0 0 1 1.72-1.44v4.14a.56.56 0 0 0 .28.49l4.24 2.45-1.47.85a.06.06 0 0 1-.05 0L5.11 12.6A3.29 3.29 0 0 1 4.9 8.63zm10.78 2.82-4.25-2.46 1.47-.85a.06.06 0 0 1 .05 0l3.52 2.03a3.28 3.28 0 0 1-.49 5.91v-4.14a.58.58 0 0 0-.3-.49zm1.46-2.21-.1-.06-3.48-2.03a.57.57 0 0 0-.57 0L8.73 9.61V7.9a.05.05 0 0 1 .02-.04l3.52-2.03a3.29 3.29 0 0 1 4.87 3.4zm-9.21 3.01-1.47-.85a.06.06 0 0 1-.03-.04V8.28a3.29 3.29 0 0 1 5.38-2.52l-.1.06L8.23 7.83a.58.58 0 0 0-.29.5zm.8-1.72 1.9-1.1 1.9 1.1v2.19l-1.89 1.09-1.9-1.09z" fill="white"/>
-  </svg>`,
-  gemini: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="24" height="24" rx="6" fill="#4285f4"/>
-    <path d="M12 3C12 3 12 8.5 7 12C12 15.5 12 21 12 21C12 21 12 15.5 17 12C12 8.5 12 3 12 3Z" fill="white"/>
-    <path d="M3 12C3 12 8.5 12 12 7C15.5 12 21 12 21 12C21 12 15.5 12 12 17C8.5 12 3 12 3 12Z" fill="white" opacity="0.7"/>
-  </svg>`,
+// Unified UrPadi logo — same for every model (no third-party branding)
+const _URPADI_COLOR = '#0077FF';
+const _URPADI_LOGO  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="24" height="24" rx="6" fill="#0077FF"/>
+  <path d="M8 17V7h5.5C15.43 7 17 8.57 17 10.5S15.43 14 13.5 14H10v3H8zm2-5h3.5c.83 0 1.5-.67 1.5-1.5S14.33 9 13.5 9H10v3z" fill="white"/>
+</svg>`;
+
+// Central model config — display_name is the only user-visible label
+const MODEL_CONFIG = {
+  groq:   { displayName: 'Groq' },
+  openai: { displayName: 'ChatGPT' },
+  claude: { displayName: 'Claude' },
 };
 
 let _selectedModel  = localStorage.getItem('sz_model') || 'groq';
 
-// All models always shown and selectable — backend merge updates availability
+// All models always shown — backend merge updates availability flag
 let _availableModels = [
-  { id: 'groq',   name: 'Llama 3.3 70B',    provider: 'Groq',   display_name: 'Groq',    available: true },
-  { id: 'openai', name: 'GPT-4o mini',       provider: 'OpenAI', display_name: 'ChatGPT', available: true },
-  { id: 'gemini', name: 'Gemini 2.0 Flash',  provider: 'Google', display_name: 'Gemini',  available: true },
+  { id: 'groq',   display_name: 'Groq',    available: true },
+  { id: 'openai', display_name: 'ChatGPT', available: true },
+  { id: 'claude', display_name: 'Claude',  available: true },
 ];
 
 async function _loadModels() {
@@ -73,16 +69,15 @@ function _renderModelPicker() {
   picker.innerHTML = header + _availableModels.map(m => {
     const isActive    = m.id === _selectedModel;
     const isDisabled  = m.available === false;
-    const logo        = _MODEL_LOGOS[m.id] || `<span style="width:18px;height:18px;border-radius:5px;background:${_MODEL_COLORS[m.id]||'#888'};display:inline-block"></span>`;
-    const displayName = m.display_name || m.provider;
+    const displayName = m.display_name || MODEL_CONFIG[m.id]?.displayName || m.id;
     return `
     <button class="model-option${isActive ? ' active' : ''}${isDisabled ? ' disabled' : ''}"
       onclick="${isDisabled ? '' : `selectModel('${m.id}')`}"
       ${isDisabled ? 'disabled title="API key not configured"' : ''}>
-      <span class="model-logo-wrap">${logo}</span>
+      <span class="model-logo-wrap">${_URPADI_LOGO}</span>
       <span class="model-option-info">
         <span class="model-option-name">UrPadi × ${displayName}</span>
-        <span class="model-option-provider">${m.name}${isDisabled ? ' · key not set' : ''}</span>
+        ${isDisabled ? `<span class="model-option-provider">key not set</span>` : ''}
       </span>
       ${isActive ? '<span class="model-option-badge">Active</span>' : ''}
     </button>`;
@@ -92,20 +87,19 @@ function _renderModelPicker() {
 function _updateModelUI() {
   const m = _availableModels.find(x => x.id === _selectedModel);
   if (!m) return;
-  const displayName = m.display_name || m.provider;
-  const logo        = _MODEL_LOGOS[m.id];
+  const displayName = m.display_name || MODEL_CONFIG[m.id]?.displayName || m.id;
   const dot         = document.getElementById('model-dot');
   const label       = document.getElementById('model-btn-label');
   const power       = document.getElementById('model-powered-label');
   const logoWrap    = document.getElementById('model-header-logo');
-  if (dot)      dot.style.background = _MODEL_COLORS[m.id] || '#888';
+  if (dot)      dot.style.background = _URPADI_COLOR;
   if (label)    label.textContent    = displayName;
   if (power)    power.innerHTML      = `powered by <strong>${displayName}</strong>`;
-  if (logoWrap && logo) logoWrap.innerHTML = logo;
+  if (logoWrap) logoWrap.innerHTML   = _URPADI_LOGO;
   // Update empty-state model badge
   const emptyBadge = document.getElementById('empty-model-badge');
   if (emptyBadge) {
-    emptyBadge.innerHTML = `${logo || ''}<span>Powered by <strong>${displayName}</strong> · ${m.name}</span>`;
+    emptyBadge.innerHTML = `${_URPADI_LOGO}<span>Powered by <strong>${displayName}</strong></span>`;
   }
 }
 
@@ -147,14 +141,12 @@ function _renderSetupModelCards() {
   const grid = document.getElementById('setup-model-grid');
   if (!grid) return;
   grid.innerHTML = _availableModels.map(m => {
-    const logo        = _MODEL_LOGOS[m.id] || '';
-    const displayName = m.display_name || m.provider;
+    const displayName = m.display_name || MODEL_CONFIG[m.id]?.displayName || m.id;
     const isSelected  = m.id === _selectedModel;
     return `
     <button class="setup-model-card${isSelected ? ' selected' : ''}" onclick="setupPickModel('${m.id}')">
-      <span class="setup-model-logo">${logo}</span>
+      <span class="setup-model-logo">${_URPADI_LOGO}</span>
       <span class="setup-model-name">UrPadi × ${displayName}</span>
-      <span class="setup-model-sub">${m.name}</span>
     </button>`;
   }).join('');
 }
@@ -605,8 +597,12 @@ async function handleFile(file) {
     }
   } catch (err) {
     resetUploadZone();
-    errEl.textContent = err.message || 'Failed to load file. Please try again.';
-    errEl.classList.remove('hidden');
+    if (err.upgradeRequired) {
+      showUpgradeModal(err.upgradeInfo);
+    } else {
+      errEl.textContent = err.message || 'Failed to load file. Please try again.';
+      errEl.classList.remove('hidden');
+    }
   }
 }
 
@@ -2131,19 +2127,22 @@ window.sendMessage = async function () {
   appendBubble('user', text);
   chatHistory.push({ role: 'user', content: text });
 
-  const typingId = showTyping();
   isWaiting = true;
   document.getElementById('send-btn').disabled = true;
   input.disabled = true;
 
+  // Create the streaming bubble (avatar + empty content with blinking cursor)
+  const { el: streamEl, bubble: streamBubble } = _createStreamingBubble();
+  const container = document.getElementById('chat-messages');
+  let fullReply = '';
+
   try {
-    // Read current PDF page so the AI reads the right pages for scanned docs
     const _pageEl = document.getElementById('pdf-page-counter');
     const _currentPage = _pageEl
       ? (parseInt(_pageEl.textContent.split('/')[0].trim()) || 1)
       : 1;
 
-    const res = await api.post('/brainstorm/chat', {
+    const res = await api.stream('/brainstorm/chat/stream', {
       message:      text,
       context:      documentContext,
       history:      chatHistory.slice(0, -1),
@@ -2151,36 +2150,96 @@ window.sendMessage = async function () {
       current_page: _currentPage,
       model:        _selectedModel,
     });
-    removeTyping(typingId);
-    const msgEl = appendBubble('assistant', res.reply);
-    chatHistory.push({ role: 'assistant', content: res.reply });
 
-    // Attach action buttons below every assistant reply during a study session
-    const topicHint = _extractTopic(text, res.reply);
-    _appendMessageActions(msgEl, topicHint);
+    if (!res) return; // 401 redirect already handled by api.stream
 
-    // If user seems confused, also auto-nudge with a visual button highlight
+    // Pre-stream HTTP error handling (402, 4xx, 5xx)
+    if (!res.ok) {
+      streamEl.remove();
+      if (res.status === 402) {
+        let data;
+        try { data = await res.json(); } catch {}
+        const detail = data?.detail || {};
+        showUpgradeModal(typeof detail === 'object' ? detail : { message: String(detail) });
+      } else {
+        let data;
+        try { data = await res.json(); } catch {}
+        const msg = (typeof data?.detail === 'string' ? data.detail : null) || `Error ${res.status}`;
+        appendBubble('assistant', `⚠️ ${msg}`);
+      }
+      return;
+    }
+
+    // ── Read the stream ───────────────────────────────────────────────────────
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let renderPending = false;
+
+    const scheduleRender = () => {
+      if (renderPending) return;
+      renderPending = true;
+      requestAnimationFrame(() => {
+        renderPending = false;
+        streamBubble.innerHTML =
+          renderMarkdown(fullReply) + '<span class="stream-cursor"></span>';
+        container.scrollTop = container.scrollHeight;
+      });
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk.startsWith('__STREAM_ERR__:')) {
+        const errMsg = chunk.slice('__STREAM_ERR__:'.length).trim();
+        streamEl.remove();
+        appendBubble('assistant', `⚠️ ${errMsg || 'Something went wrong. Please try again.'}`);
+        return;
+      }
+      fullReply += chunk;
+      scheduleRender();
+    }
+
+    // ── Finalise bubble ───────────────────────────────────────────────────────
+    if (!fullReply.trim()) {
+      streamEl.remove();
+      appendBubble('assistant', '⚠️ No response received. Please try again.');
+      return;
+    }
+
+    _finalizeStreamBubble(streamEl, streamBubble, fullReply);
+    container.scrollTop = container.scrollHeight;
+
+    chatHistory.push({ role: 'assistant', content: fullReply });
+
+    const topicHint = _extractTopic(text, fullReply);
+    _appendMessageActions(streamEl, topicHint);
+
     if (_isConfused(text)) {
-      const visBtn = msgEl.nextElementSibling?.querySelector('[id$="-vis"]');
+      const visBtn = streamEl.nextElementSibling?.querySelector('[id$="-vis"]');
       if (visBtn) {
         visBtn.style.borderColor = 'var(--primary)';
         visBtn.style.color       = 'var(--primary)';
       }
     }
 
-    _resetReadingTimers(); // user interacted — restart the inactivity clock
+    _resetReadingTimers();
     _bsSave();
-    // On mobile: show badge on UrPadi tab if user is on Document tab
+
     if (window.innerWidth <= 768) {
       const layout = document.getElementById('bs-layout');
-      if (!layout.classList.contains('mobile-chat-active')) {
+      if (!layout?.classList.contains('mobile-chat-active')) {
         const badge = document.getElementById('mobile-fab-badge');
         if (badge) badge.classList.add('visible');
       }
     }
   } catch (err) {
-    removeTyping(typingId);
-    appendBubble('assistant', `⚠️ ${err.message || 'Something went wrong. Please try again.'}`);
+    streamEl?.remove();
+    if (err.upgradeRequired) {
+      showUpgradeModal(err.upgradeInfo || {});
+    } else {
+      appendBubble('assistant', `⚠️ ${err.message || 'Something went wrong. Please try again.'}`);
+    }
   } finally {
     isWaiting = false;
     document.getElementById('send-btn').disabled = false;
@@ -2229,23 +2288,55 @@ function appendBubble(role, content) {
   return el;
 }
 
-function showTyping() {
-  const id = `typing-${Date.now()}`;
+/** Create an empty assistant bubble with a blinking cursor for streaming. */
+function _createStreamingBubble() {
+  const container = document.getElementById('chat-messages');
   const el = document.createElement('div');
   el.className = 'msg assistant';
-  el.id = id;
   el.innerHTML = `
     <div class="msg-avatar">UP</div>
-    <div class="msg-bubble">
-      <div class="typing-indicator"><span></span><span></span><span></span></div>
-    </div>`;
-  const c = document.getElementById('chat-messages');
-  c.appendChild(el);
-  c.scrollTop = c.scrollHeight;
-  return id;
+    <div class="msg-bubble"><span class="stream-cursor"></span></div>`;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+  return { el, bubble: el.querySelector('.msg-bubble') };
 }
 
-function removeTyping(id) { document.getElementById(id)?.remove(); }
+/** Finalise a streaming bubble: render markdown + add copy/TTS buttons. */
+function _finalizeStreamBubble(el, bubble, content) {
+  bubble.innerHTML = renderMarkdown(content);
+  const ttsId = `tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'msg-copy-btn';
+  copyBtn.title = 'Copy message';
+  copyBtn.innerHTML = `
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+      <rect x='9' y='9' width='13' height='13' rx='2' ry='2'/>
+      <path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/>
+    </svg>
+    <span class="copy-tooltip">Copy</span>`;
+  copyBtn.onclick = function () {
+    navigator.clipboard.writeText(bubble.innerText).then(() => {
+      const t = copyBtn.querySelector('.copy-tooltip');
+      t.textContent = 'Copied!';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { t.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+    });
+  };
+  const ttsBtn = document.createElement('button');
+  ttsBtn.className = 'msg-tts-btn';
+  ttsBtn.id = ttsId;
+  ttsBtn.title = 'Listen to this message';
+  ttsBtn.innerHTML = `
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>
+      <polygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/>
+      <path d='M19.07 4.93a10 10 0 010 14.14'/>
+      <path d='M15.54 8.46a5 5 0 010 7.07'/>
+    </svg>
+    <span class="tts-tooltip">Listen</span>`;
+  ttsBtn.onclick = function () { toggleTTS(ttsBtn); };
+  el.appendChild(copyBtn);
+  el.appendChild(ttsBtn);
+}
 
 // ── Input keyboard handling ───────────────────────────────────────────────────
 window.onInputKeydown = function (e) {

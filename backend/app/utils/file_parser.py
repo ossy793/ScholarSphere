@@ -3,6 +3,8 @@ import io
 import logging
 import os
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 # Candidate Tesseract executable paths — checked in order when PATH lookup fails.
@@ -136,49 +138,12 @@ def _ocr_with_tesseract(page_images: list) -> str:
     return "\n\n".join(parts)
 
 
-def _gemini_extract_text(file_bytes: bytes) -> str:
-    """
-    Extract text from a scanned PDF by sending it natively to Gemini.
-    No page rendering required — Gemini reads the PDF bytes directly.
-    Returns '' if GEMINI_API_KEY is not set or the call fails.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        logger.warning("GEMINI_API_KEY not set — Gemini OCR unavailable")
-        return ""
-    try:
-        import google.genai as genai
-        from google.genai import types as gtypes
-
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=[
-                gtypes.Part.from_bytes(data=file_bytes, mime_type="application/pdf"),
-                gtypes.Part.from_text(
-                    "Extract ALL text from this document exactly as written. "
-                    "Preserve headings, numbered lists, bullet points, and document structure. "
-                    "If any text appears visually emphasized — bold, underlined, circled, starred, "
-                    "or otherwise marked — wrap it in **...**. "
-                    "Output only the extracted text — no commentary, no descriptions."
-                ),
-            ],
-        )
-        text = (response.text or "").strip()
-        if text:
-            logger.info("Gemini OCR succeeded — %d chars extracted.", len(text))
-        return text
-    except Exception as exc:
-        logger.warning("Gemini OCR failed: %s", exc)
-        return ""
-
-
 def _ocr_with_groq(page_images: list) -> str:
     """
     Cloud OCR fallback: send page images to a Groq vision model one at a time.
     Processes pages sequentially and releases each image from memory after use.
     """
-    api_key = os.environ.get("GROQ_API_KEY", "")
+    api_key = settings.GROQ_API_KEY
     if not api_key:
         logger.warning("GROQ_API_KEY not set — Groq vision OCR unavailable")
         return ""
@@ -305,19 +270,8 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     except Exception:
         total_pages = 0
 
-    # --- Strategy 2: Gemini native PDF reading (best for scanned docs) ---
-    text = _gemini_extract_text(file_bytes).strip()
-    if text:
-        logger.info("Gemini OCR succeeded — %d chars extracted.", len(text))
-        if total_pages > _OCR_PAGE_LIMIT:
-            text += (
-                f"\n\n[Note: This document has {total_pages} pages. "
-                f"OCR was applied to the first {_OCR_PAGE_LIMIT} pages only.]"
-            )
-        return text
-
-    # --- Strategy 3: Image-based OCR (Tesseract → Groq vision) ---
-    logger.info("Gemini OCR unavailable — falling back to image OCR.")
+    # --- Strategy 2: Image-based OCR (Tesseract → Groq vision) ---
+    logger.info("pdfplumber found no text — attempting image OCR.")
     text = _ocr_pdf(file_bytes).strip()
 
     if text:

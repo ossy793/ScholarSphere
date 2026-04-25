@@ -1,14 +1,14 @@
 """
 Payment router — Paystack integration with tiered subscription plans.
 
-Tiers:  basic | pro
+Tiers:  basic | pro/max
 Cycles: weekly (7 days) | monthly (30 days)
 
-Pricing (kobo):
-  basic  weekly  = 100 000  (₦1 000)
-  basic  monthly = 300 000  (₦3 000)
-  pro    weekly  = 150 000  (₦1 500)
-  pro    monthly = 400 000  (₦4 000)
+Pricing (kobo) — discounted launch prices:
+  basic  weekly  = 50 000  (₦500  · was ₦1 000 · 50% OFF)
+  basic  monthly = 180 000 (₦1 800 · was ₦3 000 · 40% OFF)
+  max    weekly  = 100 000 (₦1 000 · was ₦1 500 · 33% OFF)
+  max    monthly = 300 000 (₦3 000 · was ₦4 000 · 25% OFF)
 
 Endpoints:
   GET  /payment/config                 — return public key + plan/price matrix
@@ -35,30 +35,35 @@ from ..config import settings
 from ..database import get_db, SessionLocal
 from ..models.user import User
 from ..utils.security import create_access_token, get_current_user
-from ..utils.access import get_usage_status
+from ..utils.access import get_usage_status, effective_plan
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/payment", tags=["payment"])
 
 # ── Plan / pricing matrix ─────────────────────────────────────────────────────
+# kobo = final (discounted) amount charged via Paystack
+# original_kobo = original price before discount (for display only)
+# discount_pct  = percentage discount (for display only)
 
 _PLANS = {
     "basic": {
-        "weekly":  {"kobo": 100_000, "days": 7,  "label": "₦1,000 / week"},
-        "monthly": {"kobo": 300_000, "days": 30, "label": "₦3,000 / month"},
+        "weekly":  {"kobo":  50_000, "original_kobo": 100_000, "discount_pct": 50, "days": 7,  "label": "₦500 / week"},
+        "monthly": {"kobo": 180_000, "original_kobo": 300_000, "discount_pct": 40, "days": 30, "label": "₦1,800 / month"},
     },
-    "pro": {
-        "weekly":  {"kobo": 150_000, "days": 7,  "label": "₦1,500 / week"},
-        "monthly": {"kobo": 400_000, "days": 30, "label": "₦4,000 / month"},
+    "max": {
+        "weekly":  {"kobo": 100_000, "original_kobo": 150_000, "discount_pct": 33, "days": 7,  "label": "₦1,000 / week"},
+        "monthly": {"kobo": 300_000, "original_kobo": 400_000, "discount_pct": 25, "days": 30, "label": "₦3,000 / month"},
     },
 }
+# Legacy alias so old webhook/poll calls with plan="pro" still work
+_PLANS["pro"] = _PLANS["max"]
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class VerifyRequest(BaseModel):
     reference: str
-    plan:      str   # "basic" | "pro"
+    plan:      str   # "basic" | "max"
     cycle:     str   # "weekly" | "monthly"
 
 
@@ -133,14 +138,17 @@ def payment_config():
     return {
         "public_key": settings.PAYSTACK_PUBLIC_KEY,
         "plans": {
-            "basic": {
-                "weekly":  {"kobo": _PLANS["basic"]["weekly"]["kobo"],  "label": _PLANS["basic"]["weekly"]["label"]},
-                "monthly": {"kobo": _PLANS["basic"]["monthly"]["kobo"], "label": _PLANS["basic"]["monthly"]["label"]},
-            },
-            "pro": {
-                "weekly":  {"kobo": _PLANS["pro"]["weekly"]["kobo"],  "label": _PLANS["pro"]["weekly"]["label"]},
-                "monthly": {"kobo": _PLANS["pro"]["monthly"]["kobo"], "label": _PLANS["pro"]["monthly"]["label"]},
-            },
+            plan: {
+                cycle: {
+                    "kobo":          cfg["kobo"],
+                    "original_kobo": cfg["original_kobo"],
+                    "discount_pct":  cfg["discount_pct"],
+                    "label":         cfg["label"],
+                }
+                for cycle, cfg in cycles.items()
+            }
+            for plan, cycles in _PLANS.items()
+            if plan != "pro"   # exclude legacy alias from client-facing list
         },
     }
 
@@ -154,6 +162,20 @@ async def verify_payment(
     """Verify a Paystack reference and activate the chosen plan."""
     if not settings.PAYSTACK_SECRET_KEY:
         raise HTTPException(503, "Payment gateway not configured.")
+
+    # Block payment if user already has an active subscription
+    now = datetime.utcnow()
+    if (
+        not current_user.is_admin
+        and current_user.subscription_expiry
+        and current_user.subscription_expiry > now
+    ):
+        expiry_str = current_user.subscription_expiry.strftime("%d %b %Y")
+        raise HTTPException(
+            400,
+            f"You already have an active subscription until {expiry_str}. "
+            "You can subscribe again after it expires."
+        )
 
     cfg = _plan_config(payload.plan, payload.cycle)
     tx  = await _paystack_verify(payload.reference, cfg["kobo"])
@@ -265,9 +287,24 @@ def get_feature_usage(
     db:           Session = Depends(get_db),
 ):
     """Return the current user's feature usage summary."""
+    plan    = effective_plan(current_user)
+    now     = datetime.utcnow()
+    expiry  = current_user.subscription_expiry
+    start   = current_user.subscription_start
+
+    days_remaining = None
+    days_used      = None
+    if expiry and plan in ("basic", "max"):
+        days_remaining = max(0, (expiry - now).days)
+    if start and plan in ("basic", "max"):
+        days_used = max(0, (now - start).days)
+
     return {
-        "plan":    current_user.subscription_plan or "free",
-        "expiry":  current_user.subscription_expiry.isoformat() if current_user.subscription_expiry else None,
-        "is_admin": current_user.is_admin,
-        "usage":   get_usage_status(db, current_user),
+        "plan":           plan,
+        "start":          start.isoformat()  if start  else None,
+        "expiry":         expiry.isoformat() if expiry else None,
+        "days_remaining": days_remaining,
+        "days_used":      days_used,
+        "is_admin":       current_user.is_admin,
+        "usage":          get_usage_status(db, current_user),
     }

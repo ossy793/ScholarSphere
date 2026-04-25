@@ -2,10 +2,12 @@
 Feature access control and usage tracking.
 
 Tier matrix:
-  free  → hard limits on core features; no gemini; no youtube/visual/friends
-  basic → unlimited core; gemini; 10/month youtube + visual; friends ok
-  pro   → no restrictions
-  admin → always treated as pro (no restrictions)
+  free  → hard limits on core features; groq/openai only; no claude/youtube/visual/friends
+  basic → unlimited core; groq/openai/claude; 10/month youtube + visual
+  max   → no restrictions
+  admin → always treated as max (no restrictions)
+
+"pro" stored in DB is normalised to "max" at runtime for backward compatibility.
 """
 
 from __future__ import annotations
@@ -21,16 +23,18 @@ if TYPE_CHECKING:
 
 
 # ── Plan limit definitions ────────────────────────────────────────────────────
-# None       → feature completely blocked for this plan
-# {}         → allowed, unlimited
-# {limit: N} → allowed up to N uses (lifetime for free, rolling for basic)
-# reset_days → how often the counter resets (None = never)
+# None         → feature completely blocked for this plan
+# {}           → allowed, unlimited
+# {"limit": N} → allowed up to N uses (lifetime when reset_days=None, rolling otherwise)
+# reset_days   → how often the counter resets (None = never / lifetime)
+# max_q        → maximum questions returned per generation call
+# session_mins → maximum study session duration in minutes (frontend enforces)
 
 PLAN_LIMITS: dict[str, dict] = {
     "free": {
-        "input_questions":    {"limit": 2,  "reset_days": None},
+        "input_questions":    {"limit": 3,  "reset_days": None, "max_q": 15},
         "ai_generate":        {"limit": 3,  "reset_days": None, "max_q": 20},
-        "study_zone":         {"limit": 3,  "reset_days": None, "session_mins": 30},
+        "study_zone":         {"limit": 3,  "reset_days": None, "session_mins": 20},
         "youtube_resources":  None,
         "visual_explanation": None,
         "ask_friends":        None,
@@ -39,11 +43,11 @@ PLAN_LIMITS: dict[str, dict] = {
         "study_strategy":     {},
         "model_groq":         {},
         "model_openai":       {},
-        "model_gemini":       None,
+        "model_claude":       None,
     },
     "basic": {
         "input_questions":    {},
-        "ai_generate":        {"max_q": 70},
+        "ai_generate":        {"max_q": 50},
         "study_zone":         {},
         "youtube_resources":  {"limit": 10, "reset_days": 30},
         "visual_explanation": {"limit": 10, "reset_days": 30},
@@ -53,9 +57,9 @@ PLAN_LIMITS: dict[str, dict] = {
         "study_strategy":     {},
         "model_groq":         {},
         "model_openai":       {},
-        "model_gemini":       {},
+        "model_claude":       {},
     },
-    "pro": {
+    "max": {
         "input_questions":    {},
         "ai_generate":        {},
         "study_zone":         {},
@@ -67,20 +71,22 @@ PLAN_LIMITS: dict[str, dict] = {
         "study_strategy":     {},
         "model_groq":         {},
         "model_openai":       {},
-        "model_gemini":       {},
+        "model_claude":       {},
     },
 }
+# "pro" stored in DB is a legacy alias for "max"
+PLAN_LIMITS["pro"] = PLAN_LIMITS["max"]
 
-# Which plan first unlocks a feature (used in upgrade messages)
+# Which plan first unlocks a feature (used in upgrade error messages)
 _FEATURE_MIN_PLAN: dict[str, str] = {
     "youtube_resources":  "basic",
     "visual_explanation": "basic",
     "ask_friends":        "basic",
     "ai_recommendations": "basic",
-    "model_gemini":       "basic",
+    "model_claude":       "basic",
 }
 
-PLAN_ORDER = ["free", "basic", "pro"]
+PLAN_ORDER = ["free", "basic", "max"]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -88,9 +94,14 @@ PLAN_ORDER = ["free", "basic", "pro"]
 def effective_plan(user) -> str:
     """Return the user's current effective plan, accounting for expiry and admin."""
     if user.is_admin:
-        return "pro"
+        return "max"
     plan = getattr(user, "subscription_plan", "free") or "free"
-    if plan in ("basic", "pro"):
+    # Normalise legacy "pro" → "max"
+    if plan == "pro":
+        plan = "max"
+    if plan not in PLAN_LIMITS:
+        plan = "free"
+    if plan in ("basic", "max"):
         expiry = getattr(user, "subscription_expiry", None)
         if expiry and datetime.utcnow() > expiry:
             return "free"
@@ -127,6 +138,15 @@ def _maybe_reset(row, reset_days: int | None, db: "Session") -> None:
         db.flush()
 
 
+def _next_plan(current: str) -> str:
+    """Return the next upgrade tier above current."""
+    try:
+        idx = PLAN_ORDER.index(current)
+    except ValueError:
+        idx = 0
+    return PLAN_ORDER[min(idx + 1, len(PLAN_ORDER) - 1)]
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def check_access(
@@ -143,8 +163,8 @@ def check_access(
 
     Pass increment=True to record one usage unit atomically with the check.
     """
-    plan    = effective_plan(user)
-    limits  = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
+    plan   = effective_plan(user)
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
 
     if limits is None:
         required = _FEATURE_MIN_PLAN.get(feature, "basic")
@@ -167,20 +187,19 @@ def check_access(
         row = _get_or_create_usage(db, user.id, feature)
         _maybe_reset(row, limits.get("reset_days"), db)
         if row.usage_count >= hard_limit:
-            next_plan = PLAN_ORDER[min(PLAN_ORDER.index(plan) + 1, len(PLAN_ORDER) - 1)]
             raise HTTPException(
                 status_code=402,
                 detail={
                     "code":          "UPGRADE_REQUIRED",
                     "feature":       feature,
-                    "required_plan": next_plan,
+                    "required_plan": _next_plan(plan),
                     "current_plan":  plan,
                     "current_usage": row.usage_count,
                     "limit":         hard_limit,
                     "message": (
                         f"You've used {row.usage_count}/{hard_limit} of your "
                         f"{feature.replace('_', ' ')} allowance. "
-                        f"Upgrade to {next_plan.title()} for more."
+                        f"Upgrade to {_next_plan(plan).title()} for more."
                     ),
                 },
             )
@@ -189,7 +208,7 @@ def check_access(
             row.last_used    = datetime.utcnow()
             db.commit()
     elif increment:
-        # No hard limit, but still track usage
+        # No hard limit — still track for dashboard display
         row = _get_or_create_usage(db, user.id, feature)
         row.usage_count += 1
         row.last_used    = datetime.utcnow()
@@ -212,46 +231,53 @@ def get_usage_status(db: "Session", user) -> dict:
             result[feature] = {"allowed": False}
             continue
         hard_limit = limits.get("limit") if limits else None
+        entry: dict = {"allowed": True}
         if hard_limit is not None:
-            row = rows.get(feature)
+            row  = rows.get(feature)
             used = row.usage_count if row else 0
-            result[feature] = {
-                "allowed": True,
-                "used":    used,
-                "limit":   hard_limit,
+            entry.update({
+                "used":      used,
+                "limit":     hard_limit,
                 "remaining": max(0, hard_limit - used),
-            }
-        else:
-            result[feature] = {"allowed": True}
+            })
+        if limits.get("max_q"):
+            entry["max_q"] = limits["max_q"]
+        if limits.get("session_mins"):
+            entry["session_mins"] = limits["session_mins"]
+        result[feature] = entry
     return result
 
 
 def enforce_model_access(user, model_id: str) -> None:
     """
     Raise 402 if the user's plan does not include the requested AI model.
-    model_id: "groq" | "openai" | "gemini"
+    model_id: "groq" | "openai" | "claude"
     """
-    plan = effective_plan(user)
+    plan    = effective_plan(user)
     feature = f"model_{model_id}"
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
+    limits  = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
     if limits is None:
+        required = _FEATURE_MIN_PLAN.get(feature, "basic")
         raise HTTPException(
             status_code=402,
             detail={
                 "code":          "UPGRADE_REQUIRED",
                 "feature":       feature,
-                "required_plan": "basic",
+                "required_plan": required,
                 "current_plan":  plan,
-                "message":       f"The {model_id.title()} model is not available on your current plan. Upgrade to Basic or higher.",
+                "message":       (
+                    f"The {model_id.title()} model is not available on your current plan. "
+                    f"Upgrade to {required.title()} to unlock it."
+                ),
             },
         )
 
 
-def clamp_question_count(user, requested: int) -> int:
-    """Return the effective max questions allowed for the user's plan."""
+def clamp_question_count(user, requested: int, feature: str = "ai_generate") -> int:
+    """Return min(requested, plan max_q) for the given feature."""
     plan   = effective_plan(user)
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get("ai_generate")
-    if limits is None:
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
+    if not limits:
         return requested
     max_q = limits.get("max_q")
     if max_q is None:

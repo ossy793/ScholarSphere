@@ -111,8 +111,12 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
       <div class="logo-icon">P</div>
       <span class="logo-text">Pritis</span>
       <button class="sidebar-toggle-btn" id="sidebar-toggle-btn"
-        onclick="toggleSidebar()" title="Toggle sidebar">
+        onclick="toggleSidebar()" title="Collapse sidebar">
         ${svgChevron()}
+      </button>
+      <button class="sidebar-close-btn" id="sidebar-close-btn"
+        onclick="toggleSidebar()" title="Close menu">
+        ${svgX()}
       </button>
     </div>
     <nav class="sidebar-nav">${navHtml}${adminNavHtml}</nav>
@@ -151,18 +155,7 @@ export function renderLayout(pageTitle, activeNav, basePath = '') {
   _injectNotifBell(basePath);
   _loadUnreadCount();
 
-  // ── Inject floating expand button (desktop only) ──
-  if (!document.getElementById('sidebar-expand-btn')) {
-    const expandBtn = document.createElement('button');
-    expandBtn.id        = 'sidebar-expand-btn';
-    expandBtn.className = 'sidebar-expand-btn';
-    expandBtn.title     = 'Expand sidebar';
-    expandBtn.setAttribute('onclick', 'toggleSidebar()');
-    expandBtn.innerHTML = svgMenu();
-    document.body.appendChild(expandBtn);
-  }
-
-  // ── Inject hamburger into top-header (mobile) ──
+  // ── Inject hamburger into top-header (opens sidebar on mobile; re-opens on desktop when collapsed) ──
   const headerEl = document.querySelector('.top-header');
   if (headerEl && !document.getElementById('header-menu-btn')) {
     const menuBtn = document.createElement('button');
@@ -271,6 +264,10 @@ function svgShield() {
 
 function svgMenu() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+}
+
+function svgX() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 }
 
 function svgTrophy() {

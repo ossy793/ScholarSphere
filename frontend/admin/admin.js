@@ -693,6 +693,44 @@ window.switchAdminTab = function (tab) {
   }
 };
 
+// ── PDF Export ────────────────────────────────────────────────────────────────
+window.downloadUsersPdf = async function downloadUsersPdf() {
+  const btn = document.getElementById('pdf-download-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    style="animation:spin .8s linear infinite">
+    <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" opacity=".2"/>
+    <path d="M21 12a9 9 0 00-9-9"/>
+  </svg> Generating…`;
+
+  try {
+    const buffer = await api.getBuffer('/admin/export-users/pdf');
+    if (!buffer) throw new Error('Server returned an error. Please try again.');
+
+    const blob = new Blob([buffer], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `pritis-users-${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('PDF downloaded successfully!', 'success');
+  } catch (err) {
+    showToast(err.message || 'PDF export failed.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg> Download PDF`;
+  }
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(str) {
   return String(str)

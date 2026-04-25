@@ -18,7 +18,7 @@ from ..services.ai_service import (
     parse_and_generate_from_content,
     generate_questions_from_images,
     parse_questions_from_images,
-    parse_questions_from_pdf_gemini,
+    parse_questions_from_pdf,
     generate_questions_rag,
 )
 from ..services.rag_service import build_context_from_file
@@ -177,9 +177,7 @@ async def parse_pdf_and_generate(
     db: Session = Depends(get_db),
 ):
     """
-    Input Questions — extract MCQ questions from any PDF using Gemini.
-    Gemini reads the PDF natively (no rendering or OCR required).
-    Works for both text-based and scanned PDFs.
+    Input Questions — extract questions from a PDF via text extraction and Groq parsing.
     """
     check_access(db, current_user, "input_questions", increment=True)
 
@@ -191,7 +189,10 @@ async def parse_pdf_and_generate(
         raise HTTPException(status_code=413, detail="Cannot upload file, it exceeds the 50MB limit.")
 
     try:
-        return await asyncio.to_thread(parse_questions_from_pdf_gemini, file_bytes, answer_hint)
+        results = await asyncio.to_thread(parse_questions_from_pdf, file_bytes, answer_hint)
+        # Cap to plan's max_q for input_questions (free: 15)
+        capped = clamp_question_count(current_user, len(results), "input_questions")
+        return results[:capped]
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

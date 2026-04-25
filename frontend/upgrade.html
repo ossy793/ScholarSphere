@@ -39,7 +39,7 @@
   <div class="cycle-toggle">
     <button class="cycle-btn active" id="btn-weekly"  onclick="setCycle('weekly')">Weekly</button>
     <button class="cycle-btn"        id="btn-monthly" onclick="setCycle('monthly')">
-      Monthly <span class="save-badge">Save 25%</span>
+      Monthly <span class="save-badge">Save more</span>
     </button>
   </div>
 
@@ -61,7 +61,7 @@
         <li class="feat-no">✗ YouTube resources</li>
         <li class="feat-no">✗ Visual Explanation</li>
         <li class="feat-no">✗ Ask Friends</li>
-        <li class="feat-no">✗ Gemini model</li>
+        <li class="feat-no">✗ Claude model</li>
       </ul>
       <button class="plan-btn plan-btn-ghost" onclick="window.location.href='dashboard.html'">
         Current Free Plan
@@ -72,7 +72,10 @@
     <div class="pricing-card pricing-card-highlight" id="card-basic">
       <div class="popular-badge">MOST POPULAR</div>
       <div class="plan-name">Basic</div>
-      <div class="plan-price" id="basic-price">₦1,000<span class="plan-period">/week</span></div>
+      <div class="plan-price" id="basic-price">
+        <span class="price-original">₦1,000</span><span class="price-discount-badge">50% OFF</span><br>
+        ₦500<span class="plan-period">/week</span>
+      </div>
       <div class="plan-desc">Everything you need to study effectively</div>
       <ul class="plan-features">
         <li class="feat-yes">✓ Unlimited study sessions</li>
@@ -81,7 +84,7 @@
         <li class="feat-yes">✓ YouTube resources (10 uses/month)</li>
         <li class="feat-yes">✓ Visual Explanation (10 uses/month)</li>
         <li class="feat-yes">✓ Ask Friends feature</li>
-        <li class="feat-yes">✓ Groq, ChatGPT & Gemini models</li>
+        <li class="feat-yes">✓ Groq, ChatGPT & Claude models</li>
         <li class="feat-yes">✓ Challenge feature</li>
         <li class="feat-no">✗ Unlimited YouTube & Visual</li>
       </ul>
@@ -94,13 +97,16 @@
     <div class="pricing-card pricing-card-pro" id="card-pro">
       <div class="pro-badge">PRO MAX</div>
       <div class="plan-name">Pro</div>
-      <div class="plan-price" id="pro-price">₦1,500<span class="plan-period">/week</span></div>
+      <div class="plan-price" id="pro-price">
+        <span class="price-original">₦1,500</span><span class="price-discount-badge">33% OFF</span><br>
+        ₦1,000<span class="plan-period">/week</span>
+      </div>
       <div class="plan-desc">Full access, zero restrictions</div>
       <ul class="plan-features">
         <li class="feat-yes">✓ Everything in Basic</li>
         <li class="feat-yes">✓ Unlimited YouTube resources</li>
         <li class="feat-yes">✓ Unlimited Visual Explanations</li>
-        <li class="feat-yes">✓ All AI models — Groq, ChatGPT, Gemini</li>
+        <li class="feat-yes">✓ All AI models — Groq, ChatGPT, Claude</li>
         <li class="feat-yes">✓ AI Study Recommendations</li>
         <li class="feat-yes">✓ No daily or monthly limits</li>
         <li class="feat-yes">✓ Priority features first</li>

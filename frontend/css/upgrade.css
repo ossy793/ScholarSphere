@@ -190,12 +190,32 @@
   font-size: 2rem;
   font-weight: 900;
   margin-bottom: 4px;
-  line-height: 1;
+  line-height: 1.2;
 }
 .plan-period {
   font-size: .85rem;
   font-weight: 500;
   color: rgba(255,255,255,.5);
+}
+.price-original {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.4);
+  text-decoration: line-through;
+  margin-right: 6px;
+}
+.price-discount-badge {
+  display: inline-block;
+  background: #ef4444;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  position: relative;
+  top: -2px;
 }
 .plan-desc {
   color: rgba(255,255,255,.5);

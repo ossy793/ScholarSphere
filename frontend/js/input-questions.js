@@ -167,7 +167,7 @@ window.handleContentFileInput = async function (e) {
     } else if (ext === '.docx') {
       text = await readDocxFile(file);
     } else if (ext === '.pdf') {
-      // All PDFs are sent directly to Gemini for question extraction — no text pre-extraction needed
+      // PDFs are sent to the backend for question extraction via Groq
       _scannedPdfFile = file;
       _extractedContent = null;
       document.getElementById('file-ready-name').textContent = file.name;

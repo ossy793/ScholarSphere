@@ -11,11 +11,18 @@ DELETE /admin/users/{id}           — permanently delete a user and all their d
 """
 
 from datetime import datetime
+from io import BytesIO
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import func, or_
 from sqlalchemy import Numeric
 from sqlalchemy.orm import Session
@@ -97,7 +104,7 @@ def admin_stats(
     active_users  = db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0    # noqa: E712
     free_users    = db.query(func.count(User.id)).filter(User.subscription_plan == "free").scalar() or 0
     basic_users   = db.query(func.count(User.id)).filter(User.subscription_plan == "basic").scalar() or 0
-    pro_users     = db.query(func.count(User.id)).filter(User.subscription_plan == "pro").scalar() or 0
+    pro_users     = db.query(func.count(User.id)).filter(User.subscription_plan.in_(["pro", "max"])).scalar() or 0
     paid_users    = basic_users + pro_users
     new_today     = (
         db.query(func.count(User.id))
@@ -128,6 +135,7 @@ def admin_stats(
         "basic_users":              basic_users,
         "pro_users":                pro_users,
         "paid_users":               paid_users,
+        "premium_users":            paid_users,
         "new_users_today":          new_today,
         "total_quizzes":            total_quizzes,
         "total_questions":          total_questions,
@@ -358,7 +366,7 @@ def user_detail(
         "is_admin":             user.is_admin,
         "created_at":           user.created_at.isoformat(),
         "last_login_at":        user.last_login_at.isoformat() if user.last_login_at else None,
-        "premium_activated_at": user.premium_activated_at.isoformat() if user.premium_activated_at else None,
+        "subscription_start":   user.subscription_start.isoformat() if user.subscription_start else None,
         "total_quizzes":        total_quizzes,
         "total_attempts":       total_attempts,
         "average_score":        avg_score,
@@ -647,3 +655,100 @@ def list_sent_notifications(
         }
         for n in notifs
     ]
+
+
+# ── PDF Export ────────────────────────────────────────────────────────────────
+
+@router.get("/export-users/pdf")
+def export_users_pdf(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Export all non-admin users as a formatted PDF."""
+    users = (
+        db.query(User)
+        .filter(User.is_admin == False)  # noqa: E712
+        .order_by(User.created_at.desc())
+        .all()
+    )
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "pdf_title",
+        parent=styles["Heading1"],
+        fontSize=18,
+        alignment=TA_CENTER,
+        spaceAfter=4,
+        textColor=colors.HexColor("#0077FF"),
+    )
+    subtitle_style = ParagraphStyle(
+        "pdf_subtitle",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#888888"),
+        spaceAfter=16,
+    )
+
+    generated_at = datetime.utcnow().strftime("%d %b %Y, %H:%M UTC")
+    elements = [
+        Paragraph("Pritis User List", title_style),
+        Paragraph(f"Generated: {generated_at}  •  {len(users)} users", subtitle_style),
+        Spacer(1, 0.3 * cm),
+    ]
+
+    # A4 landscape usable width ≈ 25.7 cm with 2 cm margins each side
+    col_widths = [0.8 * cm, 5 * cm, 7.5 * cm, 6 * cm, 2 * cm, 2 * cm, 2.4 * cm]
+    header = ["#", "Full Name", "Email", "School / University", "Plan", "Status", "Joined"]
+    rows = [header]
+    for i, u in enumerate(users, 1):
+        plan         = (u.subscription_plan or "free").capitalize()
+        status_label = "Active" if u.is_active else "Inactive"
+        school       = (u.school or u.university or "—")[:60]
+        joined       = u.created_at.strftime("%d %b %Y") if u.created_at else "—"
+        rows.append([str(i), u.full_name or "—", u.email or "—", school, plan, status_label, joined])
+
+    table = Table(rows, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        # Header
+        ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#0077FF")),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0), 9),
+        ("TOPPADDING",    (0, 0), (-1, 0), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+        ("LINEBELOW",     (0, 0), (-1, 0), 1.5, colors.HexColor("#0055CC")),
+        # Data rows
+        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE",      (0, 1), (-1, -1), 8),
+        ("TOPPADDING",    (0, 1), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#F0F7FF")]),
+        # Grid
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#DDDDDD")),
+        # Alignment
+        ("ALIGN",         (0, 0), (0, -1), "CENTER"),
+        ("ALIGN",         (4, 0), (-1, -1), "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"pritis-users-{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
+    return Response(
+        content=buffer.read(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
