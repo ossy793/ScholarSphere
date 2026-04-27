@@ -70,6 +70,24 @@
     .ch-btn:disabled { opacity: .5; cursor: default; }
     .ch-btn-row2 { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
 
+    /* ── Toggle switch ── */
+    .ch-toggle-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+    .ch-toggle { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+    .ch-toggle input { opacity: 0; width: 0; height: 0; }
+    .ch-toggle-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background: #cbd5e1; border-radius: 26px; transition: .2s;
+    }
+    .ch-toggle-slider:before {
+      position: absolute; content: ""; height: 20px; width: 20px;
+      left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    .ch-toggle input:checked + .ch-toggle-slider { background: var(--primary); }
+    .ch-toggle input:checked + .ch-toggle-slider:before { transform: translateX(20px); }
+    .ch-toggle-desc { font-size: .88rem; color: var(--text); line-height: 1.4; }
+    .ch-toggle-hint { font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+
     /* ── Challenge code display ── */
     .ch-code-box {
       background: linear-gradient(135deg, rgba(0,119,255,.08), rgba(0,119,255,.04));
@@ -107,8 +125,17 @@
     }
     .ch-p-name  { font-size: .88rem; font-weight: 600; flex: 1; }
     .ch-p-badge { font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
-    .ch-p-badge.host { background: rgba(0,119,255,.1); color: var(--primary); }
-    .ch-p-badge.you  { background: rgba(34,197,94,.1);  color: #16a34a; }
+    .ch-p-badge.host     { background: rgba(0,119,255,.1); color: var(--primary); }
+    .ch-p-badge.you      { background: rgba(34,197,94,.1);  color: #16a34a; }
+    .ch-p-badge.spectator { background: rgba(234,179,8,.12); color: #a16207; }
+
+    /* Spectator mode banner in waiting room */
+    .ch-spectator-waiting-note {
+      display: none; margin-bottom: 14px;
+      background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.3);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: .84rem; color: #92400e; font-weight: 600;
+    }
 
     /* ── Question screen ── */
     .ch-quiz-wrap {
@@ -234,6 +261,107 @@
       text-overflow: ellipsis; white-space: nowrap; }
     .ch-ls-score { font-size: .78rem; font-weight: 800; color: var(--primary); }
 
+    /* ── Spectator screen ── */
+    .ch-spectator-wrap {
+      padding: 16px; width: 100%; max-width: 1100px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 14px; box-sizing: border-box;
+    }
+    .ch-spectator-badge {
+      background: linear-gradient(90deg, rgba(234,179,8,.12), rgba(234,179,8,.06));
+      border: 1px solid rgba(234,179,8,.35); border-radius: 10px;
+      padding: 9px 16px; font-size: .82rem; font-weight: 700; color: #92400e;
+      text-align: center; letter-spacing: .02em;
+    }
+    .ch-spectator-layout {
+      display: flex; gap: 16px; align-items: flex-start;
+    }
+    .ch-spectator-main {
+      flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0;
+    }
+    .ch-spectator-q {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 18px 20px;
+    }
+    .ch-spectator-sidebar {
+      width: 230px; flex-shrink: 0; background: var(--bg-card);
+      border: 1.5px solid var(--border); border-radius: 14px; padding: 14px;
+      max-height: 80vh; overflow-y: auto; position: sticky; top: 16px;
+    }
+    .ch-sp-waiting {
+      margin-top: 12px; text-align: center; padding: 12px;
+      color: var(--text-muted); font-size: .85rem;
+      background: var(--bg); border-radius: 8px; border: 1px dashed var(--border);
+    }
+
+    /* read-only option display for spectator */
+    .ch-sp-options { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .ch-sp-option {
+      padding: 11px 15px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--bg); font-size: .88rem; font-weight: 500;
+      display: flex; align-items: center; gap: 10px; color: var(--text);
+    }
+    .ch-sp-option.correct {
+      border-color: #22c55e; background: rgba(34,197,94,.08); color: #16a34a; font-weight: 700;
+    }
+    .ch-sp-option-letter {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(0,119,255,.08); display: flex; align-items: center;
+      justify-content: center; font-size: .76rem; font-weight: 800; color: var(--primary);
+    }
+
+    /* responses panel */
+    .ch-responses-panel {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+    }
+    .ch-resp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; flex-wrap: wrap; gap: 6px;
+    }
+    .ch-resp-header-title {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-muted);
+    }
+    .ch-resp-correct-tag {
+      font-size: .78rem; font-weight: 700; color: #16a34a;
+      background: rgba(34,197,94,.1); padding: 2px 10px; border-radius: 20px;
+    }
+    .ch-resp-list { display: flex; flex-direction: column; gap: 7px; }
+    .ch-resp-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 13px; border-radius: 10px; border: 1.5px solid var(--border);
+      font-size: .84rem; transition: border-color .12s;
+    }
+    .ch-resp-item.correct { border-color: #22c55e; background: rgba(34,197,94,.05); }
+    .ch-resp-item.wrong   { border-color: #ef4444; background: rgba(239,68,68,.05);  }
+    .ch-resp-item.no-ans  { background: var(--bg); opacity: .7; }
+    .ch-resp-av {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #0077ff, #005acc);
+      color: #fff; display: flex; align-items: center;
+      justify-content: center; font-size: .72rem; font-weight: 700;
+    }
+    .ch-resp-name { font-weight: 600; min-width: 80px; }
+    .ch-resp-ans  { flex: 1; font-size: .8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ch-resp-time { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
+    .ch-resp-pts  { font-size: .82rem; font-weight: 800; color: var(--primary); white-space: nowrap; margin-left: 4px; }
+
+    /* spectator live leaderboard items */
+    .ch-sp-ls-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .ch-sp-ls-item:last-child { border: none; }
+    .ch-sp-ls-rank { font-size: .74rem; font-weight: 800; color: var(--text-muted); width: 18px; text-align: center; flex-shrink: 0; }
+    .ch-sp-ls-av {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: var(--primary); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .66rem; font-weight: 700;
+    }
+    .ch-sp-ls-name  { flex: 1; font-size: .78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ch-sp-ls-score { font-size: .78rem; font-weight: 800; color: var(--primary); }
+
     /* ── Toast ── */
     .ch-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -272,6 +400,18 @@
     .ch-status-waiting   { background: #fef3c7; color: #b45309; }
     .ch-status-active    { background: #dcfce7; color: #166534; }
     .ch-status-completed { background: var(--bg); color: var(--text-muted); }
+
+    /* ── Responsiveness ── */
+    @media (max-width: 768px) {
+      .ch-spectator-layout  { flex-direction: column; }
+      .ch-spectator-sidebar { width: 100%; max-height: 260px; position: static; }
+      .ch-spectator-wrap    { padding: 12px; }
+      .ch-live-scores { width: 160px; padding: 10px; }
+    }
+    @media (max-width: 480px) {
+      .ch-live-scores { display: none !important; }
+      .ch-resp-time   { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -335,6 +475,20 @@
               <span class="ch-label">Max Participants (optional)</span>
               <input type="number" class="ch-input" id="host-max-p" placeholder="Leave blank for unlimited" min="2">
             </div>
+            <!-- Host participation toggle -->
+            <div class="ch-field">
+              <span class="ch-label">Host Participation</span>
+              <div class="ch-toggle-row">
+                <label class="ch-toggle">
+                  <input type="checkbox" id="host-join-as-participant" checked>
+                  <span class="ch-toggle-slider"></span>
+                </label>
+                <div>
+                  <div class="ch-toggle-desc" id="host-join-label">Yes — I'll play too</div>
+                  <div class="ch-toggle-hint">Turn off to watch as spectator without answering</div>
+                </div>
+              </div>
+            </div>
             <div class="ch-btn-row2">
               <button class="ch-btn outline" onclick="showLanding()">Cancel</button>
               <button class="ch-btn primary" id="host-create-btn" onclick="createChallenge()">Create Challenge</button>
@@ -364,6 +518,9 @@
         <div class="ch-screen" id="screen-waiting" style="padding:24px">
           <div class="ch-card" style="max-width:540px">
             <div id="wr-code-section"><!-- code box for host --></div>
+            <div class="ch-spectator-waiting-note" id="wr-spectator-note">
+              👁 You are in <strong>Spectator Mode</strong>. You will monitor the quiz without answering.
+            </div>
             <div id="wr-quiz-info" style="margin-bottom:16px;font-size:.88rem;color:var(--text-muted)"></div>
             <div class="ch-waiting-header">
               <span class="ch-waiting-title">Participants</span>
@@ -389,9 +546,9 @@
           </div>
         </div>
 
-        <!-- ══ SCREEN: Quiz ══ -->
+        <!-- ══ SCREEN: Quiz (participants + host-as-participant) ══ -->
         <div class="ch-screen" id="screen-quiz">
-          <!-- Live scores sidebar (host only) -->
+          <!-- Live scores sidebar (host participant only) -->
           <div class="ch-live-scores" id="ch-live-scores" style="display:none">
             <div class="ch-ls-title">Live Scores</div>
             <div id="ch-ls-list"></div>
@@ -428,6 +585,63 @@
 
             <!-- Feedback -->
             <div class="ch-feedback" id="q-feedback"></div>
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Spectator (host-as-spectator) ══ -->
+        <div class="ch-screen" id="screen-spectator">
+          <div class="ch-spectator-wrap">
+            <div class="ch-spectator-badge">👁 Spectator / Host Monitoring View</div>
+
+            <div class="ch-spectator-layout">
+              <!-- Main: question + responses -->
+              <div class="ch-spectator-main">
+
+                <!-- Question panel -->
+                <div class="ch-spectator-q">
+                  <div class="ch-q-meta">
+                    <span id="sp-q-counter">Question — / —</span>
+                    <div class="ch-timer" id="sp-q-timer">
+                      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      <span id="sp-timer-val">—</span>s
+                    </div>
+                  </div>
+                  <div class="ch-progress-bar-wrap" style="margin-top:8px">
+                    <div class="ch-progress-bar" id="sp-progress" style="width:0%"></div>
+                  </div>
+                  <div class="ch-question-text" id="sp-q-text" style="margin-top:14px">
+                    Waiting for quiz to begin…
+                  </div>
+                  <div class="ch-sp-options" id="sp-q-options"></div>
+                  <div class="ch-sp-waiting" id="sp-waiting" style="display:none">
+                    ⏳ Waiting for participants to answer…
+                  </div>
+                </div>
+
+                <!-- Responses panel (shown after each question) -->
+                <div class="ch-responses-panel" id="sp-responses" style="display:none">
+                  <div class="ch-resp-header">
+                    <span class="ch-resp-header-title">Question Responses</span>
+                    <span class="ch-resp-correct-tag" id="sp-correct-tag"></span>
+                  </div>
+                  <div class="ch-resp-list" id="sp-resp-list"></div>
+                </div>
+
+              </div><!-- /.ch-spectator-main -->
+
+              <!-- Sidebar: live leaderboard -->
+              <div class="ch-spectator-sidebar">
+                <div class="ch-ls-title">Live Leaderboard</div>
+                <div id="sp-lb-list">
+                  <div style="font-size:.78rem;color:var(--text-muted);text-align:center;padding:16px 0">
+                    No scores yet
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /.ch-spectator-layout -->
           </div>
         </div>
 

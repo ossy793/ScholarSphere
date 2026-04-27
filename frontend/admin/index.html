@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     /* ── Detail modal grid ── */
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin-bottom: 16px; }
@@ -127,6 +128,14 @@
             <button class="admin-dash-tab active" data-tab="users" onclick="switchAdminTab('users')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
               Users &amp; Analytics
+            </button>
+            <button class="admin-dash-tab" data-tab="finance" onclick="switchAdminTab('finance')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+              Finance
+            </button>
+            <button class="admin-dash-tab" data-tab="trends" onclick="switchAdminTab('trends')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Trends
             </button>
             <button class="admin-dash-tab" data-tab="support" onclick="switchAdminTab('support')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -288,6 +297,103 @@
 
       </div><!-- /.page-body -->
       </div><!-- /#tab-users -->
+
+      <!-- ══ TAB: Finance ══════════════════════════════════════════════════ -->
+      <div id="tab-finance" class="admin-tab-panel hidden" style="display:none">
+        <div class="page-body">
+
+          <!-- Finance summary stats -->
+          <div class="admin-stats" id="finance-stats-row">
+            <div class="admin-stat-card"><div class="stat-label">Loading…</div></div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="admin-toolbar">
+            <h2>Payment History</h2>
+            <button class="btn btn-outline btn-sm" onclick="copyAllEmails()" id="copy-emails-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy All Emails
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="downloadPaymentPdf()" id="payment-pdf-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Payment Report PDF
+            </button>
+          </div>
+
+          <!-- Payments table -->
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Amount</th>
+                  <th>Plan</th>
+                  <th>Cycle</th>
+                  <th>Reference</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="payment-tbody">
+                <tr><td colspan="6" class="table-loading">Loading payments…</td></tr>
+              </tbody>
+            </table>
+            <div class="admin-pagination" id="payment-pagination">
+              <span id="payment-pagination-info"></span>
+              <div class="pagination-btns">
+                <button id="payment-prev-btn" onclick="changePaymentPage(-1)">← Prev</button>
+                <button id="payment-next-btn" onclick="changePaymentPage(1)">Next →</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /#tab-finance -->
+
+      <!-- ══ TAB: Trends ════════════════════════════════════════════════════ -->
+      <div id="tab-trends" class="admin-tab-panel hidden" style="display:none">
+        <div class="page-body">
+
+          <div class="admin-toolbar" style="margin-bottom:20px">
+            <h2>Platform Analytics</h2>
+            <div class="lb-tabs" style="margin-top:0">
+              <button class="lb-tab active" id="trends-7" onclick="loadTrends(7)">7 Days</button>
+              <button class="lb-tab" id="trends-30" onclick="loadTrends(30)">30 Days</button>
+              <button class="lb-tab" id="trends-90" onclick="loadTrends(90)">90 Days</button>
+            </div>
+          </div>
+
+          <div class="trends-grid">
+            <div class="chart-card">
+              <div class="chart-card-title">New Users per Day</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-daily-users"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card-title">Daily Revenue (₦)</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-revenue"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card-title">Cumulative User Growth</div>
+              <div class="chart-canvas-wrap">
+                <canvas id="chart-cumulative"></canvas>
+              </div>
+            </div>
+            <div class="chart-card chart-card-sm">
+              <div class="chart-card-title">Plan Distribution</div>
+              <div class="plan-dist-wrap">
+                <div class="plan-dist-canvas-wrap">
+                  <canvas id="chart-plans"></canvas>
+                </div>
+                <div id="plan-dist-legend" class="plan-dist-legend"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /#tab-trends -->
 
       <!-- ══ TAB: Customer Service ══════════════════════════════════════════ -->
       <div id="tab-support" class="admin-tab-panel hidden" style="display:none;flex:1;overflow:hidden">

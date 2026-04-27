@@ -8,7 +8,7 @@ const _isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.
 const WS_BASE  = _isLocal ? 'ws://127.0.0.1:8000/api' : 'wss://www.pritis.name.ng/api';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let _ch          = null;   // {id, code, is_host, duration_seconds, question_count, quiz_title}
+let _ch          = null;   // {id, code, is_host, host_mode, duration_seconds, question_count, quiz_title}
 let _ws          = null;
 let _timerInt    = null;
 let _myScore     = 0;
@@ -44,6 +44,14 @@ window.showJoin = function () {
   document.getElementById('join-code-input').value = '';
 };
 
+// ── Host participation toggle ──────────────────────────────────────────────────
+document.getElementById('host-join-as-participant')?.addEventListener('change', function () {
+  const label = document.getElementById('host-join-label');
+  if (label) {
+    label.textContent = this.checked ? "Yes — I'll play too" : "No — I'll watch as spectator";
+  }
+});
+
 // ── Load quizzes for host form ─────────────────────────────────────────────────
 async function _loadQuizzes() {
   const sel = document.getElementById('host-quiz-select');
@@ -70,6 +78,8 @@ window.createChallenge = async function () {
   const duration  = parseInt(document.getElementById('host-duration').value, 10) || 30;
   const maxPVal   = document.getElementById('host-max-p').value;
   const maxP      = maxPVal ? (parseInt(maxPVal, 10) || null) : null;
+  const joinAsP   = document.getElementById('host-join-as-participant')?.checked !== false;
+  const hostMode  = joinAsP ? 'participant' : 'spectator';
 
   if (!quizId) { _toast('Please select a quiz'); return; }
 
@@ -81,6 +91,7 @@ window.createChallenge = async function () {
       duration_seconds: duration,
       timer_mode:       timerMode,
       max_participants: maxP,
+      host_mode:        hostMode,
     });
     _ch = ch; _myScore = 0;
     _enterWaiting();
@@ -125,6 +136,12 @@ function _enterWaiting() {
     `;
   } else {
     codeSection.innerHTML = '';
+  }
+
+  // Spectator mode banner
+  const specNote = document.getElementById('wr-spectator-note');
+  if (specNote) {
+    specNote.style.display = (_ch.is_host && _ch.host_mode === 'spectator') ? 'block' : 'none';
   }
 
   document.getElementById('wr-quiz-info').textContent =
@@ -191,7 +208,7 @@ function _connectWs() {
     try { _handle(JSON.parse(e.data)); } catch {}
   };
 
-  _ws.onerror = () => {};  // errors always precede onclose; handled there
+  _ws.onerror = () => {};
 
   _ws.onclose = (e) => {
     clearInterval(_pingInterval);
@@ -210,12 +227,13 @@ function _closeWs() {
 // ── Message dispatcher ─────────────────────────────────────────────────────────
 function _handle(msg) {
   switch (msg.type) {
-    case 'participant_joined': _onJoined(msg);       break;
-    case 'challenge_started':  _onStarted(msg);      break;
-    case 'question':           _onQuestion(msg);     break;
-    case 'answer_result':      _onAnswerResult(msg); break;
-    case 'question_ended':     _onQEnded(msg);       break;
-    case 'challenge_ended':    _onEnded(msg);        break;
+    case 'participant_joined':   _onJoined(msg);            break;
+    case 'challenge_started':    _onStarted(msg);           break;
+    case 'question':             _onQuestion(msg);          break;
+    case 'answer_result':        _onAnswerResult(msg);      break;
+    case 'question_ended':       _onQEnded(msg);            break;
+    case 'question_responses':   _onQuestionResponses(msg); break;
+    case 'challenge_ended':      _onEnded(msg);             break;
   }
 }
 
@@ -236,8 +254,9 @@ function _onJoined(msg) {
   div.innerHTML = `
     <div class="ch-p-avatar">${_esc((msg.avatar || msg.name || '?')[0].toUpperCase())}</div>
     <span class="ch-p-name">${_esc(msg.name)}</span>
-    ${msg.is_host ? '<span class="ch-p-badge host">HOST</span>' : ''}
-    ${isYou       ? '<span class="ch-p-badge you">YOU</span>'   : ''}
+    ${msg.is_host && msg.is_spectator ? '<span class="ch-p-badge spectator">SPECTATOR</span>' : ''}
+    ${msg.is_host && !msg.is_spectator ? '<span class="ch-p-badge host">HOST</span>' : ''}
+    ${isYou && !msg.is_spectator ? '<span class="ch-p-badge you">YOU</span>' : ''}
   `;
 
   const existing = document.getElementById(`wr-p-${msg.user_id}`);
@@ -251,9 +270,20 @@ function _onJoined(msg) {
 function _onStarted(msg) {
   _totalQ  = msg.total_questions || _ch.question_count || 0;
   _myScore = 0;
-  _show('screen-quiz');
-  document.getElementById('q-my-score').textContent = '0';
-  if (_ch.is_host) document.getElementById('ch-live-scores').style.display = 'block';
+
+  // Merge host_mode from server broadcast in case it wasn't set yet
+  if (msg.host_mode && _ch) _ch.host_mode = msg.host_mode;
+
+  const isSpectator = _ch && _ch.is_host && _ch.host_mode === 'spectator';
+
+  if (isSpectator) {
+    _show('screen-spectator');
+    _resetSpectator();
+  } else {
+    _show('screen-quiz');
+    document.getElementById('q-my-score').textContent = '0';
+    if (_ch && _ch.is_host) document.getElementById('ch-live-scores').style.display = 'block';
+  }
   _toast('Quiz starting!');
 }
 
@@ -266,10 +296,18 @@ function _onQuestion(msg) {
   _questionStartTs = Date.now();
   _totalQ          = msg.total || _totalQ;
 
-  const durSec = Math.round((msg.duration_ms || _ch.duration_seconds * 1000) / 1000);
+  const durSec = Math.round((msg.duration_ms || (_ch && _ch.duration_seconds ? _ch.duration_seconds * 1000 : 30000)) / 1000);
 
-  document.getElementById('q-counter').textContent = `Question ${msg.idx + 1} / ${_totalQ}`;
-  document.getElementById('q-progress').style.width = `${(msg.idx / _totalQ) * 100}%`;
+  if (_ch && _ch.is_host && _ch.host_mode === 'spectator') {
+    _onQuestionSpectator(msg.idx, durSec);
+  } else {
+    _onQuestionParticipant(msg.idx, durSec);
+  }
+}
+
+function _onQuestionParticipant(idx, durSec) {
+  document.getElementById('q-counter').textContent = `Question ${idx + 1} / ${_totalQ}`;
+  document.getElementById('q-progress').style.width = `${(idx / _totalQ) * 100}%`;
   document.getElementById('q-text').textContent = _currentQ.text;
 
   const fb = document.getElementById('q-feedback');
@@ -298,7 +336,34 @@ function _onQuestion(msg) {
     });
   }
 
-  _startTimer(durSec);
+  _startTimer(durSec, 'q-timer-val', 'q-timer');
+}
+
+function _onQuestionSpectator(idx, durSec) {
+  // Reset for new question
+  document.getElementById('sp-responses').style.display = 'none';
+  document.getElementById('sp-waiting').style.display = 'block';
+
+  document.getElementById('sp-q-counter').textContent = `Question ${idx + 1} / ${_totalQ}`;
+  document.getElementById('sp-progress').style.width = `${(idx / _totalQ) * 100}%`;
+  document.getElementById('sp-q-text').textContent = _currentQ.text;
+
+  // Render options read-only
+  const optWrap = document.getElementById('sp-q-options');
+  optWrap.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  if (_currentQ.type === 'mcq') {
+    (_currentQ.options || []).forEach((opt, i) => {
+      const div = document.createElement('div');
+      div.className  = 'ch-sp-option';
+      div.id         = `sp-opt-${i}`;
+      div.dataset.val = opt;
+      div.innerHTML  = `<span class="ch-sp-option-letter">${letters[i] || i + 1}</span>${_esc(opt)}`;
+      optWrap.appendChild(div);
+    });
+  }
+
+  _startTimer(durSec, 'sp-timer-val', 'sp-q-timer');
 }
 
 window.submitShort = function () {
@@ -355,25 +420,73 @@ function _onQEnded(msg) {
   _clearTimer();
   const correct = msg.correct_answer;
 
-  document.querySelectorAll('.ch-option').forEach(btn => {
-    btn.disabled = true;
-    if (btn.dataset.val === correct) {
-      btn.classList.remove('wrong', 'selected');
-      btn.classList.add('correct');
-    } else if (btn.classList.contains('selected')) {
-      btn.classList.remove('selected');
-      btn.classList.add('wrong');
+  const isSpectator = _ch && _ch.is_host && _ch.host_mode === 'spectator';
+
+  if (isSpectator) {
+    // Highlight correct option in spectator view
+    document.querySelectorAll('.ch-sp-option').forEach(el => {
+      if (el.dataset.val === correct) el.classList.add('correct');
+    });
+    document.getElementById('sp-waiting').style.display = 'none';
+    // Responses will arrive via question_responses message shortly
+    if (msg.scores) _updateSpectatorLeaderboard(msg.scores);
+  } else {
+    document.querySelectorAll('.ch-option').forEach(btn => {
+      btn.disabled = true;
+      if (btn.dataset.val === correct) {
+        btn.classList.remove('wrong', 'selected');
+        btn.classList.add('correct');
+      } else if (btn.classList.contains('selected')) {
+        btn.classList.remove('selected');
+        btn.classList.add('wrong');
+      }
+    });
+
+    if (!_answered) {
+      const fb = document.getElementById('q-feedback');
+      fb.className  = 'ch-feedback wrong';
+      fb.textContent = `⏱ Time's up! The answer was: ${_esc(correct)}`;
     }
+
+    if (_ch && _ch.is_host && msg.scores) _updateLiveScores(msg.scores);
+  }
+}
+
+// ── question_responses (spectator host only) ───────────────────────────────────
+function _onQuestionResponses(msg) {
+  const panel   = document.getElementById('sp-responses');
+  const list    = document.getElementById('sp-resp-list');
+  const correctTag = document.getElementById('sp-correct-tag');
+  if (!panel || !list) return;
+
+  if (correctTag) correctTag.textContent = `✓ Correct: ${_esc(msg.correct_answer || '')}`;
+
+  const sorted = (msg.responses || []).slice().sort((a, b) => {
+    // Correct first, then by response time
+    if (a.is_correct && !b.is_correct) return -1;
+    if (!a.is_correct && b.is_correct) return 1;
+    if (a.answer == null && b.answer != null) return 1;
+    if (a.answer != null && b.answer == null) return -1;
+    return (a.response_time_ms || Infinity) - (b.response_time_ms || Infinity);
   });
 
-  // Time's up feedback (only if not answered)
-  if (!_answered) {
-    const fb = document.getElementById('q-feedback');
-    fb.className  = 'ch-feedback wrong';
-    fb.textContent = `⏱ Time's up! The answer was: ${_esc(correct)}`;
-  }
+  list.innerHTML = sorted.map(r => {
+    const cls      = r.answer == null ? 'no-ans' : (r.is_correct ? 'correct' : 'wrong');
+    const icon     = r.answer == null ? '—' : (r.is_correct ? '✓' : '✗');
+    const timeStr  = r.response_time_ms != null ? `${(r.response_time_ms / 1000).toFixed(1)}s` : 'No answer';
+    const ansDisp  = r.answer != null ? _esc(r.answer) : 'No answer';
+    return `
+      <div class="ch-resp-item ${cls}">
+        <div class="ch-resp-av">${_esc((r.name || '?')[0].toUpperCase())}</div>
+        <div class="ch-resp-name">${_esc(r.name)}</div>
+        <div class="ch-resp-ans">${icon} ${ansDisp}</div>
+        <div class="ch-resp-time">${timeStr}</div>
+        <div class="ch-resp-pts">+${r.points || 0}</div>
+      </div>
+    `;
+  }).join('');
 
-  if (_ch.is_host && msg.scores) _updateLiveScores(msg.scores);
+  panel.style.display = 'block';
 }
 
 // ── challenge_ended ────────────────────────────────────────────────────────────
@@ -431,10 +544,10 @@ window.reloadChallenge = async function () {
 };
 
 // ── Timer countdown ────────────────────────────────────────────────────────────
-function _startTimer(seconds) {
+function _startTimer(seconds, timerValId = 'q-timer-val', timerWrapperId = 'q-timer') {
   let remaining   = seconds;
-  const timerEl   = document.getElementById('q-timer-val');
-  const timerWrap = document.getElementById('q-timer');
+  const timerEl   = document.getElementById(timerValId);
+  const timerWrap = document.getElementById(timerWrapperId);
 
   const _tick = () => {
     if (timerEl)   timerEl.textContent = remaining;
@@ -452,7 +565,7 @@ function _clearTimer() {
   if (_timerInt) { clearInterval(_timerInt); _timerInt = null; }
 }
 
-// ── Live scores sidebar (host) ─────────────────────────────────────────────────
+// ── Live scores sidebar (participant host) ─────────────────────────────────────
 function _updateLiveScores(scores) {
   const list = document.getElementById('ch-ls-list');
   if (!list) return;
@@ -465,6 +578,33 @@ function _updateLiveScores(scores) {
   `).join('');
 }
 
+// ── Spectator leaderboard sidebar ─────────────────────────────────────────────
+function _updateSpectatorLeaderboard(scores) {
+  const list = document.getElementById('sp-lb-list');
+  if (!list) return;
+  list.innerHTML = scores.slice(0, 15).map((s, i) => `
+    <div class="ch-sp-ls-item">
+      <div class="ch-sp-ls-rank">${i + 1}</div>
+      <div class="ch-sp-ls-av">${_esc((s.name || '?')[0].toUpperCase())}</div>
+      <div class="ch-sp-ls-name">${_esc(s.name)}</div>
+      <div class="ch-sp-ls-score">${s.score}</div>
+    </div>
+  `).join('');
+}
+
+// ── Reset spectator screen ─────────────────────────────────────────────────────
+function _resetSpectator() {
+  document.getElementById('sp-q-text').textContent = 'Waiting for first question…';
+  document.getElementById('sp-q-options').innerHTML = '';
+  document.getElementById('sp-responses').style.display = 'none';
+  document.getElementById('sp-waiting').style.display = 'none';
+  document.getElementById('sp-lb-list').innerHTML = `
+    <div style="font-size:.78rem;color:var(--text-muted);text-align:center;padding:16px 0">No scores yet</div>
+  `;
+  const timerEl = document.getElementById('sp-timer-val');
+  if (timerEl) timerEl.textContent = '—';
+}
+
 // ── Recent challenges ──────────────────────────────────────────────────────────
 async function _loadRecent() {
   const section = document.getElementById('ch-recent-section');
@@ -474,15 +614,18 @@ async function _loadRecent() {
     if (!data || !data.length) { section.style.display = 'none'; return; }
     section.style.display = 'block';
     const statusCls = { waiting: 'ch-status-waiting', active: 'ch-status-active', completed: 'ch-status-completed' };
-    list.innerHTML = data.map(ch => `
-      <div class="ch-recent-item" onclick="openRecent('${ch.id}')">
-        <div class="ch-ri-info">
-          <div class="ch-ri-title">${_esc(ch.quiz_title)}</div>
-          <div class="ch-ri-sub">${ch.is_host ? 'Host' : 'Participant'} · ${ch.participants} joined · Code: ${ch.code}</div>
+    list.innerHTML = data.map(ch => {
+      const roleLabel = ch.is_host ? (ch.host_mode === 'spectator' ? 'Host (Spectator)' : 'Host') : 'Participant';
+      return `
+        <div class="ch-recent-item" onclick="openRecent('${ch.id}')">
+          <div class="ch-ri-info">
+            <div class="ch-ri-title">${_esc(ch.quiz_title)}</div>
+            <div class="ch-ri-sub">${roleLabel} · ${ch.participants} joined · Code: ${ch.code}</div>
+          </div>
+          <span class="ch-status-pill ${statusCls[ch.status] || ''}">${ch.status}</span>
         </div>
-        <span class="ch-status-pill ${statusCls[ch.status] || ''}">${ch.status}</span>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch {
     section.style.display = 'none';
   }
@@ -492,7 +635,7 @@ window.openRecent = async function (id) {
   try {
     const ch = await api.get(`/challenges/${id}`);
     if (ch.status === 'completed') {
-      _ch = { id: ch.id, is_host: ch.is_host, quiz_title: ch.quiz_title, code: ch.code };
+      _ch = { id: ch.id, is_host: ch.is_host, quiz_title: ch.quiz_title, code: ch.code, host_mode: ch.host_mode };
       const lb = await api.get(`/challenges/${id}/leaderboard`);
       _onEnded({ ...lb, is_host: ch.is_host });
     } else if (ch.status === 'waiting') {
@@ -503,6 +646,7 @@ window.openRecent = async function (id) {
         quiz_title:       ch.quiz_title,
         duration_seconds: ch.duration_seconds,
         question_count:   ch.question_count,
+        host_mode:        ch.host_mode || 'participant',
       };
       _myScore = 0;
       _enterWaiting();

@@ -314,8 +314,26 @@ window.openDetailModal = async function (userId) {
         </div>
       </div>
 
+      ${u.feature_usage?.length ? `
+      <div class="detail-section-title" style="margin-top:16px">Feature Interactions</div>
+      <div class="fu-grid">
+        ${u.feature_usage.map(f => `
+          <div class="fu-card">
+            <span class="fu-icon">${f.icon}</span>
+            <div class="fu-body">
+              <div class="fu-label">${escHtml(f.label)}</div>
+              <div class="fu-count">${f.count.toLocaleString()} use${f.count !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      ` : `
+      <div class="detail-section-title" style="margin-top:16px">Feature Interactions</div>
+      <div style="font-size:0.82rem;color:var(--text-muted);padding:8px 0">No feature usage recorded yet.</div>
+      `}
+
       ${u.brainstorm_session_list?.length ? `
-      <div class="detail-section-title" style="margin-top:16px">Recent Brainstorm Sessions</div>
+      <div class="detail-section-title" style="margin-top:16px">Recent Study Zone Sessions</div>
       <div class="bs-session-list">
         ${u.brainstorm_session_list.map(s => `
           <div class="bs-session-row">
@@ -325,6 +343,20 @@ window.openDetailModal = async function (userId) {
               <span style="color:var(--text-muted);font-size:0.78rem">${s.messages} msg${s.messages !== 1 ? 's' : ''}</span>
               <span style="color:var(--text-muted);font-size:0.75rem;margin-left:auto">${fmtDate(s.created_at)}</span>
             </div>
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${u.payment_history?.length ? `
+      <div class="detail-section-title" style="margin-top:16px">Payment History</div>
+      <div class="payment-history-list">
+        ${u.payment_history.map(p => `
+          <div class="payment-history-row">
+            <span class="payment-plan-badge ${p.plan === 'max' ? 'plan-pro' : 'plan-basic'}">${p.plan === 'max' ? 'PRO' : 'BASIC'}</span>
+            <span style="font-size:0.82rem;color:var(--text-muted)">${p.cycle}</span>
+            <span style="font-weight:700;color:var(--success);margin-left:auto">₦${(p.amount_kobo / 100).toLocaleString()}</span>
+            <span style="font-size:0.75rem;color:var(--text-muted)">${fmtDate(p.paid_at)}</span>
           </div>
         `).join('')}
       </div>
@@ -669,27 +701,33 @@ window.sendNotification = async function () {
 };
 
 // ── Admin tab switching ───────────────────────────────────────────────────────
+const _ALL_TAB_PANELS = ['tab-users', 'tab-finance', 'tab-trends', 'tab-support'];
+
 window.switchAdminTab = function (tab) {
-  // Update tab button states
   document.querySelectorAll('.admin-dash-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  // Show/hide panels — must remove the .hidden class (which uses !important)
-  const usersPanel   = document.getElementById('tab-users');
-  const supportPanel = document.getElementById('tab-support');
+  _ALL_TAB_PANELS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === `tab-${tab}`) {
+      el.classList.remove('hidden');
+      el.style.display = id === 'tab-support' ? 'flex' : '';
+    } else {
+      el.classList.add('hidden');
+      el.style.display = 'none';
+    }
+  });
 
   if (tab === 'support') {
-    usersPanel.classList.add('hidden');
-    supportPanel.classList.remove('hidden');
-    supportPanel.style.display = 'flex';
-    // Lazy-init the customer service dashboard
     initCustomerService();
-  } else {
-    supportPanel.classList.add('hidden');
-    supportPanel.style.display = 'none';
-    usersPanel.classList.remove('hidden');
-    usersPanel.style.display   = '';
+  } else if (tab === 'finance' && !_financeLoaded) {
+    _financeLoaded = true;
+    loadFinance();
+  } else if (tab === 'trends' && !_trendsLoaded) {
+    _trendsLoaded = true;
+    loadTrends(30);
   }
 };
 
@@ -730,6 +768,303 @@ window.downloadUsersPdf = async function downloadUsersPdf() {
     </svg> Download PDF`;
   }
 };
+
+// ── Finance tab ───────────────────────────────────────────────────────────────
+let _financeLoaded  = false;
+let _financePage    = 1;
+let _financeTotalPages = 1;
+let _chartInstances = {};
+
+async function loadFinance() {
+  await Promise.all([loadFinanceStats(), loadPayments(1)]);
+}
+
+async function loadFinanceStats() {
+  try {
+    const data = await api.get('/admin/finance/payments?page=1&limit=1');
+    const s = data.summary;
+    const naira = (kobo) => `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 0 })}`;
+    document.getElementById('finance-stats-row').innerHTML = `
+      <div class="admin-stat-card green">
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" style="font-size:1.5rem">${naira(s.total_revenue_kobo)}</div>
+        <div class="stat-sub">all time</div>
+      </div>
+      <div class="admin-stat-card blue">
+        <div class="stat-label">Total Transactions</div>
+        <div class="stat-value">${s.total_transactions}</div>
+        <div class="stat-sub">successful payments</div>
+      </div>
+      <div class="admin-stat-card purple">
+        <div class="stat-label">Paying Users</div>
+        <div class="stat-value">${s.paying_users}</div>
+        <div class="stat-sub">unique customers</div>
+      </div>
+    `;
+  } catch (err) {
+    document.getElementById('finance-stats-row').innerHTML =
+      `<div class="admin-stat-card red" style="grid-column:1/-1"><div class="stat-label">Error</div><div style="color:var(--danger)">${escHtml(err.message)}</div></div>`;
+  }
+}
+
+async function loadPayments(page = 1) {
+  _financePage = page;
+  const tbody = document.getElementById('payment-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading…</td></tr>';
+  try {
+    const data = await api.get(`/admin/finance/payments?page=${page}&limit=20`);
+    _financeTotalPages = data.pages || 1;
+
+    const naira = (kobo) => `₦${(kobo / 100).toLocaleString()}`;
+    const fmtDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    if (!data.transactions.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No payment records yet.</td></tr>';
+    } else {
+      tbody.innerHTML = data.transactions.map(t => {
+        const planBadge = t.plan === 'max'
+          ? '<span class="badge badge-pro">PRO</span>'
+          : '<span class="badge" style="background:#dbeafe;color:#1e40af">BASIC</span>';
+        return `
+          <tr>
+            <td>
+              <div class="user-name">${escHtml(t.full_name)}</div>
+              <div class="user-email">${escHtml(t.email)}</div>
+            </td>
+            <td style="font-weight:700;color:var(--success)">${naira(t.amount_kobo)}</td>
+            <td>${planBadge}</td>
+            <td style="color:var(--text-muted);font-size:0.82rem">${escHtml(t.cycle)}</td>
+            <td style="color:var(--text-muted);font-size:0.75rem;font-family:monospace">${escHtml(t.reference)}</td>
+            <td style="color:var(--text-muted);white-space:nowrap">${fmtDate(t.paid_at)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    const info = document.getElementById('payment-pagination-info');
+    if (info) info.textContent = `${data.total} transaction${data.total !== 1 ? 's' : ''} · Page ${page} of ${data.pages}`;
+    const prev = document.getElementById('payment-prev-btn');
+    const next = document.getElementById('payment-next-btn');
+    if (prev) prev.disabled = page <= 1;
+    if (next) next.disabled = page >= data.pages;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="table-empty" style="color:var(--danger)">Failed: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+window.changePaymentPage = function (dir) {
+  const next = _financePage + dir;
+  if (next < 1 || next > _financeTotalPages) return;
+  loadPayments(next);
+};
+
+window.copyAllEmails = async function () {
+  const btn = document.getElementById('copy-emails-btn');
+  btn.disabled = true;
+  btn.textContent = 'Copying…';
+  try {
+    const data = await api.get('/admin/users/emails');
+    await navigator.clipboard.writeText(data.emails);
+    showToast(`Copied ${data.count} email${data.count !== 1 ? 's' : ''} to clipboard!`, 'success');
+  } catch (err) {
+    showToast('Failed to copy emails: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy All Emails`;
+  }
+};
+
+window.downloadPaymentPdf = async function () {
+  const btn = document.getElementById('payment-pdf-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const buffer = await api.getBuffer('/admin/finance/export/pdf');
+    if (!buffer) throw new Error('Server returned an error.');
+    const blob = new Blob([buffer], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `pritis-payments-${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Payment report downloaded!', 'success');
+  } catch (err) {
+    showToast(err.message || 'PDF export failed.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Payment Report PDF`;
+  }
+};
+
+// ── Trends tab ────────────────────────────────────────────────────────────────
+let _trendsLoaded = false;
+
+window.loadTrends = async function (days = 30) {
+  // Update tab pill states
+  [7, 30, 90].forEach(d => {
+    const el = document.getElementById(`trends-${d}`);
+    if (el) el.classList.toggle('active', d === days);
+  });
+
+  try {
+    const data = await api.get(`/admin/analytics/trends?days=${days}`);
+    _renderTrendsCharts(data);
+  } catch (err) {
+    showToast('Failed to load trends: ' + err.message, 'error');
+  }
+};
+
+function _destroyChart(id) {
+  if (_chartInstances[id]) {
+    _chartInstances[id].destroy();
+    delete _chartInstances[id];
+  }
+}
+
+function _renderTrendsCharts(data) {
+  const { labels, daily_users, daily_revenue, cumulative, plan_dist } = data;
+
+  const blue   = 'rgba(0,119,255,0.85)';
+  const blueFill = 'rgba(0,119,255,0.10)';
+  const green  = 'rgba(16,185,129,0.85)';
+  const greenFill = 'rgba(16,185,129,0.10)';
+  const purple = 'rgba(139,92,246,0.85)';
+  const purpleFill = 'rgba(139,92,246,0.10)';
+
+  const baseOpts = (extraScaleY = {}) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { maxTicksLimit: 8, font: { size: 10 }, maxRotation: 0 },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(0,0,0,0.04)' },
+        ticks: { font: { size: 10 }, precision: 0, ...extraScaleY },
+      },
+    },
+  });
+
+  // ── New Users per Day — bar chart ──
+  _destroyChart('chart-daily-users');
+  _chartInstances['chart-daily-users'] = new Chart(
+    document.getElementById('chart-daily-users'),
+    {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'New Users',
+          data: daily_users,
+          backgroundColor: blue,
+          borderRadius: 3,
+          borderSkipped: false,
+        }],
+      },
+      options: baseOpts(),
+    }
+  );
+
+  // ── Daily Revenue — filled line chart ──
+  _destroyChart('chart-revenue');
+  _chartInstances['chart-revenue'] = new Chart(
+    document.getElementById('chart-revenue'),
+    {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Revenue (₦)',
+          data: daily_revenue,
+          borderColor: green,
+          backgroundColor: greenFill,
+          fill: true,
+          tension: 0.45,
+          pointRadius: daily_revenue.length > 30 ? 0 : 3,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+        }],
+      },
+      options: baseOpts({ callback: v => `₦${v.toLocaleString()}` }),
+    }
+  );
+
+  // ── Cumulative Growth — smooth area line ──
+  _destroyChart('chart-cumulative');
+  _chartInstances['chart-cumulative'] = new Chart(
+    document.getElementById('chart-cumulative'),
+    {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Total Users',
+          data: cumulative,
+          borderColor: purple,
+          backgroundColor: purpleFill,
+          fill: true,
+          tension: 0.4,
+          pointRadius: cumulative.length > 30 ? 0 : 2,
+          pointHoverRadius: 5,
+          borderWidth: 2,
+        }],
+      },
+      options: baseOpts(),
+    }
+  );
+
+  // ── Plan Distribution — doughnut ──
+  _destroyChart('chart-plans');
+
+  // Sort plan order: free, basic, max/pro
+  const PLAN_ORDER = ['free', 'basic', 'max', 'pro'];
+  const sortedPlans = Object.entries(plan_dist)
+    .sort(([a], [b]) => PLAN_ORDER.indexOf(a) - PLAN_ORDER.indexOf(b));
+  const planLabels = sortedPlans.map(([k]) => k.charAt(0).toUpperCase() + k.slice(1));
+  const planCounts = sortedPlans.map(([, v]) => v);
+  const planColors = ['rgba(156,163,175,0.9)', 'rgba(59,130,246,0.9)', 'rgba(139,92,246,0.9)', 'rgba(139,92,246,0.9)'];
+
+  _chartInstances['chart-plans'] = new Chart(
+    document.getElementById('chart-plans'),
+    {
+      type: 'doughnut',
+      data: {
+        labels: planLabels,
+        datasets: [{
+          data: planCounts,
+          backgroundColor: planColors.slice(0, planLabels.length),
+          borderWidth: 2,
+          borderColor: '#fff',
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: { legend: { display: false }, tooltip: { mode: 'index' } },
+        cutout: '68%',
+      },
+    }
+  );
+
+  const legendEl = document.getElementById('plan-dist-legend');
+  if (legendEl) {
+    legendEl.innerHTML = planLabels.map((lbl, i) => `
+      <div class="plan-legend-item">
+        <span class="plan-legend-dot" style="background:${planColors[i]}"></span>
+        <span>${lbl}</span>
+        <span class="plan-legend-count">${planCounts[i]}</span>
+      </div>
+    `).join('');
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(str) {

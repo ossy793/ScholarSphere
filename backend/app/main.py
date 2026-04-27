@@ -21,7 +21,10 @@ from .models.conversation import Conversation, DirectMessage  # noqa: F401 – r
 from .models.study import Note, StudySchedule  # noqa: F401 – registers tables
 from .models.support import SupportAgent, SupportConversation, SupportMessage  # noqa: F401 – registers tables
 from .models.challenge import Challenge, ChallengeParticipant, ChallengeResponse  # noqa: F401 – registers tables
+from .models.payment_transaction import PaymentTransaction  # noqa: F401 – registers table
 from .utils.scheduler import start_scheduler, stop_scheduler
+from .database import engine
+from sqlalchemy import text
 
 # ── Rate limiter (shared across routers via app.state) ────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -59,6 +62,12 @@ async def add_security_headers(request: Request, call_next):
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    # Idempotent schema migrations for columns added after initial table creation
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS host_mode VARCHAR(20) DEFAULT 'participant'"
+        ))
+        conn.commit()
     start_scheduler()
 
 

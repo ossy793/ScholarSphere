@@ -163,6 +163,19 @@
       border-radius: var(--radius-lg); padding: 32px 28px;
       box-shadow: 0 8px 40px rgba(0,119,255,0.08);
     }
+    /* Google Sign-In button container — prevents iframe from overflowing on mobile */
+    .google-signin-wrap {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .google-signin-wrap > div,
+    .google-signin-wrap iframe {
+      max-width: 100% !important;
+    }
     .auth-tabs {
       display: flex; background: var(--bg); border-radius: 8px;
       padding: 4px; margin-bottom: 24px;
@@ -398,6 +411,8 @@
       .hero { padding: 80px 14px 40px; }
       .hero-cta { max-width: 100%; }
       .auth-card { padding: 20px 14px; }
+      /* On very narrow screens ensure the GIS iframe never bleeds out */
+      .google-signin-wrap > div { width: 100% !important; }
     }
   </style>
 </head>
@@ -532,7 +547,7 @@
         </div>
 
         <!-- Google Sign-In -->
-        <div id="google-signin-btn" style="margin-bottom:14px;display:flex;justify-content:center"></div>
+        <div id="google-signin-btn" class="google-signin-wrap"></div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
           <div style="flex:1;height:1px;background:var(--border)"></div>
           <span style="font-size:0.75rem;color:var(--text-muted);font-weight:500">or continue with email</span>

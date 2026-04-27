@@ -500,3 +500,179 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Finance tab ── */
+#finance-stats-row {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 24px;
+}
+
+/* ── Trends tab ── */
+.trends-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.chart-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card-sm {
+  grid-column: span 1;
+}
+
+.chart-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+}
+
+/* Fixed-height canvas wrapper — required for Chart.js maintainAspectRatio:false */
+.chart-canvas-wrap {
+  position: relative;
+  height: 200px;
+  width: 100%;
+}
+
+.chart-canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* Plan distribution doughnut + legend */
+.plan-dist-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-height: 160px;
+}
+
+.plan-dist-canvas-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.plan-dist-canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.plan-dist-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.plan-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.plan-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.plan-legend-count {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .trends-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-card-sm {
+    grid-column: span 1;
+  }
+}
+
+/* ── Feature usage grid (user detail modal) ── */
+.fu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.fu-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.fu-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.fu-body {
+  min-width: 0;
+}
+
+.fu-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fu-count {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ── Payment history (user detail modal) ── */
+.payment-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.payment-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: 0.82rem;
+}
+
+.payment-plan-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+
+.payment-plan-badge.plan-pro   { background: #ede9fe; color: #6d28d9; }
+.payment-plan-badge.plan-basic { background: #dbeafe; color: #1e40af; }

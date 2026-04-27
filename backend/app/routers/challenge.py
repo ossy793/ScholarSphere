@@ -18,7 +18,7 @@ WS protocol (client → server):
 
 WS protocol (server → client):
   Broadcast: participant_joined, challenge_started, question, question_ended, challenge_ended
-  Personal:  pong, answer_result
+  Personal:  pong, answer_result, question_responses (spectator host only)
 """
 
 import asyncio
@@ -122,6 +122,7 @@ class CreateRequest(BaseModel):
     duration_seconds: int          = 30
     timer_mode:       str          = "per_question"
     max_participants: Optional[int] = None
+    host_mode:        str          = "participant"   # participant | spectator
 
 class JoinRequest(BaseModel):
     code: str
@@ -179,18 +180,22 @@ def create_challenge(
     if payload.timer_mode not in ("per_question", "full_quiz"):
         raise HTTPException(400, "timer_mode must be per_question or full_quiz.")
 
+    host_mode = payload.host_mode if payload.host_mode in ("participant", "spectator") else "participant"
+
     ch = Challenge(
         host_id=current_user.id,
         quiz_id=quiz.id,
         duration_seconds=max(10, min(300, payload.duration_seconds)),
         timer_mode=payload.timer_mode,
         max_participants=payload.max_participants,
+        host_mode=host_mode,
     )
     db.add(ch)
     db.flush()
 
-    # Host is participant #1
-    db.add(ChallengeParticipant(challenge_id=ch.id, user_id=current_user.id))
+    # Host is participant #1 only when participating (not spectating)
+    if host_mode == "participant":
+        db.add(ChallengeParticipant(challenge_id=ch.id, user_id=current_user.id))
     db.commit()
 
     return {
@@ -199,6 +204,7 @@ def create_challenge(
         "quiz_title":       quiz.title,
         "duration_seconds": ch.duration_seconds,
         "timer_mode":       ch.timer_mode,
+        "host_mode":        ch.host_mode,
         "status":           ch.status,
         "question_count":   q_count,
         "is_host":          True,
@@ -251,6 +257,7 @@ def join_challenge(
         "quiz_title":       ch.quiz.title if ch.quiz else "",
         "duration_seconds": ch.duration_seconds,
         "timer_mode":       ch.timer_mode,
+        "host_mode":        ch.host_mode,
         "status":           ch.status,
         "question_count":   q_count,
         "is_host":          str(ch.host_id) == str(current_user.id),
@@ -282,7 +289,7 @@ async def start_challenge(
     ch.started_at = datetime.utcnow()
     db.commit()
 
-    q_list = [_q_public(q) for q in questions]
+    q_list    = [_q_public(q) for q in questions]
     q_answers = {str(q.id): q.correct_answer for q in questions}
 
     room = _mgr.room(str(challenge_id))
@@ -291,10 +298,14 @@ async def start_challenge(
         "total_questions":  len(questions),
         "timer_mode":       ch.timer_mode,
         "duration_seconds": ch.duration_seconds,
+        "host_mode":        ch.host_mode,
     })
 
     task = asyncio.create_task(
-        _run_questions(str(challenge_id), q_list, q_answers, ch.duration_seconds)
+        _run_questions(
+            str(challenge_id), q_list, q_answers,
+            ch.duration_seconds, ch.host_mode, str(ch.host_id),
+        )
     )
     _mgr.set_task(str(challenge_id), task)
 
@@ -318,6 +329,7 @@ def get_challenge(
         "quiz_title":       ch.quiz.title if ch.quiz else "",
         "duration_seconds": ch.duration_seconds,
         "timer_mode":       ch.timer_mode,
+        "host_mode":        ch.host_mode,
         "status":           ch.status,
         "question_count":   q_count,
         "current_question_idx": ch.current_question_idx,
@@ -403,10 +415,13 @@ async def challenge_ws(
             await ws.close(code=4004)
             return
 
+        is_spectator_host = (ch.host_mode == "spectator" and str(ch.host_id) == str(user.id))
+
         participant = db.query(ChallengeParticipant).filter_by(
             challenge_id=ch.id, user_id=user.id
         ).first()
-        if not participant:
+
+        if not participant and not is_spectator_host:
             await ws.send_json({"type": "error", "detail": "Not a participant"})
             await ws.close(code=4003)
             return
@@ -418,7 +433,7 @@ async def challenge_ws(
 
         await room.add(uid, ws)
 
-        # Announce presence
+        # Announce presence (spectator host excluded from participant count)
         p_count = db.query(ChallengeParticipant).filter_by(challenge_id=ch.id).count()
         await room.broadcast({
             "type":    "participant_joined",
@@ -426,6 +441,7 @@ async def challenge_ws(
             "name":    name,
             "avatar":  _avatar(user),
             "is_host": is_host,
+            "is_spectator": is_spectator_host,
             "count":   p_count,
         })
 
@@ -442,6 +458,11 @@ async def challenge_ws(
                 await ws.send_json({"type": "pong"})
 
             elif mtype == "answer":
+                # Spectator host cannot submit answers
+                if is_spectator_host:
+                    continue
+                if not participant:
+                    continue
                 db2 = SessionLocal()
                 try:
                     p2 = db2.query(ChallengeParticipant).filter_by(id=participant.id).first()
@@ -485,12 +506,14 @@ async def _run_questions(
     questions:    list,
     q_answers:    dict,   # question_id → correct_answer
     duration_sec: int,
+    host_mode:    str = "participant",
+    host_id:      str = "",
 ):
     """Server-driven question progression. Runs as a background asyncio task."""
     db = SessionLocal()
     try:
-        room    = _mgr.room(cid)
-        dur_ms  = duration_sec * 1000
+        room   = _mgr.room(cid)
+        dur_ms = duration_sec * 1000
 
         for idx, q in enumerate(questions):
             # Update current index
@@ -533,6 +556,36 @@ async def _run_questions(
                 "next_in":        3 if idx < len(questions) - 1 else 0,
             })
 
+            # For spectator host: send per-participant responses after each question
+            if host_mode == "spectator" and host_id:
+                parts = (
+                    db.query(ChallengeParticipant)
+                    .filter_by(challenge_id=cid)
+                    .all()
+                )
+                correct_ans = q_answers.get(q["id"], "")
+                responses_data = []
+                for p in parts:
+                    resp = (
+                        db.query(ChallengeResponse)
+                        .filter_by(participant_id=p.id, question_idx=idx)
+                        .first()
+                    )
+                    responses_data.append({
+                        "user_id":          str(p.user_id),
+                        "name":             _display_name(p.user),
+                        "answer":           resp.answer           if resp else None,
+                        "is_correct":       resp.is_correct       if resp else False,
+                        "response_time_ms": resp.response_time_ms if resp else None,
+                        "points":           resp.points_earned    if resp else 0,
+                    })
+                await room.send_to(host_id, {
+                    "type":           "question_responses",
+                    "idx":            idx,
+                    "correct_answer": correct_ans,
+                    "responses":      responses_data,
+                })
+
             if idx < len(questions) - 1:
                 await asyncio.sleep(3)
 
@@ -555,9 +608,8 @@ async def _run_questions(
              "name": _display_name(p.user), "score": p.score, "avatar": _avatar(p.user)}
             for i, p in enumerate(ranked)
         ]
-        host_id = str(ch.host_id) if ch else None
 
-        # Host: full leaderboard
+        # Host: full leaderboard (works for both participant and spectator host)
         await room.send_to(host_id, {
             "type": "challenge_ended", "is_host": True, "leaderboard": full_lb,
         })
@@ -680,6 +732,7 @@ def _ch_summary(ch: Challenge, user_id, db: Session) -> dict:
         "code":       ch.code,
         "quiz_title": ch.quiz.title if ch.quiz else "",
         "status":     ch.status,
+        "host_mode":  ch.host_mode,
         "is_host":    str(ch.host_id) == str(user_id),
         "participants": p_count,
         "question_count": q_count,

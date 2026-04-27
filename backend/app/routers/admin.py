@@ -10,7 +10,7 @@ PATCH /admin/users/{id}/deactivate — soft-disable a user (blocks login + API)
 DELETE /admin/users/{id}           — permanently delete a user and all their data
 """
 
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from io import BytesIO
 from typing import Optional
 from uuid import UUID
@@ -35,7 +35,24 @@ from ..models.attempt import Attempt
 from ..models.brainstorm import BrainstormSession, BrainstormMessage
 from ..models.notification import Notification
 from ..models.leaderboard import LeaderboardReset
+from ..models.payment_transaction import PaymentTransaction
+from ..models.feature_usage import FeatureUsage
 from ..utils.security import get_current_admin
+
+_FEATURE_LABELS = {
+    "input_questions":    {"label": "Quiz Uploads",         "icon": "✏️"},
+    "ai_generate":        {"label": "AI Generates",         "icon": "🤖"},
+    "study_zone":         {"label": "Study Zone Sessions",  "icon": "📖"},
+    "youtube_resources":  {"label": "YouTube Resources",    "icon": "▶️"},
+    "visual_explanation": {"label": "Visual Explanations",  "icon": "🎨"},
+    "ask_friends":        {"label": "Ask Friends",          "icon": "💬"},
+    "ai_recommendations": {"label": "AI Recommendations",   "icon": "🎯"},
+    "challenge":          {"label": "Challenges",           "icon": "⚔️"},
+    "study_strategy":     {"label": "Study Strategy",       "icon": "📋"},
+    "model_groq":         {"label": "Groq (AI) Calls",      "icon": "⚡"},
+    "model_openai":       {"label": "ChatGPT Calls",        "icon": "🧠"},
+    "model_claude":       {"label": "Claude Calls",         "icon": "✨"},
+}
 
 _VALID_METRICS = {"brainstorm_time", "brainstorm_messages", "quizzes_generated", "avg_score"}
 
@@ -353,6 +370,43 @@ def user_detail(
         for s in recent_sessions
     ]
 
+    # Feature usage breakdown
+    fu_rows = (
+        db.query(FeatureUsage)
+        .filter(FeatureUsage.user_id == user_id)
+        .all()
+    )
+    feature_usage = []
+    for row in fu_rows:
+        meta = _FEATURE_LABELS.get(row.feature_name, {"label": row.feature_name, "icon": "🔧"})
+        feature_usage.append({
+            "feature":    row.feature_name,
+            "label":      meta["label"],
+            "icon":       meta["icon"],
+            "count":      row.usage_count,
+            "last_used":  row.last_used.isoformat() if row.last_used else None,
+        })
+    # Sort: highest usage first
+    feature_usage.sort(key=lambda x: -x["count"])
+
+    # Payment history for this user
+    payments = (
+        db.query(PaymentTransaction)
+        .filter(PaymentTransaction.user_id == user_id)
+        .order_by(PaymentTransaction.paid_at.desc())
+        .limit(10)
+        .all()
+    )
+    payment_list = [
+        {
+            "plan":       p.plan,
+            "cycle":      p.cycle,
+            "amount_kobo": p.amount_kobo,
+            "paid_at":    p.paid_at.isoformat(),
+        }
+        for p in payments
+    ]
+
     return {
         "id":                   str(user.id),
         "full_name":            user.full_name,
@@ -375,6 +429,8 @@ def user_detail(
         "brainstorm_total_time": _fmt_duration(bs_total_seconds),
         "brainstorm_total_seconds": int(bs_total_seconds),
         "brainstorm_session_list":  session_list,
+        "feature_usage":            feature_usage,
+        "payment_history":          payment_list,
     }
 
 
@@ -752,3 +808,247 @@ def export_users_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ── Finance ───────────────────────────────────────────────────────────────────
+
+@router.get("/finance/payments")
+def finance_payments(
+    page:  int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    admin: User    = Depends(get_current_admin),
+    db:    Session = Depends(get_db),
+):
+    """Return paginated payment transactions + summary stats."""
+    total_revenue = db.query(
+        func.coalesce(func.sum(PaymentTransaction.amount_kobo), 0)
+    ).scalar() or 0
+
+    total_txns = db.query(func.count(PaymentTransaction.id)).scalar() or 0
+
+    paying_users = db.query(func.count(func.distinct(PaymentTransaction.user_id))).scalar() or 0
+
+    txns_q = db.query(PaymentTransaction).order_by(PaymentTransaction.paid_at.desc())
+    total  = txns_q.count()
+    rows   = txns_q.offset((page - 1) * limit).limit(limit).all()
+
+    return {
+        "summary": {
+            "total_revenue_kobo": int(total_revenue),
+            "total_transactions": int(total_txns),
+            "paying_users":       int(paying_users),
+        },
+        "transactions": [
+            {
+                "id":           str(t.id),
+                "email":        t.email,
+                "full_name":    t.full_name or "—",
+                "amount_kobo":  t.amount_kobo,
+                "plan":         t.plan,
+                "cycle":        t.cycle,
+                "reference":    t.reference,
+                "paid_at":      t.paid_at.isoformat(),
+            }
+            for t in rows
+        ],
+        "total": total,
+        "page":  page,
+        "pages": max(1, -(-total // limit)),
+    }
+
+
+@router.get("/finance/export/pdf")
+def finance_export_pdf(
+    admin: User    = Depends(get_current_admin),
+    db:    Session = Depends(get_db),
+):
+    """Export payment transactions as a PDF report."""
+    txns = db.query(PaymentTransaction).order_by(PaymentTransaction.paid_at.desc()).all()
+
+    total_kobo = sum(t.amount_kobo for t in txns)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "pdf_title",
+        parent=styles["Heading1"],
+        fontSize=18,
+        alignment=TA_CENTER,
+        spaceAfter=4,
+        textColor=colors.HexColor("#0077FF"),
+    )
+    subtitle_style = ParagraphStyle(
+        "pdf_subtitle",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor("#888888"),
+        spaceAfter=16,
+    )
+
+    generated_at = datetime.utcnow().strftime("%d %b %Y, %H:%M UTC")
+    total_naira  = f"₦{total_kobo // 100:,}"
+    elements = [
+        Paragraph("Pritis Payment Report", title_style),
+        Paragraph(
+            f"Generated: {generated_at}  •  {len(txns)} transactions  •  Total Revenue: {total_naira}",
+            subtitle_style,
+        ),
+        Spacer(1, 0.3 * cm),
+    ]
+
+    col_widths = [0.8 * cm, 5.5 * cm, 6.5 * cm, 2.2 * cm, 2.2 * cm, 2.2 * cm, 6 * cm, 3 * cm]
+    header = ["#", "Full Name", "Email", "Plan", "Cycle", "Amount", "Reference", "Date"]
+    rows = [header]
+    for i, t in enumerate(txns, 1):
+        rows.append([
+            str(i),
+            (t.full_name or "—")[:40],
+            (t.email or "—")[:50],
+            t.plan.capitalize(),
+            t.cycle.capitalize(),
+            f"₦{t.amount_kobo // 100:,}",
+            t.reference[:40],
+            t.paid_at.strftime("%d %b %Y") if t.paid_at else "—",
+        ])
+
+    table = Table(rows, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#0077FF")),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0), 9),
+        ("TOPPADDING",    (0, 0), (-1, 0), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+        ("LINEBELOW",     (0, 0), (-1, 0), 1.5, colors.HexColor("#0055CC")),
+        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE",      (0, 1), (-1, -1), 8),
+        ("TOPPADDING",    (0, 1), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#F0F7FF")]),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#DDDDDD")),
+        ("ALIGN",         (0, 0), (0, -1), "CENTER"),
+        ("ALIGN",         (5, 0), (5, -1), "RIGHT"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"pritis-payments-{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
+    return Response(
+        content=buffer.read(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ── Analytics Trends ──────────────────────────────────────────────────────────
+
+@router.get("/analytics/trends")
+def analytics_trends(
+    days: int  = Query(30, ge=7, le=90),
+    admin: User    = Depends(get_current_admin),
+    db:    Session = Depends(get_db),
+):
+    """Return time-series data for charts: new users, revenue, plan distribution."""
+    today      = date.today()
+    start_date = today - timedelta(days=days - 1)
+
+    # ── Daily new users ───────────────────────────────────────────────────────
+    user_rows = (
+        db.query(
+            func.date(User.created_at).label("day"),
+            func.count(User.id).label("cnt"),
+        )
+        .filter(
+            func.date(User.created_at) >= start_date,
+            User.is_admin == False,   # noqa: E712
+        )
+        .group_by(func.date(User.created_at))
+        .all()
+    )
+    user_by_day = {str(r.day): int(r.cnt) for r in user_rows}
+
+    # ── Daily revenue ─────────────────────────────────────────────────────────
+    rev_rows = (
+        db.query(
+            func.date(PaymentTransaction.paid_at).label("day"),
+            func.sum(PaymentTransaction.amount_kobo).label("kobo"),
+        )
+        .filter(func.date(PaymentTransaction.paid_at) >= start_date)
+        .group_by(func.date(PaymentTransaction.paid_at))
+        .all()
+    )
+    rev_by_day = {str(r.day): int(r.kobo) for r in rev_rows}
+
+    # ── Fill all days in range ────────────────────────────────────────────────
+    labels        = []
+    daily_users   = []
+    daily_revenue = []
+    for i in range(days):
+        d = start_date + timedelta(days=i)
+        ds = str(d)
+        labels.append(d.strftime("%d %b"))
+        daily_users.append(user_by_day.get(ds, 0))
+        daily_revenue.append(round(rev_by_day.get(ds, 0) / 100, 2))  # naira
+
+    # ── Plan distribution ─────────────────────────────────────────────────────
+    plan_rows = (
+        db.query(User.subscription_plan, func.count(User.id).label("cnt"))
+        .filter(User.is_admin == False)   # noqa: E712
+        .group_by(User.subscription_plan)
+        .all()
+    )
+    plan_dist = {(r.subscription_plan or "free"): int(r.cnt) for r in plan_rows}
+
+    # ── Cumulative growth ─────────────────────────────────────────────────────
+    total_before = (
+        db.query(func.count(User.id))
+        .filter(
+            func.date(User.created_at) < start_date,
+            User.is_admin == False,   # noqa: E712
+        )
+        .scalar() or 0
+    )
+    cumulative = []
+    running = total_before
+    for cnt in daily_users:
+        running += cnt
+        cumulative.append(running)
+
+    return {
+        "labels":        labels,
+        "daily_users":   daily_users,
+        "daily_revenue": daily_revenue,
+        "cumulative":    cumulative,
+        "plan_dist":     plan_dist,
+    }
+
+
+# ── Bulk Email ────────────────────────────────────────────────────────────────
+
+@router.get("/users/emails")
+def get_all_emails(
+    admin: User    = Depends(get_current_admin),
+    db:    Session = Depends(get_db),
+):
+    """Return a comma-separated string of all active non-admin user emails."""
+    rows = (
+        db.query(User.email)
+        .filter(User.is_admin == False, User.is_active == True)   # noqa: E712
+        .order_by(User.email)
+        .all()
+    )
+    emails = [r.email for r in rows if r.email]
+    return {"emails": ", ".join(emails), "count": len(emails)}

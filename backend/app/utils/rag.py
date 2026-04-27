@@ -187,7 +187,7 @@ def retrieve_chunks(
                 FROM   brainstorm_chunks
                 WHERE  session_id = :sid
                   AND  embedding  IS NOT NULL
-                ORDER  BY embedding <=> CAST(:vec AS vector)
+                ORDER  BY embedding::vector <=> CAST(:vec AS vector)
                 LIMIT  :k
             """),
             {

@@ -25,13 +25,28 @@ async function initGoogleAuth() {
       client_id: cfg.google_client_id,
       callback:  window.handleGoogleCredential,
     });
+
     const el = document.getElementById('google-signin-btn');
-    if (el) {
+    if (!el) return;
+
+    function _renderGoogleBtn() {
+      // Use the container's actual width, capped between 200-400px (GIS limits)
+      const w = Math.min(400, Math.max(200, el.offsetWidth || 300));
+      el.innerHTML = '';   // clear previous render before re-rendering
       google.accounts.id.renderButton(el, {
         theme: 'outline', size: 'large', type: 'standard',
-        text: 'signin_with', width: 400,
+        text: 'signin_with', width: w,
       });
     }
+
+    _renderGoogleBtn();
+
+    // Re-render on resize so the button always fits the container
+    let _resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(_resizeTimer);
+      _resizeTimer = setTimeout(_renderGoogleBtn, 150);
+    });
   } catch { /* GIS unavailable — hide Google button */ }
 }
 initGoogleAuth();

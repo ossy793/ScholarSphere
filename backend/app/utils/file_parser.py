@@ -138,6 +138,69 @@ def _ocr_with_tesseract(page_images: list) -> str:
     return "\n\n".join(parts)
 
 
+def _ocr_with_openai(page_images: list) -> str:
+    """
+    Cloud OCR using OpenAI GPT-4o Vision — primary cloud OCR for scanned documents.
+    Processes pages sequentially and batches up to 5 pages per request to reduce API calls.
+    """
+    api_key = settings.OPENAI_API_KEY
+    if not api_key:
+        logger.warning("OPENAI_API_KEY not set — OpenAI vision OCR unavailable")
+        return ""
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+    except Exception as exc:
+        logger.warning("OpenAI client init failed: %s", exc)
+        return ""
+
+    _BATCH = 5          # pages per request — GPT-4o handles up to ~20 images but 5 keeps latency low
+    _MODEL = "gpt-4o"   # best vision model for OCR accuracy
+
+    ocr_prompt = (
+        "These are pages from an academic document — they may be typed, printed, or handwritten. "
+        "Extract ALL text you can read from every page, in order. "
+        "For handwritten content, do your best to interpret the writing accurately. "
+        "Preserve headings, numbered lists, equations, tables, and document structure where possible. "
+        "IMPORTANT: If any text appears visually emphasized — bold, highlighted, underlined, "
+        "circled, starred, or otherwise marked — wrap it in **...** (e.g. **Option C**). "
+        "Output only the extracted text — no commentary, no image descriptions."
+    )
+
+    parts = []
+    for batch_start in range(0, len(page_images), _BATCH):
+        batch = page_images[batch_start: batch_start + _BATCH]
+        content: list = []
+        for img_bytes in batch:
+            img_b64 = base64.b64encode(img_bytes).decode()
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{img_b64}", "detail": "high"},
+            })
+            del img_b64
+        content.append({"type": "text", "text": ocr_prompt})
+        try:
+            response = client.chat.completions.create(
+                model=_MODEL,
+                messages=[{"role": "user", "content": content}],
+                max_tokens=4096,
+            )
+            text = response.choices[0].message.content.strip()
+            if text:
+                parts.append(text)
+        except Exception as exc:
+            logger.warning(
+                "OpenAI vision OCR failed on batch starting page %d: %s",
+                batch_start + 1, exc,
+            )
+            return ""   # bail out so caller can try Groq fallback
+
+    if parts:
+        logger.info("OpenAI vision OCR succeeded — %d chars extracted.", sum(len(p) for p in parts))
+    return "\n\n".join(parts)
+
+
 def _ocr_with_groq(page_images: list) -> str:
     """
     Cloud OCR fallback: send page images to a Groq vision model one at a time.
@@ -212,7 +275,8 @@ def _ocr_pdf(file_bytes: bytes) -> str:
     Pipeline:
     1. Render pages to images via pymupdf  (no Poppler system package needed)
     2. Try pytesseract                     (fast, local — requires Tesseract binary)
-    3. Fall back to Groq vision API        (cloud — zero system dependencies)
+    3. OpenAI GPT-4o Vision               (primary cloud OCR — high accuracy)
+    4. Groq vision API                    (cloud fallback — zero system dependencies)
 
     Returns empty string if all strategies fail.
     """
@@ -231,8 +295,15 @@ def _ocr_pdf(file_bytes: bytes) -> str:
         logger.info("Tesseract OCR succeeded — %d chars extracted.", len(text))
         return text
 
-    # Strategy 2: Groq vision API
-    logger.info("Tesseract unavailable — trying Groq vision OCR.")
+    # Strategy 2: OpenAI GPT-4o Vision (primary cloud OCR)
+    logger.info("Tesseract unavailable — trying OpenAI vision OCR.")
+    text = _ocr_with_openai(page_images)
+    if text:
+        logger.info("OpenAI vision OCR succeeded — %d chars extracted.", len(text))
+        return text
+
+    # Strategy 3: Groq vision API (fallback)
+    logger.info("OpenAI OCR unavailable — trying Groq vision OCR.")
     text = _ocr_with_groq(page_images)
     if text:
         logger.info("Groq vision OCR succeeded — %d chars extracted.", len(text))
@@ -526,7 +597,13 @@ def extract_text_from_image(file_bytes: bytes) -> str:
         logger.info("Tesseract OCR succeeded on image — %d chars.", len(text))
         return text
 
-    logger.info("Tesseract unavailable for image — trying Groq vision OCR.")
+    logger.info("Tesseract unavailable for image — trying OpenAI vision OCR.")
+    text = _ocr_with_openai(page_images)
+    if text:
+        logger.info("OpenAI vision OCR succeeded on image — %d chars.", len(text))
+        return text
+
+    logger.info("OpenAI OCR unavailable for image — trying Groq vision OCR.")
     text = _ocr_with_groq(page_images)
     if text:
         logger.info("Groq vision OCR succeeded on image — %d chars.", len(text))

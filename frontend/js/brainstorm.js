@@ -1488,8 +1488,18 @@ window.navFlashcard = function (deckId, dir) {
   document.getElementById(`${deckId}-next`).disabled = idx === cards.length - 1;
 };
 
+// ── Visual intent detection ───────────────────────────────────────────────────
+const _VISUAL_INTENT_RE = /\b(diagram|chart|graph|visual(ly|ize|isation|ization)?|illustrat|flowchart|mind.?map|draw|show.*(me|visually)|explain.*(visual|diagram|picture|graphic)|break.*(down|it).*(visual|diagram)|picture|infographic|step.?by.?step (diagram|chart|flow)|how does .* work.*diagram)\b/i;
+
+function _isVisualIntent(text) {
+  return _VISUAL_INTENT_RE.test(text);
+}
+
 // ── Visual Explanation ────────────────────────────────────────────────────────
 let _visualCounter = 0;
+const _visualCharts   = {};              // Chart.js instance registry
+const _visCardStore   = new Map();       // deckId → { cards, idx }
+const _visCardFlipped = new Set();       // deckIds currently flipped
 
 window.triggerVisual = function (rowId, topic) {
   const row = document.getElementById(rowId);
@@ -1510,15 +1520,23 @@ window.triggerVisual = function (rowId, topic) {
     <div class="visual-prompt-box">
       <div class="visual-prompt-title">🎨 Visual Explanation</div>
       <p class="visual-prompt-hint">What would you like explained visually?<br>
-        <span style="opacity:.7">Tip: mention a page number or concept — e.g. "Contract formation flowchart" or "Explain page 2"</span>
+        <span style="opacity:.7">Tip: mention a page number or concept — e.g. "Contract formation on page 3"</span>
       </p>
       <div class="visual-prompt-input-row" id="${rowId}-vis-inputs">
         <input type="text" id="${rowId}-vis-input" class="visual-prompt-input"
-          placeholder="e.g. Explain contract law on page 3 with a diagram"
+          placeholder="e.g. Explain contract law on page 3"
           value="${escHtml(topic || '')}" />
-        <button class="visual-prompt-btn"
-          onclick="generateVisualDiagram('${rowId}', document.getElementById('${rowId}-vis-input').value)">
-          Generate
+      </div>
+      <div class="visual-type-choices" id="${rowId}-vis-choices">
+        <span class="visual-type-label">Choose type:</span>
+        <button class="visual-type-btn" onclick="generateVisualDiagram('${rowId}', document.getElementById('${rowId}-vis-input').value, 'diagram')">
+          🗺 Diagram
+        </button>
+        <button class="visual-type-btn" onclick="generateVisualDiagram('${rowId}', document.getElementById('${rowId}-vis-input').value, 'graph')">
+          📊 Graph
+        </button>
+        <button class="visual-type-btn visual-type-btn--auto" onclick="generateVisualDiagram('${rowId}', document.getElementById('${rowId}-vis-input').value, 'auto')">
+          🤖 Let AI Decide
         </button>
       </div>
     </div>`;
@@ -1528,30 +1546,37 @@ window.triggerVisual = function (rowId, topic) {
   const inp = document.getElementById(`${rowId}-vis-input`);
   inp.focus();
   inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') generateVisualDiagram(rowId, inp.value);
+    if (e.key === 'Enter') generateVisualDiagram(rowId, inp.value, 'auto');
   });
 };
 
-window.generateVisualDiagram = async function (rowId, userQuery) {
-  userQuery = (userQuery || '').trim();
-  const inputsEl = document.getElementById(`${rowId}-vis-inputs`);
-  if (inputsEl) {
-    inputsEl.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;padding:4px 0">⏳ Generating diagram…</p>';
+window.generateVisualDiagram = async function (rowId, userQuery, outputType) {
+  userQuery  = (userQuery  || '').trim();
+  outputType = outputType || 'auto';
+
+  // Replace the prompt area with a loading indicator
+  const promptBox = document.getElementById(`${rowId}-vis-prompt`);
+  if (promptBox) {
+    const typeLabel = outputType === 'diagram' ? 'diagram' : outputType === 'graph' ? 'graph' : 'visual';
+    promptBox.querySelector('.visual-prompt-box').innerHTML =
+      `<p style="color:var(--text-muted);font-size:.85rem;padding:6px 0">⏳ Generating ${typeLabel}…</p>`;
   }
 
   let data;
   try {
     data = await api.post('/brainstorm/visual', {
-      session_id: currentSessionId || null,
-      user_query: userQuery,
-      model:      _selectedModel,
+      session_id:  currentSessionId || null,
+      user_query:  userQuery,
+      output_type: outputType,
+      model:       'claude',
     });
   } catch (err) {
-    if (inputsEl) {
-      const safeQ = escHtml(userQuery).replace(/'/g, "\\'");
-      inputsEl.innerHTML = `
+    const safeQ  = escHtml(userQuery).replace(/'/g, "\\'");
+    const safeOT = escHtml(outputType).replace(/'/g, "\\'");
+    if (promptBox) {
+      promptBox.querySelector('.visual-prompt-box').innerHTML = `
         <p style="color:var(--danger);font-size:.82rem;margin:0 0 8px">⚠️ ${escHtml(err.message)}</p>
-        <button class="visual-prompt-btn" onclick="generateVisualDiagram('${rowId}', '${safeQ}')">Retry</button>`;
+        <button class="visual-prompt-btn" onclick="generateVisualDiagram('${rowId}','${safeQ}','${safeOT}')">Retry</button>`;
     }
     return;
   }
@@ -1560,32 +1585,53 @@ window.generateVisualDiagram = async function (rowId, userQuery) {
   const promptEl = document.getElementById(`${rowId}-vis-prompt`);
   if (promptEl) promptEl.remove();
 
-  const cardId  = `${rowId}-vis-card`;
-  const diagId  = `vis-diag-${++_visualCounter}`;
-  const safeQ   = escHtml(userQuery).replace(/'/g, "\\'");
-
-  let bodyHtml = '';
+  const cardId = `${rowId}-vis-card`;
+  const uid    = ++_visualCounter;
+  const diagId = `vis-diag-${uid}`;
+  const safeQ  = escHtml(userQuery).replace(/'/g, "\\'");
 
   const card = document.createElement('div');
   card.className = 'visual-card';
   card.id = cardId;
 
-  if (data.mermaid) {
+  const visType = data.type || (data.mermaid ? 'diagram' : data.sections ? 'breakdown' : 'diagram');
+  const titleHtml = `<div class="visual-card-title">${_visTypeIcon(visType)} ${escHtml(data.title || userQuery || 'Visual Explanation')}</div>`;
+  const safeOT    = escHtml(outputType).replace(/'/g, "\\'");
+  const regenBtn  = `<button class="visual-action-btn" onclick="generateVisualDiagram('${rowId}','${safeQ}','${safeOT}')">🔄 Regenerate</button>`;
+
+  // ── DIAGRAM (Mermaid) ──────────────────────────────────────────────────────
+  if (visType === 'diagram') {
     card.innerHTML = `
       <div class="visual-card-inner">
-        <div class="visual-card-title">🎨 ${escHtml(data.title || userQuery || 'Visual Breakdown')}</div>
+        ${titleHtml}
+        <div class="visual-type-badge">Claude · Diagram</div>
         <div class="visual-diagram-wrap" id="${diagId}-wrap">
           <div class="mermaid" id="${diagId}"></div>
         </div>
         ${data.description ? `<p class="visual-desc">${escHtml(data.description)}</p>` : ''}
         <div class="visual-actions">
           <button class="visual-action-btn" onclick="downloadVisualSVG('${diagId}-wrap')">⬇ Download SVG</button>
-          <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
+          ${regenBtn}
         </div>
       </div>`;
-    // Set raw mermaid syntax via textContent to avoid HTML-escaping issues
     card.querySelector(`#${diagId}`).textContent = data.mermaid;
-  } else if (data.sections) {
+
+  // ── GRAPH (Chart.js) ──────────────────────────────────────────────────────
+  } else if (visType === 'graph') {
+    const chartType = data.chart_type === 'line' ? 'line' : 'bar';
+    card.innerHTML = `
+      <div class="visual-card-inner">
+        ${titleHtml}
+        <div class="visual-type-badge">Claude · ${chartType === 'line' ? 'Line' : 'Bar'} Chart</div>
+        ${data.x_label || data.y_label ? `<p class="visual-desc">${escHtml(data.x_label || '')}${data.x_label && data.y_label ? ' · ' : ''}${escHtml(data.y_label || '')}</p>` : ''}
+        <div class="visual-graph-wrap">
+          <canvas id="${diagId}-canvas"></canvas>
+        </div>
+        <div class="visual-actions">${regenBtn}</div>
+      </div>`;
+
+  // ── BREAKDOWN (legacy sections) ───────────────────────────────────────────
+  } else if (visType === 'breakdown') {
     const sHtml = (data.sections || []).map(s => `
       <div class="visual-section">
         <div class="visual-section-heading">
@@ -1596,37 +1642,104 @@ window.generateVisualDiagram = async function (rowId, userQuery) {
       </div>`).join('');
     card.innerHTML = `
       <div class="visual-card-inner">
-        <div class="visual-card-title">🎨 ${escHtml(data.title || userQuery || 'Visual Breakdown')}</div>
+        ${titleHtml}
+        <div class="visual-type-badge">Claude · Breakdown</div>
         ${sHtml}
-        <div class="visual-actions">
-          <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
-        </div>
+        <div class="visual-actions">${regenBtn}</div>
       </div>`;
   }
 
-  const row = document.getElementById(rowId);
-  if (row) row.after(card);
+  const rowEl = document.getElementById(rowId);
+  if (rowEl) rowEl.after(card);
 
-  // Render Mermaid diagram
-  if (data.mermaid && window.mermaid) {
+  // ── Post-insert rendering ─────────────────────────────────────────────────
+  if (visType === 'diagram' && window.mermaid) {
     try {
       await mermaid.run({ nodes: [document.getElementById(diagId)] });
     } catch (e) {
       const diagEl = document.getElementById(diagId);
       if (diagEl) {
         const desc = data.description ? `<p style="font-size:.82rem;color:var(--text);margin:0 0 10px">${escHtml(data.description)}</p>` : '';
-        diagEl.innerHTML = `
-          <div style="padding:14px;text-align:left">
-            ${desc}
-            <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 10px">⚠️ Diagram could not render. Click Regenerate to try again.</p>
-            <button class="visual-action-btn" onclick="triggerVisual('${rowId}', '${safeQ}')">🔄 Regenerate</button>
-          </div>`;
+        diagEl.innerHTML = `<div style="padding:14px;text-align:left">${desc}
+          <p style="color:var(--text-muted);font-size:.78rem;margin:0 0 10px">⚠️ Diagram could not render. Click Regenerate.</p>
+          <button class="visual-action-btn" onclick="generateVisualDiagram('${rowId}','${safeQ}','${safeOT}')">🔄 Regenerate</button></div>`;
       }
     }
   }
 
-  const btn = document.getElementById(`${rowId}-vis`);
-  if (btn) btn.textContent = '🎨 Visual ✓';
+  if (visType === 'graph' && window.Chart) {
+    const canvas = document.getElementById(`${diagId}-canvas`);
+    if (canvas) {
+      const colors = ['rgba(0,119,255,0.8)', 'rgba(16,185,129,0.8)', 'rgba(139,92,246,0.8)', 'rgba(245,158,11,0.8)'];
+      const ds = (data.datasets || []).map((d, i) => ({
+        ...d,
+        backgroundColor: data.chart_type === 'line'
+          ? colors[i % colors.length].replace('0.8', '0.15')
+          : colors[i % colors.length],
+        borderColor:  colors[i % colors.length],
+        borderWidth:  data.chart_type === 'line' ? 2 : 1,
+        fill:         data.chart_type === 'line',
+        tension:      0.4,
+        borderRadius: data.chart_type === 'line' ? 0 : 4,
+        pointRadius:  data.chart_type === 'line' ? 3 : 0,
+      }));
+      if (_visualCharts[uid]) _visualCharts[uid].destroy();
+      _visualCharts[uid] = new Chart(canvas, {
+        type: data.chart_type === 'line' ? 'line' : 'bar',
+        data: { labels: data.labels || [], datasets: ds },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 500 },
+          plugins: {
+            legend: { display: ds.length > 1, position: 'top', labels: { font: { size: 11 } } },
+            tooltip: { mode: 'index', intersect: false },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 30 } },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.04)' },
+              ticks: {
+                font: { size: 10 },
+                callback: data.y_label ? v => `${v} ${data.y_label}` : undefined,
+              },
+            },
+          },
+        },
+      });
+    }
+  }
+
+  const visBtn = document.getElementById(`${rowId}-vis`);
+  if (visBtn) visBtn.textContent = '🎨 Visual ✓';
+};
+
+function _visTypeIcon(type) {
+  return { diagram: '🎨', graph: '📊', flashcard: '📇', breakdown: '🗂️' }[type] || '🎨';
+}
+
+// Visual flashcard flip / nav — reads from _visCardStore registry
+window._visFlipFC = function (deckId) {
+  const cardEl = document.getElementById(`${deckId}-card`);
+  if (cardEl) cardEl.classList.toggle('flipped');
+};
+
+window._visNavFC = function (deckId, dir) {
+  const entry = _visCardStore.get(deckId);
+  if (!entry) return;
+  const next = entry.idx + dir;
+  if (next < 0 || next >= entry.cards.length) return;
+  entry.idx = next;
+  const c = entry.cards[next];
+  document.getElementById(`${deckId}-q`).textContent = c.question || '';
+  document.getElementById(`${deckId}-a`).textContent  = c.answer   || '';
+  // Reset flip state when navigating
+  const cardEl = document.getElementById(`${deckId}-card`);
+  if (cardEl) cardEl.classList.remove('flipped');
+  document.getElementById(`${deckId}-counter`).textContent = `${next + 1} / ${entry.cards.length}`;
+  document.getElementById(`${deckId}-prev`).disabled = next === 0;
+  document.getElementById(`${deckId}-next`).disabled = next === entry.cards.length - 1;
 };
 
 window.downloadVisualSVG = function (containerId) {
@@ -2215,12 +2328,20 @@ window.sendMessage = async function () {
     const topicHint = _extractTopic(text, fullReply);
     _appendMessageActions(streamEl, topicHint);
 
+    const _actionRow = streamEl.nextElementSibling;
+
     if (_isConfused(text)) {
-      const visBtn = streamEl.nextElementSibling?.querySelector('[id$="-vis"]');
+      const visBtn = _actionRow?.querySelector('[id$="-vis"]');
       if (visBtn) {
         visBtn.style.borderColor = 'var(--primary)';
         visBtn.style.color       = 'var(--primary)';
       }
+    }
+
+    // Auto-trigger visual if the user explicitly asked for one
+    if (_isVisualIntent(text) && documentContext && _actionRow?.id) {
+      // Small delay so the action row is fully painted first
+      setTimeout(() => generateVisualDiagram(_actionRow.id, text, 'auto'), 300);
     }
 
     _resetReadingTimers();
@@ -3205,13 +3326,22 @@ function _setMobileChatOpen(open) {
   const layout    = document.getElementById('bs-layout');
   const fab       = document.getElementById('mobile-fab');
 
+  const floatTimer = document.getElementById('floating-timer');
+
   if (open) {
     if (chatPanel) chatPanel.setAttribute('style', _CHAT_OPEN_STYLE);
     if (backdrop)  backdrop.setAttribute('style',  _BACKDROP_OPEN_STYLE);
     layout?.classList.add('mobile-chat-active');
+    document.body.classList.add('mobile-chat-active');
     if (badge) badge.classList.remove('visible');
-    // Hide FAB while chat is open so it doesn't cover the send button
-    if (fab) fab.style.display = 'none';
+    // Hide FAB — must use !important to beat the CSS `display:flex !important` rule
+    if (fab) fab.style.setProperty('display', 'none', 'important');
+    // Hide floating timer — it sits at z-index:19999 and would overlap the input bar.
+    // The chat header badge already shows the time when the timer is running.
+    if (floatTimer) {
+      floatTimer._savedDisplay = floatTimer.style.display || '';
+      floatTimer.style.setProperty('display', 'none', 'important');
+    }
     // Hide greeting bubble when chat opens
     dismissGreeting();
   } else {
@@ -3219,8 +3349,14 @@ function _setMobileChatOpen(open) {
     if (chatPanel) chatPanel.setAttribute('style', 'display:none');
     if (backdrop)  backdrop.setAttribute('style',  'display:none');
     layout?.classList.remove('mobile-chat-active');
-    // Restore FAB — remove inline style so the !important CSS takes over
-    if (fab) fab.style.display = '';
+    document.body.classList.remove('mobile-chat-active');
+    // Restore FAB — remove inline override, CSS takes over
+    if (fab) fab.style.removeProperty('display');
+    // Restore floating timer to the state the timer JS last left it in
+    if (floatTimer) {
+      floatTimer.style.removeProperty('display');
+      if (floatTimer._savedDisplay) floatTimer.style.display = floatTimer._savedDisplay;
+    }
   }
 }
 

@@ -29,11 +29,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db, SessionLocal
 from ..models.user import User
+from ..models.payment_transaction import PaymentTransaction
 from ..utils.security import create_access_token, get_current_user
 from ..utils.access import get_usage_status, effective_plan
 
@@ -186,6 +188,25 @@ async def verify_payment(
         raise HTTPException(400, "Payment email does not match your account email.")
 
     token = _grant_subscription(current_user, payload.plan, payload.cycle, db)
+
+    try:
+        tx_log = PaymentTransaction(
+            user_id=current_user.id,
+            email=current_user.email or "",
+            full_name=current_user.full_name or "",
+            amount_kobo=cfg["kobo"],
+            plan=payload.plan,
+            cycle=payload.cycle,
+            reference=payload.reference,
+            paid_at=datetime.utcnow(),
+        )
+        db.add(tx_log)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+    except Exception:
+        db.rollback()
+
     plan_label = payload.plan.title()
     return {
         "token":   token,
@@ -275,6 +296,25 @@ async def paystack_webhook(request: Request, db: Session = Depends(get_db)):
                     if user:
                         _grant_subscription(user, plan, cycle, db2)
                         logger.info("Webhook: %s plan (%s) granted to %s", plan, cycle, email)
+                    ref = data.get("reference", "")
+                    if ref:
+                        try:
+                            tx_log = PaymentTransaction(
+                                user_id=user.id if user else None,
+                                email=email,
+                                full_name=user.full_name if user else "",
+                                amount_kobo=paid_kobo,
+                                plan=plan,
+                                cycle=cycle,
+                                reference=ref,
+                                paid_at=datetime.utcnow(),
+                            )
+                            db2.add(tx_log)
+                            db2.commit()
+                        except IntegrityError:
+                            db2.rollback()
+                        except Exception:
+                            db2.rollback()
                 finally:
                     db2.close()
 

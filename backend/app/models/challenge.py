@@ -29,6 +29,7 @@ class Challenge(Base):
     timer_mode           = Column(String(20), default="per_question")  # per_question | full_quiz
     max_participants     = Column(Integer,  nullable=True)
     status               = Column(String(20), default="waiting") # waiting | active | completed
+    host_mode            = Column(String(20), default="participant")  # participant | spectator
     current_question_idx = Column(Integer,  default=0)
     started_at           = Column(DateTime, nullable=True)
     ended_at             = Column(DateTime, nullable=True)

@@ -720,16 +720,12 @@ def _visual_qa_chat(doc_record, question: str, history: list, current_page: int 
     """
     Visual Q&A for scanned PDFs:
     - Renders up to 5 pages centred on current_page from the stored file bytes.
-    - Sends the page images + question to a Groq vision model.
+    - Tries OpenAI GPT-4o first (best vision model), then falls back to Groq.
     - Returns the AI reply, or None if vision Q&A is unavailable.
     """
-    import os, base64 as b64
+    import base64 as b64
 
     if not doc_record or not doc_record.file_content:
-        return None
-
-    api_key = os.environ.get("GROQ_API_KEY", "")
-    if not api_key:
         return None
 
     # Page window: up to 5 pages centred on current_page (1-indexed → 0-indexed)
@@ -744,7 +740,7 @@ def _visual_qa_chat(doc_record, question: str, history: list, current_page: int 
 
     p0 = max(0, current_page - 3)
     p1 = min(total, p0 + 5)
-    p0 = max(0, p1 - 5)   # adjust start if near end of doc
+    p0 = max(0, p1 - 5)
     pages_label = f"pages {p0 + 1}–{p1}" if p1 > p0 + 1 else f"page {p0 + 1}"
 
     try:
@@ -756,11 +752,14 @@ def _visual_qa_chat(doc_record, question: str, history: list, current_page: int 
     if not page_images:
         return None
 
-    # Build image content blocks
+    # Build shared image content blocks
     image_blocks = []
     for img_bytes in page_images:
         img_b64 = b64.b64encode(img_bytes).decode()
-        image_blocks.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
+        image_blocks.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{img_b64}", "detail": "high"},
+        })
         del img_b64
 
     # Include recent chat history as text
@@ -769,35 +768,56 @@ def _visual_qa_chat(doc_record, question: str, history: list, current_page: int 
         recent = [f"{'User' if h['role'] == 'user' else 'UrPadi'}: {h['content']}" for h in history[-6:]]
         history_text = "\nPrevious conversation:\n" + "\n".join(recent) + "\n\n"
 
-    text_block = {
-        "type": "text",
-        "text": (
-            f"You are UrPadi, an AI academic tutor. The images show {pages_label} "
-            f"from the student's uploaded document '{doc_record.filename}'."
-            f"{history_text}"
-            f"Student's question: {question}\n\n"
-            f"Read the pages carefully and answer accurately. "
-            f"If the answer is visible on these pages, give a detailed response. "
-            f"If the relevant content is on a different page, tell the student which page to navigate to."
-        ),
-    }
+    qa_prompt = (
+        f"You are UrPadi, an AI academic tutor. The images show {pages_label} "
+        f"from the student's uploaded document '{doc_record.filename}'."
+        f"{history_text}"
+        f"Student's question: {question}\n\n"
+        "Read the pages carefully and answer accurately. "
+        "If the answer is visible on these pages, give a detailed response. "
+        "If the relevant content is on a different page, tell the student which page to navigate to."
+    )
+    text_block = {"type": "text", "text": qa_prompt}
+
+    # ── Strategy 1: OpenAI GPT-4o (best vision accuracy) ─────────────────────
+    from ..config import settings as _cfg
+    if _cfg.OPENAI_API_KEY:
+        try:
+            from openai import OpenAI
+            oa_client = OpenAI(api_key=_cfg.OPENAI_API_KEY)
+            response = oa_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": image_blocks + [text_block]}],
+                max_tokens=1024,
+                temperature=0.3,
+            )
+            reply = response.choices[0].message.content.strip()
+            if reply:
+                logger.info("Visual Q&A answered with gpt-4o (%s)", pages_label)
+                return reply
+        except Exception as exc:
+            logger.warning("Visual Q&A: OpenAI gpt-4o failed: %s", exc)
+
+    # ── Strategy 2: Groq vision (fallback) ───────────────────────────────────
+    groq_key = _cfg.GROQ_API_KEY
+    if not groq_key:
+        return None
 
     try:
         from groq import Groq
-        client = Groq(api_key=api_key)
+        groq_client = Groq(api_key=groq_key)
     except Exception:
         return None
 
     for model in _GROQ_VISION_MODELS:
         try:
-            # Llama 3.2 supports only 1 image — send just the current page
             if "3.2" in model:
                 mid = len(image_blocks) // 2
                 content = [image_blocks[mid], text_block]
             else:
                 content = image_blocks + [text_block]
 
-            response = client.chat.completions.create(
+            response = groq_client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": content}],
                 max_tokens=1024,
@@ -1354,6 +1374,7 @@ class VisualRequest(BaseModel):
     page_number: int = 0         # 0 = auto-detect from user_query
     topic:       str = ""        # legacy
     model:       str = "groq"
+    output_type: str = "auto"    # "diagram" | "graph" | "auto"
 
 
 def _extract_page_number_from_query(text: str) -> int:
@@ -1372,25 +1393,53 @@ def _get_pdf_page_text(file_bytes: bytes, page_number: int) -> str:
     return ""
 
 
-_MERMAID_SYSTEM = (
-    "You are a diagram expert for an educational platform. "
-    "Generate a Mermaid.js FLOWCHART to visually explain a concept from the document.\n\n"
-    "Return ONLY valid JSON (no markdown fences, no prose before or after):\n"
-    '{"title":"...","diagram_type":"flowchart","mermaid":"...","description":"..."}\n\n'
-    "MANDATORY mermaid syntax rules — use FLOWCHART TD only:\n"
-    "  flowchart TD\n"
-    "    A[First concept] --> B[Second concept]\n"
-    "    B --> C[Third concept]\n"
-    "    B --> D[Another branch]\n\n"
-    "Rules:\n"
-    "- ALWAYS start with 'flowchart TD' on the first line\n"
-    "- Node IDs must be single letters or short words: A, B, C, D1, etc.\n"
-    "- Labels inside [] must be under 35 chars — NO quotes, colons, parentheses, or curly braces inside labels\n"
-    "- Only use --> for edges. Never use -->, ---, ==>, -.->, or any other arrow in mindmap style\n"
-    "- Use 5-10 nodes maximum\n"
-    "- description: one sentence explaining what the diagram shows\n"
-    "- The mermaid string must use \\n for newlines since it lives inside a JSON string"
-)
+_DIAGRAM_SYSTEM = """\
+You are a diagram expert for an educational platform.
+Generate a Mermaid.js flowchart to visually explain the concept from the document.
+
+Return ONLY valid JSON (no markdown fences, no prose):
+{"type":"diagram","title":"...","mermaid":"flowchart TD\\n  A[Concept] --> B[Next]\\n  B --> C[Result]","description":"one sentence explaining the diagram"}
+
+MERMAID RULES (mandatory):
+- Always start with "flowchart TD" on its own line
+- Node IDs: single letters or short alphanumeric (A, B, C1)
+- Labels inside []: max 35 chars, NO quotes / colons / parentheses / curly braces
+- Only --> for edges
+- 5-10 nodes maximum
+- Use \\n for newlines inside the JSON string\
+"""
+
+_GRAPH_SYSTEM = """\
+You are a data visualization expert for an educational platform.
+Generate a Chart.js-compatible graph to visually represent data or comparisons from the document.
+
+Return ONLY valid JSON (no markdown fences, no prose):
+{"type":"graph","title":"...","chart_type":"bar","labels":["Label1","Label2","Label3"],"datasets":[{"label":"Series Name","data":[10,25,40]}],"x_label":"Category","y_label":"Value","description":"one sentence"}
+
+GRAPH RULES:
+- chart_type: "bar" for comparisons/categories, "line" for trends/time-series
+- 3-8 labels maximum
+- data values must be realistic numbers extracted or inferred from the document
+- If no numeric data exists in the document, create illustrative relative values that represent the concepts
+- description: one sentence explaining what the chart shows\
+"""
+
+_VISUAL_AUTO_SYSTEM = """\
+You are a visual learning AI for an educational platform.
+Analyze the document content and user query, then choose the BEST visual type between "diagram" and "graph".
+
+Return ONLY valid JSON (no markdown fences, no prose before or after).
+
+For PROCESSES, FLOWS, HIERARCHIES, STEPS, RELATIONSHIPS → use "diagram":
+{"type":"diagram","title":"...","mermaid":"flowchart TD\\n  A[Concept] --> B[Next]\\n  B --> C[Result]","description":"one sentence"}
+
+For NUMERICAL DATA, COMPARISONS, STATISTICS, TRENDS → use "graph":
+{"type":"graph","title":"...","chart_type":"bar","labels":["A","B","C"],"datasets":[{"label":"Series","data":[10,25,40]}],"x_label":"","y_label":"","description":"one sentence"}
+
+DIAGRAM rules: flowchart TD only · 5-10 nodes · labels ≤35 chars · no quotes/colons inside [] · --> for edges · \\n for newlines
+GRAPH rules: chart_type "bar" or "line" · 3-8 data points · real or illustrative numbers from document content
+Choose whichever format will BEST help the student see and understand the concept.\
+"""
 
 
 def _sanitize_mermaid(code: str) -> str:
@@ -1432,9 +1481,9 @@ async def generate_visual(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Generate a Mermaid diagram visual explanation from document content."""
+    """Generate a visual explanation (diagram / graph) — always via Claude."""
     check_access(db, current_user, "visual_explanation", increment=True)
-    enforce_model_access(current_user, payload.model)
+    enforce_model_access(current_user, "claude")  # Visual Explanation is Claude-exclusive
 
     context = ""
     page_no = payload.page_number or _extract_page_number_from_query(payload.user_query)
@@ -1479,32 +1528,41 @@ async def generate_visual(
 
     topic_hint = payload.user_query or payload.topic or "the main topic"
     page_hint = (
-        f" (focus on document viewer page {page_no} — note: this is the viewer's page index, "
-        f"which may differ from the printed page number in the original document)"
+        f" (focus on document viewer page {page_no})"
         if page_no else ""
     )
+
+    # Select system prompt based on requested output type
+    if payload.output_type == "diagram":
+        system = _DIAGRAM_SYSTEM
+    elif payload.output_type == "graph":
+        system = _GRAPH_SYSTEM
+    else:
+        system = _VISUAL_AUTO_SYSTEM
+
     user_msg = (
         f"Document content:\n\n{context[:3500]}\n\n"
-        f"User request: Explain '{topic_hint}' visually{page_hint}.\n\n"
-        "Generate a Mermaid diagram. Return valid JSON with title, diagram_type, mermaid, description."
+        f"User request: \"{topic_hint}\"{page_hint}\n\n"
+        "Return ONLY valid JSON."
     )
 
-    model_order = ["claude", "openai", "groq"]
-    if payload.model in model_order:
-        model_order = [payload.model] + [m for m in model_order if m != payload.model]
+    # Visual Explanation is Claude-exclusive — always try Claude first, then fallback only if unavailable
+    _VISUAL_MODEL_ORDER = ["claude", "openai", "groq"]
 
     reply = None
-    for model_id in model_order:
+    used_model = None
+    for model_id in _VISUAL_MODEL_ORDER:
         try:
             reply = chat_with_model(
                 model_id=model_id,
                 messages=[
-                    {"role": "system", "content": _MERMAID_SYSTEM},
+                    {"role": "system", "content": system},
                     {"role": "user",   "content": user_msg},
                 ],
                 temperature=0.3,
-                max_tokens=1200,
+                max_tokens=1400,
             )
+            used_model = model_id
             break
         except Exception as exc:
             logger.warning("Visual/%s error: %s", model_id, exc)
@@ -1512,47 +1570,45 @@ async def generate_visual(
     if not reply:
         raise HTTPException(status_code=500, detail="AI unavailable. Please try again.")
 
-    # Parse Mermaid JSON
+    logger.info("Visual: generated via %s", used_model)
+
+    # Parse structured JSON — handle all 3 types + legacy formats
     try:
         raw = reply.replace("```json", "").replace("```", "").strip()
         data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-        if "mermaid" not in data:
-            raise ValueError("no mermaid field")
-        data["mermaid"] = _sanitize_mermaid(data["mermaid"])
-        data.setdefault("diagram_type", "flowchart")
-        data.setdefault("description", "")
-        data.setdefault("title", topic_hint)
-        data["topic"] = topic_hint
-        logger.info("Visual: Mermaid diagram generated, type=%s", data.get("diagram_type"))
-        return data
     except Exception as exc:
-        logger.warning("Visual: Mermaid JSON parse failed (%s) — falling back to structured", exc)
+        logger.warning("Visual: JSON parse failed (%s)", exc)
+        raise HTTPException(status_code=500, detail="Could not parse visual response. Please try again.")
 
-    # Fallback: structured sections breakdown
-    fallback_prompt = (
-        f"Create a structured visual breakdown of '{topic_hint}'.\n"
-        "Return ONLY valid JSON — no prose, no code fences:\n"
-        '{"title":"...","type":"breakdown","sections":[{"icon":"emoji","heading":"...","points":["...","..."]}]}\n'
-        "Use 3-5 sections. Each section: 1 emoji, short heading, 2-4 bullet points."
-    )
-    try:
-        reply2 = chat_with_model(
-            model_id=payload.model,
-            messages=[
-                {"role": "system", "content": "You are a study assistant creating structured visual explanations."},
-                {"role": "user",   "content": f"Document:\n{context[:3500]}\n\n{fallback_prompt}"},
-            ],
-            temperature=0.35,
-            max_tokens=1000,
-        )
-        raw2 = reply2.replace("```json", "").replace("```", "").strip()
-        data2 = json.loads(raw2[raw2.index("{"):raw2.rindex("}") + 1])
-        if "sections" not in data2:
-            raise ValueError("missing sections")
-        data2["topic"] = topic_hint
-        return data2
-    except Exception:
-        raise HTTPException(status_code=500, detail="Could not generate visual explanation. Please try again.")
+    vis_type = data.get("type", "")
+    data.setdefault("title", topic_hint)
+    data["topic"] = topic_hint
+
+    # ── Diagram ──────────────────────────────────────────────────────────────
+    if vis_type == "diagram" or "mermaid" in data:
+        data["type"] = "diagram"
+        if "mermaid" not in data:
+            raise HTTPException(status_code=500, detail="Diagram response missing mermaid field.")
+        data["mermaid"] = _sanitize_mermaid(data["mermaid"])
+        data.setdefault("description", "")
+        return data
+
+    # ── Graph ─────────────────────────────────────────────────────────────────
+    if vis_type == "graph":
+        required = {"labels", "datasets"}
+        if not required.issubset(data.keys()):
+            raise HTTPException(status_code=500, detail="Graph response missing required fields.")
+        data.setdefault("chart_type", "bar")
+        data.setdefault("x_label", "")
+        data.setdefault("y_label", "")
+        return data
+
+    # ── Legacy breakdown sections ─────────────────────────────────────────────
+    if "sections" in data:
+        data["type"] = "breakdown"
+        return data
+
+    raise HTTPException(status_code=500, detail="Unrecognised visual response type. Please try again.")
 
 
 # ── Learning Resources (YouTube) ──────────────────────────────────────────────

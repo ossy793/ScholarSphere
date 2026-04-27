@@ -900,6 +900,24 @@
     }
     .visual-prompt-btn:hover { opacity: 0.9; }
 
+    /* ── Visual type choice buttons ── */
+    .visual-type-choices {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px;
+    }
+    .visual-type-label {
+      font-size: 0.75rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;
+    }
+    .visual-type-btn {
+      padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text);
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .visual-type-btn:hover { background: var(--border); border-color: var(--primary); }
+    .visual-type-btn--auto {
+      background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.3); color: #6d28d9;
+    }
+    .visual-type-btn--auto:hover { background: rgba(139,92,246,0.15); }
+
     /* ── Mermaid diagram container ── */
     .visual-diagram-wrap {
       padding: 16px 12px; background: #fff;
@@ -922,6 +940,32 @@
       transition: background 0.15s;
     }
     .visual-action-btn:hover { background: var(--border); }
+
+    /* Visual type badge — "Claude · Diagram" etc. */
+    .visual-type-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(139,92,246,0.1);
+      color: #6d28d9;
+      border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 99px;
+      padding: 2px 10px;
+      margin: 4px 16px 8px;
+    }
+
+    /* Graph canvas container — Chart.js needs a fixed-height parent */
+    .visual-graph-wrap {
+      position: relative;
+      height: 220px;
+      padding: 4px 12px 12px;
+    }
+    .visual-graph-wrap canvas {
+      position: absolute;
+      inset: 4px 12px 12px;
+    }
 
     /* ── Learning Resources (YouTube) ── */
     .resources-rack {
@@ -1749,7 +1793,16 @@
         border-radius: 2px;
       }
 
-      /* FAB: fixed, always visible above chat panel */
+      /* ── Elements hidden while mobile chat panel is open ── */
+      /* FAB: CSS !important guard so it can't bleed over the send button */
+      #bs-layout.mobile-chat-active > .mobile-fab {
+        display: none !important;
+      }
+      /* Floating timer: hidden when chat is open — already shown in chat header badge.
+         z-index:19999 would sit on top of the input bar otherwise. */
+      body.mobile-chat-active #floating-timer {
+        display: none !important;
+      }
       .mobile-fab {
         position: fixed !important;
         bottom: 24px !important;
@@ -3022,6 +3075,7 @@
   <!-- Mermaid.js for visual diagram rendering -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script type="module" src="js/brainstorm.js"></script>
 </body>
 </html>

@@ -31,6 +31,7 @@ def create_tables():
     _migrate_subscription_fields()
     _migrate_feature_usage_table()
     _migrate_support_user_id()
+    _migrate_payment_transactions()
 
 
 def _migrate_profile_fields():
@@ -243,3 +244,33 @@ def _migrate_support_user_id():
             conn.commit()
         except Exception:
             conn.rollback()
+
+
+def _migrate_payment_transactions():
+    """Create payment_transactions table for financial audit trail."""
+    ddl = [
+        """
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+            email       VARCHAR(255) NOT NULL,
+            full_name   VARCHAR(255),
+            amount_kobo INTEGER NOT NULL,
+            plan        VARCHAR(20) NOT NULL,
+            cycle       VARCHAR(20) NOT NULL,
+            reference   VARCHAR(100) NOT NULL,
+            paid_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_payment_transactions_reference ON payment_transactions(reference)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_transactions_user_id ON payment_transactions(user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_payment_transactions_paid_at ON payment_transactions(paid_at)",
+    ]
+    with engine.connect() as conn:
+        for stmt in ddl:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                conn.rollback()
