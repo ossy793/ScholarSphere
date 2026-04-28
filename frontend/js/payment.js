@@ -42,6 +42,7 @@ function _updatePriceLabels() {
 
 // ── Select plan and show payment card ─────────────────────────────────────────
 window.startPayment = function (plan) {
+  if (plan === 'pro') plan = 'max';  // 'pro' is a UI alias for 'max'
   if (!getToken()) { window.location.href = 'index.html'; return; }
 
   // Block if user already has an active subscription
