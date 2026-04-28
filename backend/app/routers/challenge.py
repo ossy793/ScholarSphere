@@ -49,6 +49,7 @@ router = APIRouter(prefix="/challenges", tags=["challenges"])
 class _Room:
     def __init__(self):
         self._sockets: dict[str, WebSocket] = {}   # user_id → ws
+        self._next_event: asyncio.Event = asyncio.Event()
 
     async def add(self, user_id: str, ws: WebSocket):
         self._sockets[user_id] = ws
@@ -77,6 +78,15 @@ class _Room:
                 await ws.send_json(payload)
             except Exception:
                 self._sockets.pop(user_id, None)
+
+    def reset_next(self):
+        self._next_event.clear()
+
+    async def wait_for_next(self):
+        await self._next_event.wait()
+
+    def signal_next(self):
+        self._next_event.set()
 
 
 class _RoomManager:
@@ -362,17 +372,30 @@ def get_leaderboard(
         .order_by(ChallengeParticipant.score.desc())
         .all()
     )
-    full = [
-        {
-            "rank":    i + 1,
-            "user_id": str(p.user_id),
-            "name":    _display_name(p.user),
-            "score":   p.score,
-            "avatar":  _avatar(p.user),
-            "is_you":  str(p.user_id) == str(current_user.id),
-        }
-        for i, p in enumerate(ranked)
-    ]
+
+    all_responses = db.query(ChallengeResponse).filter_by(challenge_id=ch.id).all()
+    resp_by_p: dict[str, list] = {}
+    for r in all_responses:
+        resp_by_p.setdefault(str(r.participant_id), []).append(r)
+
+    full = []
+    for i, p in enumerate(ranked):
+        resps   = resp_by_p.get(str(p.id), [])
+        correct = sum(1 for r in resps if r.is_correct)
+        answered = len(resps)
+        avg_ms  = int(sum(r.response_time_ms for r in resps) / answered) if answered else 0
+        full.append({
+            "rank":         i + 1,
+            "user_id":      str(p.user_id),
+            "name":         _display_name(p.user),
+            "score":        p.score,
+            "avatar":       _avatar(p.user),
+            "correct":      correct,
+            "wrong":        answered - correct,
+            "answered":     answered,
+            "avg_speed_ms": avg_ms,
+            "is_you":       str(p.user_id) == str(current_user.id),
+        })
 
     if is_host:
         return {"is_host": True, "leaderboard": full}
@@ -380,6 +403,7 @@ def get_leaderboard(
     my = next((e for e in full if e["is_you"]), None)
     return {
         "is_host":    False,
+        "leaderboard": full,
         "top3":       full[:3],
         "your_rank":  my["rank"]  if my else None,
         "your_score": my["score"] if my else 0,
@@ -456,6 +480,10 @@ async def challenge_ws(
 
             if mtype == "ping":
                 await ws.send_json({"type": "pong"})
+
+            elif mtype == "next_question":
+                if is_host:
+                    room.signal_next()
 
             elif mtype == "answer":
                 # Spectator host cannot submit answers
@@ -587,7 +615,11 @@ async def _run_questions(
                 })
 
             if idx < len(questions) - 1:
-                await asyncio.sleep(3)
+                room.reset_next()
+                try:
+                    await asyncio.wait_for(room.wait_for_next(), timeout=300.0)
+                except asyncio.TimeoutError:
+                    pass  # auto-advance after 5 min if host is gone
 
         # Mark completed
         ch = db.query(Challenge).filter_by(id=cid).first()

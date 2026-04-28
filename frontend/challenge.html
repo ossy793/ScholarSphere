@@ -362,6 +362,47 @@
     .ch-sp-ls-name  { flex: 1; font-size: .78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ch-sp-ls-score { font-size: .78rem; font-weight: 800; color: var(--primary); }
 
+    /* ── Next Question / Waiting ── */
+    .ch-next-wrap {
+      margin-top: 20px; text-align: center;
+    }
+    .ch-waiting-msg {
+      margin-top: 20px; text-align: center;
+      font-size: .85rem; color: var(--text-muted); padding: 10px;
+      background: rgba(0,0,0,.04); border-radius: 8px;
+    }
+
+    /* ── Full Results screen ── */
+    .ch-fr-wrap {
+      max-width: 760px; width: 100%; margin: 0 auto; padding: 24px 16px 40px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .ch-fr-title {
+      font-size: 1.5rem; font-weight: 900; text-align: center;
+    }
+    .fr-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .fr-table th {
+      text-align: left; padding: 8px 10px;
+      font-size: .73rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-muted);
+      border-bottom: 1.5px solid var(--border);
+    }
+    .fr-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); }
+    .fr-table tr:last-child td { border-bottom: none; }
+    .fr-table .fr-you-row td { background: rgba(0,119,255,.04); }
+    .fr-you-tag {
+      font-size: .68rem; font-weight: 700; color: var(--primary);
+      background: rgba(0,119,255,.1); border-radius: 4px; padding: 1px 5px; margin-left: 4px;
+    }
+    .fr-correct { color: #22c55e; font-weight: 700; }
+    .fr-wrong   { color: #ef4444; font-weight: 700; }
+    .ch-fr-charts {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+    }
+    @media (max-width: 640px) {
+      .ch-fr-charts { grid-template-columns: 1fr; }
+    }
+
     /* ── Toast ── */
     .ch-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -585,6 +626,15 @@
 
             <!-- Feedback -->
             <div class="ch-feedback" id="q-feedback"></div>
+
+            <!-- Host: Next Question button -->
+            <div class="ch-next-wrap" id="q-next-wrap" style="display:none">
+              <button class="ch-btn primary" onclick="advanceQuestion()">Next Question →</button>
+            </div>
+            <!-- Participants: waiting message -->
+            <div class="ch-waiting-msg" id="q-waiting-msg" style="display:none">
+              ⏳ Waiting for host to advance to next question…
+            </div>
           </div>
         </div>
 
@@ -629,6 +679,11 @@
                   <div class="ch-resp-list" id="sp-resp-list"></div>
                 </div>
 
+                <!-- Spectator host: Next Question button -->
+                <div class="ch-next-wrap" id="sp-next-wrap" style="display:none;margin-top:16px">
+                  <button class="ch-btn primary" onclick="advanceQuestion()">Next Question →</button>
+                </div>
+
               </div><!-- /.ch-spectator-main -->
 
               <!-- Sidebar: live leaderboard -->
@@ -668,10 +723,52 @@
           </div>
         </div>
 
+        <!-- ══ SCREEN: Full Results ══ -->
+        <div class="ch-screen" id="screen-full-results">
+          <div class="ch-fr-wrap">
+            <div class="ch-fr-title">📊 Full Results</div>
+
+            <!-- Stats table -->
+            <div class="ch-card" style="padding:0;overflow:hidden">
+              <table class="fr-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th><th>Player</th><th>Score</th>
+                    <th>Correct</th><th>Wrong</th><th>Avg Speed</th>
+                  </tr>
+                </thead>
+                <tbody id="fr-table-body"></tbody>
+              </table>
+            </div>
+
+            <!-- Charts -->
+            <div class="ch-fr-charts">
+              <div class="ch-card" style="padding:16px">
+                <div style="font-size:.82rem;font-weight:700;margin-bottom:10px">Score Comparison</div>
+                <canvas id="fr-chart-score"></canvas>
+              </div>
+              <div class="ch-card" style="padding:16px">
+                <div style="font-size:.82rem;font-weight:700;margin-bottom:10px">Overall Accuracy</div>
+                <canvas id="fr-chart-accuracy"></canvas>
+              </div>
+              <div class="ch-card" style="padding:16px">
+                <div style="font-size:.82rem;font-weight:700;margin-bottom:10px">Avg Response Speed</div>
+                <canvas id="fr-chart-speed"></canvas>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+              <button class="ch-btn primary" onclick="showLanding()">New Challenge</button>
+              <button class="ch-btn outline" onclick="showSummary()">Back to Summary</button>
+            </div>
+          </div>
+        </div>
+
       </div><!-- /.page-body -->
     </div><!-- /.main-content -->
   </div><!-- /.app-layout -->
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script type="module" src="js/challenge.js"></script>
 </body>
 </html>

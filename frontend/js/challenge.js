@@ -17,6 +17,8 @@ let _currentQ    = null;   // {id, text, type, options}
 let _currentQIdx = 0;
 let _answered    = false;
 let _totalQ      = 0;
+let _frCharts    = {};     // Chart.js instances for full results screen
+let _lastLb      = null;   // last leaderboard data for back-navigation
 
 const _me   = getUser();
 const _myId = _me ? String(_me.id) : '';
@@ -25,6 +27,12 @@ const _myId = _me ? String(_me.id) : '';
 function _show(screenId) {
   document.querySelectorAll('.ch-screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
+  // Hide AI assistant FAB during active game
+  const paWrap = document.getElementById('pa-wrap');
+  if (paWrap) {
+    const gameScreens = ['screen-quiz', 'screen-spectator', 'screen-leaderboard', 'screen-full-results'];
+    paWrap.style.display = gameScreens.includes(screenId) ? 'none' : '';
+  }
 }
 
 window.showLanding = function () {
@@ -171,6 +179,18 @@ window.copyCode = function () {
   navigator.clipboard.writeText(_ch.code).then(() => _toast('Code copied!'));
 };
 
+window.advanceQuestion = function () {
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    _ws.send(JSON.stringify({ type: 'next_question' }));
+    document.getElementById('q-next-wrap').style.display  = 'none';
+    document.getElementById('sp-next-wrap').style.display = 'none';
+  }
+};
+
+window.showSummary = function () {
+  _show('screen-leaderboard');
+};
+
 // ── Start (host) ───────────────────────────────────────────────────────────────
 window.startChallenge = async function () {
   const btn = document.getElementById('wr-start-btn');
@@ -306,6 +326,8 @@ function _onQuestion(msg) {
 }
 
 function _onQuestionParticipant(idx, durSec) {
+  document.getElementById('q-next-wrap').style.display  = 'none';
+  document.getElementById('q-waiting-msg').style.display = 'none';
   document.getElementById('q-counter').textContent = `Question ${idx + 1} / ${_totalQ}`;
   document.getElementById('q-progress').style.width = `${(idx / _totalQ) * 100}%`;
   document.getElementById('q-text').textContent = _currentQ.text;
@@ -341,7 +363,8 @@ function _onQuestionParticipant(idx, durSec) {
 
 function _onQuestionSpectator(idx, durSec) {
   // Reset for new question
-  document.getElementById('sp-responses').style.display = 'none';
+  document.getElementById('sp-responses').style.display  = 'none';
+  document.getElementById('sp-next-wrap').style.display  = 'none';
   document.getElementById('sp-waiting').style.display = 'block';
 
   document.getElementById('sp-q-counter').textContent = `Question ${idx + 1} / ${_totalQ}`;
@@ -418,18 +441,18 @@ function _onAnswerResult(msg) {
 // ── question_ended ─────────────────────────────────────────────────────────────
 function _onQEnded(msg) {
   _clearTimer();
-  const correct = msg.correct_answer;
-
+  const correct    = msg.correct_answer;
+  const isLast     = msg.next_in === 0;
   const isSpectator = _ch && _ch.is_host && _ch.host_mode === 'spectator';
 
   if (isSpectator) {
-    // Highlight correct option in spectator view
     document.querySelectorAll('.ch-sp-option').forEach(el => {
       if (el.dataset.val === correct) el.classList.add('correct');
     });
     document.getElementById('sp-waiting').style.display = 'none';
-    // Responses will arrive via question_responses message shortly
     if (msg.scores) _updateSpectatorLeaderboard(msg.scores);
+    // Show Next button for spectator host (not on last question)
+    if (!isLast) document.getElementById('sp-next-wrap').style.display = 'block';
   } else {
     document.querySelectorAll('.ch-option').forEach(btn => {
       btn.disabled = true;
@@ -449,6 +472,14 @@ function _onQEnded(msg) {
     }
 
     if (_ch && _ch.is_host && msg.scores) _updateLiveScores(msg.scores);
+
+    if (!isLast) {
+      if (_ch && _ch.is_host) {
+        document.getElementById('q-next-wrap').style.display = 'block';
+      } else {
+        document.getElementById('q-waiting-msg').style.display = 'block';
+      }
+    }
   }
 }
 
@@ -492,6 +523,7 @@ function _onQuestionResponses(msg) {
 // ── challenge_ended ────────────────────────────────────────────────────────────
 function _onEnded(msg) {
   _clearTimer();
+  _lastLb = msg;
   _show('screen-leaderboard');
 
   const rankEmojis = ['🥇', '🥈', '🥉'];
@@ -534,14 +566,109 @@ function _onEnded(msg) {
 
 // ── View full results (button) ─────────────────────────────────────────────────
 window.reloadChallenge = async function () {
-  if (!_ch) return;
+  if (!_ch) { _toast('No challenge loaded'); return; }
   try {
     const lb = await api.get(`/challenges/${_ch.id}/leaderboard`);
-    _onEnded({ ...lb, is_host: _ch.is_host });
+    _lastLb = lb;
+    _showFullResults(lb);
   } catch (e) {
-    _toast(e.message || 'Failed to load results');
+    // Fall back to cached data from WS message
+    if (_lastLb) _showFullResults(_lastLb);
+    else _toast(e.message || 'Failed to load results');
   }
 };
+
+function _showFullResults(lb) {
+  _show('screen-full-results');
+  const entries = lb.leaderboard || lb.top3 || [];
+  const rankEmojis = ['🥇', '🥈', '🥉'];
+
+  // Populate stats table
+  document.getElementById('fr-table-body').innerHTML = entries.map(e => `
+    <tr class="${e.is_you ? 'fr-you-row' : ''}">
+      <td>${rankEmojis[(e.rank || 1) - 1] || e.rank}</td>
+      <td>${_esc(e.name)}${e.is_you ? ' <span class="fr-you-tag">you</span>' : ''}</td>
+      <td><strong>${e.score || 0}</strong></td>
+      <td class="fr-correct">${e.correct ?? '—'}</td>
+      <td class="fr-wrong">${e.wrong ?? '—'}</td>
+      <td>${e.avg_speed_ms ? (e.avg_speed_ms / 1000).toFixed(1) + 's' : '—'}</td>
+    </tr>
+  `).join('');
+
+  const names   = entries.map(e => e.name);
+  const scores  = entries.map(e => e.score || 0);
+  const corrects = entries.map(e => e.correct || 0);
+  const wrongs  = entries.map(e => e.wrong || 0);
+  const speeds  = entries.map(e => e.avg_speed_ms ? +(e.avg_speed_ms / 1000).toFixed(1) : 0);
+  const totalCorrect = corrects.reduce((a, b) => a + b, 0);
+  const totalWrong   = wrongs.reduce((a, b) => a + b, 0);
+
+  // Destroy old charts
+  Object.values(_frCharts).forEach(c => { try { c.destroy(); } catch {} });
+  _frCharts = {};
+
+  const isDark = document.documentElement.classList.contains('dark') ||
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+
+  // 1. Horizontal bar chart — scores
+  _frCharts.score = new Chart(document.getElementById('fr-chart-score'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{ label: 'Score', data: scores, backgroundColor: '#3b82f6', borderRadius: 5 }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: textColor } },
+        y: { grid: { display: false }, ticks: { color: textColor } },
+      },
+    },
+  });
+
+  // 2. Doughnut chart — overall accuracy
+  _frCharts.accuracy = new Chart(document.getElementById('fr-chart-accuracy'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Correct', 'Wrong'],
+      datasets: [{
+        data: [totalCorrect, totalWrong],
+        backgroundColor: ['#22c55e', '#ef4444'],
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: textColor, font: { size: 12 } } },
+      },
+    },
+  });
+
+  // 3. Grouped bar chart — correct vs wrong per player
+  _frCharts.speed = new Chart(document.getElementById('fr-chart-speed'), {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [
+        { label: 'Correct', data: corrects, backgroundColor: '#22c55e', borderRadius: 4 },
+        { label: 'Wrong',   data: wrongs,   backgroundColor: '#ef4444', borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: textColor } },
+        y: { grid: { color: gridColor }, ticks: { color: textColor, stepSize: 1 } },
+      },
+    },
+  });
+}
 
 // ── Timer countdown ────────────────────────────────────────────────────────────
 function _startTimer(seconds, timerValId = 'q-timer-val', timerWrapperId = 'q-timer') {
