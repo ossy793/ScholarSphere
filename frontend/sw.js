@@ -1,4 +1,4 @@
-const CACHE = 'pritis-v1';
+const CACHE = 'pritis-v2';
 
 const APP_SHELL = [
   '/index.html',
