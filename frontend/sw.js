@@ -43,13 +43,27 @@ self.addEventListener('fetch', e => {
   // Always go to network for API calls and non-GET requests
   if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
 
-  // Cache-first for static assets (JS, CSS, images, fonts)
+  // Cache-first for images/fonts only (these rarely change)
   if (
-    url.pathname.match(/\.(js|css|svg|png|jpg|ico|woff2?)$/) ||
+    url.pathname.match(/\.(svg|png|jpg|ico|woff2?)$/) ||
     url.hostname !== location.hostname
   ) {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request))
+    );
+    return;
+  }
+
+  // Network-first for JS and CSS (so code updates are picked up immediately)
+  if (url.pathname.match(/\.(js|css)$/)) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
