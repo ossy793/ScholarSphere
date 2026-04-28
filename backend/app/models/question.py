@@ -9,6 +9,7 @@ import enum
 class QuestionType(str, enum.Enum):
     mcq = "mcq"
     short_answer = "short_answer"
+    true_false = "true_false"
 
 
 class Question(Base):

@@ -67,6 +67,9 @@ def on_startup():
         conn.execute(text(
             "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS host_mode VARCHAR(20) DEFAULT 'participant'"
         ))
+        conn.execute(text(
+            "ALTER TYPE questiontype ADD VALUE IF NOT EXISTS 'true_false'"
+        ))
         conn.commit()
     start_scheduler()
 
