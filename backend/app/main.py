@@ -1,4 +1,7 @@
+import logging
 from fastapi import FastAPI, Depends, Request
+
+logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -62,17 +65,28 @@ async def add_security_headers(request: Request, call_next):
 @app.on_event("startup")
 def on_startup():
     create_tables()
-    # Idempotent schema migrations for columns added after initial table creation
-    with engine.connect() as conn:
-        conn.execute(text(
-            "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS host_mode VARCHAR(20) DEFAULT 'participant'"
-        ))
-        conn.commit()
-    # ALTER TYPE ADD VALUE must run outside a transaction in PostgreSQL
-    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        conn.execute(text(
-            "ALTER TYPE questiontype ADD VALUE IF NOT EXISTS 'true_false'"
-        ))
+    # Idempotent schema migrations — wrapped in try/except so startup never hangs
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SET statement_timeout = '5000'"))
+            conn.execute(text(
+                "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS host_mode VARCHAR(20) DEFAULT 'participant'"
+            ))
+            conn.commit()
+    except Exception as e:
+        logger.warning("host_mode migration skipped: %s", e)
+
+    try:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text("SET statement_timeout = '5000'"))
+            already = conn.execute(text(
+                "SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid "
+                "WHERE t.typname = 'questiontype' AND e.enumlabel = 'true_false'"
+            )).fetchone()
+            if not already:
+                conn.execute(text("ALTER TYPE questiontype ADD VALUE 'true_false'"))
+    except Exception as e:
+        logger.warning("true_false enum migration skipped: %s", e)
     start_scheduler()
 
 
