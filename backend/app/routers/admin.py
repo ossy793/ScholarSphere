@@ -411,8 +411,8 @@ def user_detail(
         "id":                   str(user.id),
         "full_name":            user.full_name,
         "email":                user.email,
-        "department":           user.department,
-        "university":           user.university,
+        "department":           user.course,
+        "university":           user.school,
         "level":                user.level,
         "subscription_plan":   user.subscription_plan or "free",
         "subscription_expiry": user.subscription_expiry.isoformat() if user.subscription_expiry else None,
@@ -673,9 +673,9 @@ def get_universities(
 ):
     """Return users grouped by university with level breakdown."""
     rows = (
-        db.query(User.university, User.level, func.count(User.id).label("cnt"))
+        db.query(User.school, User.level, func.count(User.id).label("cnt"))
         .filter(User.is_admin == False)  # noqa: E712
-        .group_by(User.university, User.level)
+        .group_by(User.school, User.level)
         .all()
     )
 

@@ -259,11 +259,11 @@ window.openDetailModal = async function (userId) {
       <div class="detail-section-title">Academic Profile</div>
       <div class="detail-grid">
         <div class="detail-field">
-          <span class="detail-label">Department</span>
+          <span class="detail-label">Course / Programme</span>
           <span class="detail-value">${escHtml(u.department || '—')}</span>
         </div>
         <div class="detail-field">
-          <span class="detail-label">University</span>
+          <span class="detail-label">School / University</span>
           <span class="detail-value">${escHtml(u.university || '—')}</span>
         </div>
         <div class="detail-field">
