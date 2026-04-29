@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from .config import settings
 from .database import create_tables, get_db
-from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, admin, notifications, push, users, friends, study, assistant, support, challenge, payment
+from .routers import auth, courses, quizzes, questions, generate, attempts, analytics, brainstorm, admin, notifications, push, users, friends, study, assistant, support, challenge, payment, challenge_registration
 from .models.user import User
 from .models.question import Question
 from .models.brainstorm import BrainstormSession, BrainstormMessage, BrainstormDocument  # noqa: F401 – registers tables
@@ -25,6 +25,7 @@ from .models.study import Note, StudySchedule  # noqa: F401 – registers tables
 from .models.support import SupportAgent, SupportConversation, SupportMessage  # noqa: F401 – registers tables
 from .models.challenge import Challenge, ChallengeParticipant, ChallengeResponse  # noqa: F401 – registers tables
 from .models.payment_transaction import PaymentTransaction  # noqa: F401 – registers table
+from .models.challenge_registration import ChallengeRegistration  # noqa: F401 – registers table
 from .utils.scheduler import start_scheduler, stop_scheduler
 from .database import engine
 from sqlalchemy import text
@@ -112,7 +113,8 @@ app.include_router(study.router,          prefix="/api")
 app.include_router(assistant.router,      prefix="/api")
 app.include_router(support.router,        prefix="/api")
 app.include_router(challenge.router,      prefix="/api")
-app.include_router(payment.router,        prefix="/api")
+app.include_router(payment.router,               prefix="/api")
+app.include_router(challenge_registration.router, prefix="/api")
 
 
 @app.get("/api/health")

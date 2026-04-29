@@ -142,6 +142,10 @@
               Customer Service
               <span class="cs-unread-badge hidden" id="cs-tab-badge">0</span>
             </button>
+            <button class="admin-dash-tab" data-tab="challenge-reg" onclick="switchAdminTab('challenge-reg')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Challenge Reg
+            </button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -400,6 +404,63 @@
         <!-- Loaded by customer-service.js -->
         <div id="cs-root" style="height:100%;display:flex;flex-direction:column"></div>
       </div><!-- /#tab-support -->
+
+      <!-- ══ TAB: Challenge Registrations ══════════════════════════════════ -->
+      <div id="tab-challenge-reg" class="admin-tab-panel hidden" style="display:none">
+        <div class="page-body">
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+            <div>
+              <h2 style="margin:0 0 2px">Challenge Registrations</h2>
+              <p style="margin:0;font-size:0.82rem;color:var(--text-muted)" id="creg-count-label">Loading…</p>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm" onclick="copyCregEmails()">📋 Copy All Emails</button>
+              <button class="btn btn-outline btn-sm" onclick="downloadCregPdf()">⬇ Download PDF</button>
+            </div>
+          </div>
+
+          <!-- Search + filter row -->
+          <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+            <input type="text" id="creg-search" class="admin-search" placeholder="Search name, email or university…"
+                   style="flex:1;min-width:200px" oninput="onCregSearch(this.value)">
+            <select class="admin-filter" id="creg-filter" onchange="onCregFilter(this.value)">
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>University</th>
+                  <th>Rating</th>
+                  <th>Date Submitted</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="creg-tbody">
+                <tr><td colspan="7" class="table-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="admin-pagination" id="creg-pagination" style="display:none">
+            <span id="creg-pagination-info"></span>
+            <div>
+              <button id="creg-prev-btn" onclick="changeCregPage(-1)">← Prev</button>
+              <button id="creg-next-btn" onclick="changeCregPage(1)">Next →</button>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /#tab-challenge-reg -->
 
     </div><!-- /.main-content -->
   </div><!-- /.app-layout -->

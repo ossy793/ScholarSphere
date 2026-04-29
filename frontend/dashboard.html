@@ -83,6 +83,19 @@
           </div>
         </div>
 
+        <!-- Challenge Registration Banner -->
+        <div class="challenge-reg-banner" id="challenge-reg-banner">
+          <div class="crb-glow"></div>
+          <div class="crb-left">
+            <div class="crb-icon">🏆</div>
+            <div class="crb-body">
+              <p class="crb-title">Challenge</p>
+              <p class="crb-sub">Do you want to join Pritis' first General Knowledge Challenge and compete for a big prize? Register now!</p>
+            </div>
+          </div>
+          <button class="crb-btn" onclick="openChallengeReg()">Register Now</button>
+        </div>
+
         <!-- Quick Actions -->
         <h2 class="font-semibold mb-4" style="font-size:1rem;">Quick Actions</h2>
         <div class="action-grid-wrap">
@@ -275,9 +288,155 @@
           </div><!-- /.dash-pricing-grid -->
         </div><!-- /.dash-pricing-section -->
 
+
       </main>
     </div>
   </div>
+
+  <!-- ── Challenge Registration Modal ── -->
+  <div class="modal-overlay hidden" id="creg-modal" onclick="if(event.target===this)closeChallengeReg()">
+    <div class="creg-modal-box">
+      <button class="creg-close-btn" onclick="closeChallengeReg()">✕</button>
+
+      <!-- Form state -->
+      <div id="creg-form-wrap">
+        <div class="creg-modal-header">
+          <div class="creg-modal-icon">🏆</div>
+          <h2 class="creg-modal-title">General Knowledge Challenge</h2>
+          <p class="creg-modal-sub">Register to compete for a big prize. We'll reach out via email.</p>
+        </div>
+
+        <div id="creg-alert" class="creg-alert hidden"></div>
+
+        <form id="creg-form" onsubmit="submitChallengeReg(event)">
+          <div class="creg-field">
+            <label class="creg-label">Full Name <span class="creg-req">*</span></label>
+            <input type="text" id="creg-name" class="creg-input" placeholder="Your full name" required>
+          </div>
+          <div class="creg-field">
+            <label class="creg-label">Email Address <span class="creg-req">*</span></label>
+            <input type="email" id="creg-email" class="creg-input" placeholder="you@example.com" required>
+          </div>
+          <div class="creg-field">
+            <label class="creg-label">University / School <span class="creg-req">*</span></label>
+            <input type="text" id="creg-uni" class="creg-input" placeholder="University of Lagos" required>
+          </div>
+          <div class="creg-field">
+            <label class="creg-label">
+              Self-Rating in General Knowledge <span class="creg-req">*</span>
+              <span class="creg-rating-val" id="creg-rating-display">5 / 10</span>
+            </label>
+            <input type="range" id="creg-rating" class="creg-slider" min="1" max="10" value="5"
+                   oninput="document.getElementById('creg-rating-display').textContent=this.value+' / 10'">
+            <div class="creg-slider-labels"><span>1 (Beginner)</span><span>10 (Expert)</span></div>
+          </div>
+          <button type="submit" class="creg-submit-btn" id="creg-submit-btn">
+            Register Now
+          </button>
+        </form>
+      </div>
+
+      <!-- Success state -->
+      <div id="creg-success-wrap" class="hidden">
+        <div class="creg-success">
+          <div class="creg-success-icon">🎉</div>
+          <h2>You're Registered!</h2>
+          <p>Our team will review your submission and get back to you via email.</p>
+          <button class="creg-submit-btn" onclick="closeChallengeReg()" style="margin-top:8px">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* ── Challenge Registration Banner ── */
+    .challenge-reg-banner {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #e0f0ff 0%, #cce4ff 50%, #daeeff 100%);
+      border: 1px solid #93c5fd;
+      border-radius: 16px; padding: 22px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      margin-bottom: 24px;
+    }
+    .crb-glow {
+      position: absolute; width: 260px; height: 260px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,119,255,0.12) 0%, transparent 65%);
+      top: -80px; right: -40px; pointer-events: none;
+    }
+    .crb-left { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; z-index: 1; }
+    .crb-icon { font-size: 2rem; flex-shrink: 0; }
+    .crb-body { min-width: 0; }
+    .crb-title { font-size: 1rem; font-weight: 800; color: #1e40af; margin: 0 0 4px; }
+    .crb-sub { font-size: 0.83rem; color: #3b6cb7; margin: 0; line-height: 1.5; }
+    .crb-btn {
+      flex-shrink: 0; z-index: 1;
+      padding: 10px 22px; border-radius: 10px; border: none; cursor: pointer;
+      background: #fff;
+      color: #0077FF; font-weight: 700; font-size: 0.88rem; font-family: inherit;
+      box-shadow: 0 2px 8px rgba(0,119,255,0.15);
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .crb-btn:hover { background: #f0f7ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,119,255,0.2); }
+
+    /* ── Registration Modal ── */
+    .creg-modal-box {
+      background: var(--card-bg, #fff); border-radius: 20px;
+      width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+      padding: 32px 28px; position: relative; box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+    }
+    .creg-close-btn {
+      position: absolute; top: 16px; right: 18px;
+      background: none; border: none; font-size: 1.1rem; cursor: pointer;
+      color: var(--text-muted); line-height: 1; padding: 4px;
+    }
+    .creg-modal-header { text-align: center; margin-bottom: 24px; }
+    .creg-modal-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .creg-modal-title { font-size: 1.25rem; font-weight: 800; margin: 0 0 6px; color: var(--text); }
+    .creg-modal-sub { font-size: 0.83rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+    .creg-field { margin-bottom: 18px; }
+    .creg-label {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 7px;
+    }
+    .creg-req { color: #ef4444; }
+    .creg-rating-val { font-weight: 700; color: var(--primary, #0077FF); font-size: 0.88rem; }
+    .creg-input {
+      width: 100%; padding: 10px 13px; border-radius: 9px;
+      border: 1.5px solid var(--border); background: var(--input-bg, #f8fafc);
+      font-size: 0.88rem; font-family: inherit; color: var(--text);
+      outline: none; transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    .creg-input:focus { border-color: var(--primary, #0077FF); }
+    .creg-slider { width: 100%; accent-color: #0077FF; margin: 4px 0; cursor: pointer; }
+    .creg-slider-labels {
+      display: flex; justify-content: space-between;
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;
+    }
+    .creg-alert {
+      padding: 10px 14px; border-radius: 8px; font-size: 0.83rem;
+      font-weight: 500; margin-bottom: 14px;
+    }
+    .creg-alert.error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .creg-alert.success { background: #F0FDF4; color: #16a34a; border: 1px solid #BBF7D0; }
+    .creg-submit-btn {
+      width: 100%; padding: 12px; border-radius: 10px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, #0077FF, #0055cc);
+      color: #fff; font-weight: 700; font-size: 0.95rem; font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .creg-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .creg-success { text-align: center; padding: 20px 0; }
+    .creg-success-icon { font-size: 3rem; margin-bottom: 12px; }
+    .creg-success h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 8px; color: var(--text); }
+    .creg-success p { font-size: 0.88rem; color: var(--text-muted); margin: 0 0 16px; line-height: 1.6; }
+
+    @media (max-width: 600px) {
+      .challenge-reg-banner { flex-direction: column; align-items: flex-start; }
+      .crb-btn { width: 100%; text-align: center; }
+      .creg-modal-box { padding: 24px 18px; border-radius: 16px 16px 0 0; max-height: 95vh; }
+    }
+  </style>
 
   <script type="module" src="js/dashboard.js"></script>
   <script>

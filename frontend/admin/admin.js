@@ -34,6 +34,14 @@ loadLeaderboards();
 loadUniversities();
 loadNotificationHistory();
 
+// ── Challenge-Reg state ───────────────────────────────────────────────────────
+let _cregPage   = 1;
+let _cregPages  = 1;
+let _cregSearch = '';
+let _cregFilter = 'all';
+let _cregTimer  = null;
+let _cregAll    = [];  // all emails for copy
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
@@ -701,7 +709,7 @@ window.sendNotification = async function () {
 };
 
 // ── Admin tab switching ───────────────────────────────────────────────────────
-const _ALL_TAB_PANELS = ['tab-users', 'tab-finance', 'tab-trends', 'tab-support'];
+const _ALL_TAB_PANELS = ['tab-users', 'tab-finance', 'tab-trends', 'tab-support', 'tab-challenge-reg'];
 
 window.switchAdminTab = function (tab) {
   document.querySelectorAll('.admin-dash-tab').forEach(btn => {
@@ -728,6 +736,8 @@ window.switchAdminTab = function (tab) {
   } else if (tab === 'trends' && !_trendsLoaded) {
     _trendsLoaded = true;
     loadTrends(30);
+  } else if (tab === 'challenge-reg') {
+    loadChallengeRegistrations();
   }
 };
 
@@ -1078,3 +1088,121 @@ function escHtml(str) {
 function escAttr(str) {
   return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
+
+// ── Challenge Registrations ───────────────────────────────────────────────────
+
+async function loadChallengeRegistrations() {
+  const tbody = document.getElementById('creg-tbody');
+  if (!tbody) return;
+
+  try {
+    const params = new URLSearchParams({
+      page:  _cregPage,
+      limit: 50,
+    });
+    if (_cregSearch) params.set('search', _cregSearch);
+    if (_cregFilter !== 'all') params.set('status', _cregFilter);
+
+    const data = await api.get(`/challenge-reg/?${params}`);
+    _cregPages = data.pages || 1;
+
+    // Collect all emails for copy (fetch all if on first page and no filter)
+    if (_cregPage === 1) _cregAll = data.registrations.map(r => r.email);
+
+    const countLabel = document.getElementById('creg-count-label');
+    if (countLabel) countLabel.textContent = `${data.total} registration${data.total !== 1 ? 's' : ''} total`;
+
+    if (!data.registrations.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No registrations yet.</td></tr>';
+      document.getElementById('creg-pagination').style.display = 'none';
+      return;
+    }
+
+    const statusBadge = s => {
+      const map = {
+        pending:  'badge-free',
+        approved: 'badge-active',
+        rejected: 'badge-inactive',
+      };
+      return `<span class="badge ${map[s] || 'badge-free'}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
+    };
+
+    tbody.innerHTML = data.registrations.map((r, i) => {
+      const date = new Date(r.created_at).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      });
+      const offset = (_cregPage - 1) * 50;
+      return `
+        <tr>
+          <td style="color:var(--text-muted);font-size:0.82rem">${offset + i + 1}</td>
+          <td style="font-weight:600">${escHtml(r.full_name)}</td>
+          <td style="color:var(--text-muted);font-size:0.84rem">${escHtml(r.email)}</td>
+          <td style="font-size:0.84rem">${escHtml(r.university)}</td>
+          <td style="text-align:center;font-weight:700;color:var(--primary)">${r.rating}<span style="font-size:0.75rem;font-weight:400;color:var(--text-muted)">/10</span></td>
+          <td style="color:var(--text-muted);font-size:0.82rem;white-space:nowrap">${date}</td>
+          <td>${statusBadge(r.status)}</td>
+        </tr>`;
+    }).join('');
+
+    // Pagination
+    const pgEl = document.getElementById('creg-pagination');
+    pgEl.style.display = _cregPages > 1 ? 'flex' : 'none';
+    document.getElementById('creg-pagination-info').textContent =
+      `Page ${_cregPage} of ${_cregPages}`;
+    document.getElementById('creg-prev-btn').disabled = _cregPage <= 1;
+    document.getElementById('creg-next-btn').disabled = _cregPage >= _cregPages;
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger)">Failed to load: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+window.onCregSearch = function (val) {
+  clearTimeout(_cregTimer);
+  _cregTimer = setTimeout(() => {
+    _cregSearch = val;
+    _cregPage   = 1;
+    loadChallengeRegistrations();
+  }, 300);
+};
+
+window.onCregFilter = function (val) {
+  _cregFilter = val;
+  _cregPage   = 1;
+  loadChallengeRegistrations();
+};
+
+window.changeCregPage = function (dir) {
+  const next = _cregPage + dir;
+  if (next < 1 || next > _cregPages) return;
+  _cregPage = next;
+  loadChallengeRegistrations();
+};
+
+window.copyCregEmails = async function () {
+  try {
+    // Fetch all emails regardless of current page/filter
+    const data = await api.get('/challenge-reg/?limit=200');
+    const emails = data.registrations.map(r => r.email).join(', ');
+    await navigator.clipboard.writeText(emails);
+    showToast(`Copied ${data.registrations.length} email${data.registrations.length !== 1 ? 's' : ''} to clipboard`, 'success');
+  } catch (err) {
+    showToast('Failed to copy emails: ' + err.message, 'error');
+  }
+};
+
+window.downloadCregPdf = async function () {
+  try {
+    const buffer = await api.getBuffer('/challenge-reg/export/pdf');
+    if (!buffer) throw new Error('Server returned an error.');
+    const blob = new Blob([buffer], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `challenge-registrations-${new Date().toISOString().slice(0, 10)}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showToast('PDF download failed: ' + err.message, 'error');
+  }
+};
