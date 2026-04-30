@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     # Support AI behaviour
     SUPPORT_AI_ENABLED: bool = True
 
+    # Feature flags
+    CHALLENGE_REGISTRATION_OPEN: bool = False   # Set True to reopen registrations
+
 
 @lru_cache()
 def get_setting() -> Settings:

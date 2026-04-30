@@ -89,11 +89,14 @@
           <div class="crb-left">
             <div class="crb-icon">🏆</div>
             <div class="crb-body">
-              <p class="crb-title">Challenge</p>
-              <p class="crb-sub">Do you want to join Pritis' first General Knowledge Challenge and compete for a big prize? Register now!</p>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <p class="crb-title" style="margin:0">Challenge</p>
+                <span class="crb-closed-badge">Registration Closed</span>
+              </div>
+              <p class="crb-sub">Pritis' first General Knowledge Challenge. Registration has ended — stay tuned for more!</p>
             </div>
           </div>
-          <button class="crb-btn" onclick="openChallengeReg()">Register Now</button>
+          <button class="crb-btn" onclick="openChallengeReg()">Learn More</button>
         </div>
 
         <!-- Quick Actions -->
@@ -293,58 +296,30 @@
     </div>
   </div>
 
-  <!-- ── Challenge Registration Modal ── -->
+  <!-- ── Challenge Registration Modal (Registration Closed) ── -->
   <div class="modal-overlay hidden" id="creg-modal" onclick="if(event.target===this)closeChallengeReg()">
     <div class="creg-modal-box">
       <button class="creg-close-btn" onclick="closeChallengeReg()">✕</button>
 
-      <!-- Form state -->
-      <div id="creg-form-wrap">
-        <div class="creg-modal-header">
-          <div class="creg-modal-icon">🏆</div>
-          <h2 class="creg-modal-title">General Knowledge Challenge</h2>
-          <p class="creg-modal-sub">Register to compete for a big prize. We'll reach out via email.</p>
-        </div>
-
-        <div id="creg-alert" class="creg-alert hidden"></div>
-
-        <form id="creg-form" onsubmit="submitChallengeReg(event)">
-          <div class="creg-field">
-            <label class="creg-label">Full Name <span class="creg-req">*</span></label>
-            <input type="text" id="creg-name" class="creg-input" placeholder="Your full name" required>
-          </div>
-          <div class="creg-field">
-            <label class="creg-label">Email Address <span class="creg-req">*</span></label>
-            <input type="email" id="creg-email" class="creg-input" placeholder="you@example.com" required>
-          </div>
-          <div class="creg-field">
-            <label class="creg-label">University / School <span class="creg-req">*</span></label>
-            <input type="text" id="creg-uni" class="creg-input" placeholder="University of Lagos" required>
-          </div>
-          <div class="creg-field">
-            <label class="creg-label">
-              Self-Rating in General Knowledge <span class="creg-req">*</span>
-              <span class="creg-rating-val" id="creg-rating-display">5 / 10</span>
-            </label>
-            <input type="range" id="creg-rating" class="creg-slider" min="1" max="10" value="5"
-                   oninput="document.getElementById('creg-rating-display').textContent=this.value+' / 10'">
-            <div class="creg-slider-labels"><span>1 (Beginner)</span><span>10 (Expert)</span></div>
-          </div>
-          <button type="submit" class="creg-submit-btn" id="creg-submit-btn">
-            Register Now
-          </button>
-        </form>
+      <div class="creg-closed-body">
+        <div class="creg-closed-icon">🏆</div>
+        <span class="creg-closed-badge-lg">Registration Closed</span>
+        <h2 class="creg-closed-title">General Knowledge Challenge</h2>
+        <p class="creg-closed-msg">
+          Registration has ended. Join the Pritis WhatsApp community to stay tuned for upcoming activities and future challenges!
+        </p>
+        <a href="https://chat.whatsapp.com/Cni0BalUXhrLFVPv3K8lXa" target="_blank" rel="noopener"
+           class="creg-wa-cta">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.004 2C6.477 2 2 6.477 2 12.004c0 1.771.463 3.469 1.35 4.958L2 22l5.233-1.319A10.004 10.004 0 0012.004 22C17.527 22 22 17.527 22 12.004 22 6.477 17.527 2 12.004 2zm0 18.182a8.178 8.178 0 01-4.166-1.142l-.299-.178-3.103.783.812-3.016-.196-.313A8.168 8.168 0 013.818 12c0-4.512 3.67-8.182 8.182-8.182C16.512 3.818 20.182 7.488 20.182 12s-3.67 8.182-8.178 8.182z"/></svg>
+          Join WhatsApp Community
+        </a>
+        <button onclick="closeChallengeReg()" class="creg-close-plain-btn">Maybe later</button>
       </div>
 
-      <!-- Success state -->
-      <div id="creg-success-wrap" class="hidden">
-        <div class="creg-success">
-          <div class="creg-success-icon">🎉</div>
-          <h2>You're Registered!</h2>
-          <p>Our team will review your submission and get back to you via email.</p>
-          <button class="creg-submit-btn" onclick="closeChallengeReg()" style="margin-top:8px">Close</button>
-        </div>
-      </div>
+      <!-- Hidden stubs so old cached JS doesn't throw errors looking for these IDs -->
+      <div id="creg-form-wrap"    style="display:none"></div>
+      <div id="creg-closed-wrap"  style="display:none"></div>
+      <div id="creg-success-wrap" style="display:none"></div>
     </div>
   </div>
 
@@ -377,6 +352,12 @@
       transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
     }
     .crb-btn:hover { background: #f0f7ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,119,255,0.2); }
+    .crb-closed-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 20px;
+      background: #fee2e2; color: #b91c1c;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; white-space: nowrap;
+    }
 
     /* ── Registration Modal ── */
     .creg-modal-box {
@@ -425,11 +406,44 @@
       color: #fff; font-weight: 700; font-size: 0.95rem; font-family: inherit;
       transition: opacity 0.15s;
     }
-    .creg-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .creg-success { text-align: center; padding: 20px 0; }
-    .creg-success-icon { font-size: 3rem; margin-bottom: 12px; }
-    .creg-success h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 8px; color: var(--text); }
-    .creg-success p { font-size: 0.88rem; color: var(--text-muted); margin: 0 0 16px; line-height: 1.6; }
+    /* ── Closed state ── */
+    .creg-closed-body {
+      text-align: center; padding: 8px 0 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 0;
+    }
+    .creg-closed-icon { font-size: 3rem; margin-bottom: 14px; }
+    .creg-closed-badge-lg {
+      display: inline-block; padding: 4px 14px; border-radius: 20px;
+      background: #fee2e2; color: #b91c1c;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; margin-bottom: 14px;
+    }
+    .creg-closed-title {
+      font-size: 1.25rem; font-weight: 800; color: var(--text);
+      margin: 0 0 10px; line-height: 1.3;
+    }
+    .creg-closed-msg {
+      font-size: 0.88rem; color: var(--text-muted);
+      margin: 0 0 22px; line-height: 1.65; max-width: 340px;
+    }
+    .creg-wa-cta {
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      width: 100%; padding: 13px 20px; border-radius: 12px;
+      background: #25D366; color: #fff;
+      font-weight: 700; font-size: 0.95rem; font-family: inherit;
+      text-decoration: none; box-shadow: 0 4px 16px rgba(37,211,102,0.3);
+      transition: opacity 0.15s, transform 0.15s;
+      margin-bottom: 10px;
+    }
+    .creg-wa-cta:hover { opacity: 0.92; transform: translateY(-1px); }
+    .creg-close-plain-btn {
+      width: 100%; padding: 11px; border-radius: 10px;
+      border: 1.5px solid var(--border, #e2e8f0);
+      background: transparent; color: var(--text-muted);
+      font-weight: 600; font-size: 0.88rem; font-family: inherit; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .creg-close-plain-btn:hover { background: var(--hover-bg, #f8fafc); }
 
     @media (max-width: 600px) {
       .challenge-reg-banner { flex-direction: column; align-items: flex-start; }

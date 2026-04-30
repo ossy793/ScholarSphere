@@ -21,6 +21,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
 from ..models.challenge_registration import ChallengeRegistration
 from ..utils.security import get_current_admin
@@ -57,6 +58,11 @@ class RegisterRequest(BaseModel):
 @router.post("/register", status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     """Submit a general-knowledge challenge registration."""
+    if not settings.CHALLENGE_REGISTRATION_OPEN:
+        raise HTTPException(
+            status_code=410,
+            detail="Challenge registration has ended.",
+        )
     # Prevent duplicate email registrations
     existing = (
         db.query(ChallengeRegistration)

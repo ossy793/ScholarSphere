@@ -235,8 +235,10 @@ async function apiFetch(path, options = {}) {
       msg = detail;
     } else if (Array.isArray(detail)) {
       msg = detail.map(e => e.msg.replace(/^Value error,\s*/i, '')).join(' · ');
+    } else if (detail && typeof detail === 'object' && detail.message) {
+      msg = detail.message;
     } else {
-      msg = `Error ${res.status}`;
+      msg = `Something went wrong (${res.status}). Please try again.`;
     }
     throw new Error(msg);
   }

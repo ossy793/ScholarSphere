@@ -186,21 +186,11 @@ function _planDesc(plan) {
 
 // ── Challenge Registration Modal ──────────────────────────────────────────────
 
+const _CHALLENGE_REG_OPEN = false;  // set to true to reopen registrations
+const _WA_LINK = 'https://chat.whatsapp.com/Cni0BalUXhrLFVPv3K8lXa';
+
 window.openChallengeReg = function () {
-  const user = getUser();
-  // Pre-fill known fields
-  if (user?.full_name) {
-    const el = document.getElementById('creg-name');
-    if (el && !el.value) el.value = user.full_name;
-  }
-  if (user?.email) {
-    const el = document.getElementById('creg-email');
-    if (el && !el.value) el.value = user.email;
-  }
-  if (user?.school) {
-    const el = document.getElementById('creg-uni');
-    if (el && !el.value) el.value = user.school;
-  }
+  // Registration is closed — always open the modal showing the closed state
   document.getElementById('creg-modal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 };
@@ -212,8 +202,16 @@ window.closeChallengeReg = function () {
 
 window.submitChallengeReg = async function (e) {
   e.preventDefault();
-  const btn  = document.getElementById('creg-submit-btn');
-  const alert = document.getElementById('creg-alert');
+  // If registration is closed, redirect to the closed panel instead of submitting
+  if (!_CHALLENGE_REG_OPEN) {
+    document.getElementById('creg-form-wrap').classList.add('hidden');
+    document.getElementById('creg-success-wrap').classList.add('hidden');
+    document.getElementById('creg-closed-wrap').classList.remove('hidden');
+    return;
+  }
+
+  const btn        = document.getElementById('creg-submit-btn');
+  const alertEl    = document.getElementById('creg-alert');
 
   const name   = document.getElementById('creg-name').value.trim();
   const email  = document.getElementById('creg-email').value.trim();
@@ -221,24 +219,24 @@ window.submitChallengeReg = async function (e) {
   const rating = parseInt(document.getElementById('creg-rating').value, 10);
 
   if (!name || !email || !uni) {
-    alert.textContent = 'Please fill in all required fields.';
-    alert.className = 'creg-alert error';
-    alert.classList.remove('hidden');
+    alertEl.textContent = 'Please fill in all required fields.';
+    alertEl.className = 'creg-alert error';
+    alertEl.classList.remove('hidden');
     return;
   }
 
   btn.disabled    = true;
   btn.textContent = 'Submitting…';
-  alert.classList.add('hidden');
+  alertEl.classList.add('hidden');
 
   try {
     await api.post('/challenge-reg/register', { full_name: name, email, university: uni, rating });
     document.getElementById('creg-form-wrap').classList.add('hidden');
     document.getElementById('creg-success-wrap').classList.remove('hidden');
   } catch (err) {
-    alert.textContent = err.message || 'Submission failed. Please try again.';
-    alert.className = 'creg-alert error';
-    alert.classList.remove('hidden');
+    alertEl.textContent = err.message || 'Submission failed. Please try again.';
+    alertEl.className = 'creg-alert error';
+    alertEl.classList.remove('hidden');
     btn.disabled    = false;
     btn.textContent = 'Register Now';
   }
