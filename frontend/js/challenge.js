@@ -8,7 +8,7 @@ const _isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.
 const WS_BASE  = _isLocal ? 'ws://127.0.0.1:8000/api' : 'wss://www.pritis.name.ng/api';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let _ch          = null;   // {id, code, is_host, host_mode, duration_seconds, question_count, quiz_title}
+let _ch          = null;   // {id, code, is_host, host_mode, timer_mode, duration_seconds, question_count, quiz_title}
 let _ws          = null;
 let _timerInt    = null;
 let _myScore     = 0;
@@ -20,6 +20,14 @@ let _totalQ      = 0;
 let _frCharts    = {};     // Chart.js instances for full results screen
 let _lastLb      = null;   // last leaderboard data for back-navigation
 
+// ── Full Quiz Timer state ──────────────────────────────────────────────────────
+let _fqQuestions   = [];
+let _fqCurrentIdx  = 0;
+let _fqStartTs     = 0;
+let _fqAnswerState = {};   // idx → { pending, answer, correct, points }
+let _fqPendingIdx  = -1;   // idx awaiting answer_result
+let _fqTimerInt    = null;
+
 const _me   = getUser();
 const _myId = _me ? String(_me.id) : '';
 
@@ -30,7 +38,7 @@ function _show(screenId) {
   // Hide AI assistant FAB during active game
   const paWrap = document.getElementById('pa-wrap');
   if (paWrap) {
-    const gameScreens = ['screen-quiz', 'screen-spectator', 'screen-leaderboard', 'screen-full-results'];
+    const gameScreens = ['screen-quiz', 'screen-full-quiz', 'screen-spectator', 'screen-leaderboard', 'screen-full-results'];
     paWrap.style.display = gameScreens.includes(screenId) ? 'none' : '';
   }
 }
@@ -50,6 +58,8 @@ window.showHostCreate = function () {
 window.showJoin = function () {
   _show('screen-join');
   document.getElementById('join-code-input').value = '';
+  const nn = document.getElementById('join-nickname-input');
+  if (nn) nn.value = '';
 };
 
 // ── Host participation toggle ──────────────────────────────────────────────────
@@ -57,6 +67,16 @@ document.getElementById('host-join-as-participant')?.addEventListener('change', 
   const label = document.getElementById('host-join-label');
   if (label) {
     label.textContent = this.checked ? "Yes — I'll play too" : "No — I'll watch as spectator";
+  }
+});
+
+// ── Timer mode label update ────────────────────────────────────────────────────
+document.getElementById('host-timer-mode')?.addEventListener('change', function () {
+  const label = document.getElementById('host-duration-label');
+  if (label) {
+    label.textContent = this.value === 'full_quiz'
+      ? 'Total Quiz Time (seconds)'
+      : 'Seconds Per Question';
   }
 });
 
@@ -112,13 +132,15 @@ window.createChallenge = async function () {
 
 // ── Join challenge ─────────────────────────────────────────────────────────────
 window.joinChallenge = async function () {
-  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  const code     = document.getElementById('join-code-input').value.trim().toUpperCase();
+  const nickname = (document.getElementById('join-nickname-input')?.value || '').trim().slice(0, 50) || null;
   if (code.length < 3) { _toast('Enter a valid code'); return; }
+  if (!nickname) { _toast('Please enter a nickname'); return; }
 
   const btn = document.getElementById('join-btn');
   btn.disabled = true; btn.textContent = 'Joining…';
   try {
-    const ch = await api.post('/challenges/join', { code });
+    const ch = await api.post('/challenges/join', { code, nickname });
     _ch = ch; _myScore = 0;
     _enterWaiting();
   } catch (e) {
@@ -152,8 +174,11 @@ function _enterWaiting() {
     specNote.style.display = (_ch.is_host && _ch.host_mode === 'spectator') ? 'block' : 'none';
   }
 
+  const _timerDesc = _ch.timer_mode === 'full_quiz'
+    ? `${_ch.duration_seconds}s total time`
+    : `${_ch.duration_seconds}s per question`;
   document.getElementById('wr-quiz-info').textContent =
-    `Quiz: ${_ch.quiz_title}  ·  ${_ch.question_count} questions  ·  ${_ch.duration_seconds}s per question`;
+    `Quiz: ${_ch.quiz_title}  ·  ${_ch.question_count} questions  ·  ${_timerDesc}`;
 
   document.getElementById('wr-host-actions').style.display    = _ch.is_host ? 'block' : 'none';
   document.getElementById('wr-participant-msg').style.display = _ch.is_host ? 'none'  : 'block';
@@ -241,6 +266,7 @@ function _connectWs() {
 function _closeWs() {
   clearInterval(_pingInterval);
   _clearTimer();
+  _clearFQTimer();
   if (_ws) { try { _ws.close(); } catch {} _ws = null; }
 }
 
@@ -249,6 +275,7 @@ function _handle(msg) {
   switch (msg.type) {
     case 'participant_joined':   _onJoined(msg);            break;
     case 'challenge_started':    _onStarted(msg);           break;
+    case 'full_quiz_start':      _onFullQuizStart(msg);     break;
     case 'question':             _onQuestion(msg);          break;
     case 'answer_result':        _onAnswerResult(msg);      break;
     case 'question_ended':       _onQEnded(msg);            break;
@@ -291,14 +318,19 @@ function _onStarted(msg) {
   _totalQ  = msg.total_questions || _ch.question_count || 0;
   _myScore = 0;
 
-  // Merge host_mode from server broadcast in case it wasn't set yet
-  if (msg.host_mode && _ch) _ch.host_mode = msg.host_mode;
+  // Merge server-side fields in case they weren't set yet on _ch
+  if (msg.host_mode  && _ch) _ch.host_mode  = msg.host_mode;
+  if (msg.timer_mode && _ch) _ch.timer_mode = msg.timer_mode;
 
   const isSpectator = _ch && _ch.is_host && _ch.host_mode === 'spectator';
 
   if (isSpectator) {
     _show('screen-spectator');
     _resetSpectator();
+  } else if (_ch && _ch.timer_mode === 'full_quiz') {
+    // full_quiz_start message will arrive immediately after and switch the screen
+    _show('screen-quiz');
+    document.getElementById('q-my-score').textContent = '0';
   } else {
     _show('screen-quiz');
     document.getElementById('q-my-score').textContent = '0';
@@ -309,6 +341,7 @@ function _onStarted(msg) {
 
 // ── question ───────────────────────────────────────────────────────────────────
 function _onQuestion(msg) {
+  if (_ch && _ch.timer_mode === 'full_quiz') return;
   _clearTimer();
   _currentQ        = msg.question;
   _currentQIdx     = msg.idx;
@@ -422,8 +455,46 @@ function submitAnswer(answer) {
 // ── answer_result ──────────────────────────────────────────────────────────────
 function _onAnswerResult(msg) {
   _myScore = msg.your_score || 0;
-  document.getElementById('q-my-score').textContent = _myScore;
 
+  if (_ch && _ch.timer_mode === 'full_quiz') {
+    const scoreEl = document.getElementById('fq-my-score');
+    if (scoreEl) scoreEl.textContent = _myScore;
+
+    if (_fqPendingIdx >= 0) {
+      const prevState = _fqAnswerState[_fqPendingIdx] || {};
+      _fqAnswerState[_fqPendingIdx] = {
+        correct: msg.correct,
+        points:  msg.points || 0,
+        answer:  prevState.answer,
+      };
+
+      // Update UI if currently viewing this question
+      if (_fqCurrentIdx === _fqPendingIdx) {
+        const fb = document.getElementById('fq-feedback');
+        if (fb) {
+          fb.className  = 'ch-feedback ' + (msg.correct ? 'correct' : 'wrong');
+          fb.textContent = msg.correct ? `✓ Correct! +${msg.points} points` : '✗ Wrong. +0 points';
+        }
+        document.querySelectorAll('#fq-options .ch-option.selected').forEach(el => {
+          el.classList.remove('selected');
+          el.classList.add(msg.correct ? 'correct' : 'wrong');
+        });
+      }
+
+      _fqPendingIdx = -1;
+      _renderFQDots();
+
+      const answeredCount = Object.keys(_fqAnswerState).length;
+      const countEl = document.getElementById('fq-answered-count');
+      const progEl  = document.getElementById('fq-progress');
+      if (countEl) countEl.textContent = answeredCount;
+      if (progEl)  progEl.style.width = `${(answeredCount / _fqQuestions.length) * 100}%`;
+    }
+    return;
+  }
+
+  // Per-question mode
+  document.getElementById('q-my-score').textContent = _myScore;
   const fb = document.getElementById('q-feedback');
   if (msg.correct) {
     fb.className  = 'ch-feedback correct';
@@ -440,6 +511,7 @@ function _onAnswerResult(msg) {
 
 // ── question_ended ─────────────────────────────────────────────────────────────
 function _onQEnded(msg) {
+  if (_ch && _ch.timer_mode === 'full_quiz') return;
   _clearTimer();
   const correct    = msg.correct_answer;
   const isLast     = msg.next_in === 0;
@@ -523,6 +595,7 @@ function _onQuestionResponses(msg) {
 // ── challenge_ended ────────────────────────────────────────────────────────────
 function _onEnded(msg) {
   _clearTimer();
+  _clearFQTimer();
   _lastLb = msg;
   _show('screen-leaderboard');
 
@@ -670,6 +743,209 @@ function _showFullResults(lb) {
   });
 }
 
+// ── Full Quiz Timer mode ───────────────────────────────────────────────────────
+
+function _onFullQuizStart(msg) {
+  _fqQuestions   = msg.questions || [];
+  _fqCurrentIdx  = 0;
+  _fqStartTs     = Date.now();
+  _fqAnswerState = {};
+  _fqPendingIdx  = -1;
+  _myScore       = 0;
+
+  const isSpectator = _ch && _ch.is_host && _ch.host_mode === 'spectator';
+  if (isSpectator) {
+    const el = document.getElementById('sp-q-text');
+    if (el) el.textContent = 'Full Quiz Timer in progress — participants are answering all questions simultaneously…';
+    return;
+  }
+
+  _show('screen-full-quiz');
+
+  const totalEl = document.getElementById('fq-total-count');
+  const scoreEl = document.getElementById('fq-my-score');
+  const cntEl   = document.getElementById('fq-answered-count');
+  const progEl  = document.getElementById('fq-progress');
+  if (totalEl) totalEl.textContent = _fqQuestions.length;
+  if (scoreEl) scoreEl.textContent = '0';
+  if (cntEl)   cntEl.textContent   = '0';
+  if (progEl)  progEl.style.width  = '0%';
+
+  _renderFQDots();
+  _renderFQQuestion(0);
+
+  const totalSec = Math.round((msg.total_duration_ms || 30000) / 1000);
+  _startFQTimer(totalSec);
+  _toast(`Full Quiz! ${totalSec}s to answer all ${_fqQuestions.length} questions.`);
+}
+
+function _renderFQDots() {
+  const wrap = document.getElementById('fq-q-dots');
+  if (!wrap) return;
+  wrap.innerHTML = _fqQuestions.map((_, i) => {
+    const state = _fqAnswerState[i];
+    let cls = '';
+    if (i === _fqCurrentIdx && !state)            cls = 'current';
+    else if (i === _fqCurrentIdx && state?.pending) cls = 'current pending';
+    else if (state?.pending)                        cls = 'pending';
+    else if (state?.correct === true)               cls = 'answered';
+    else if (state?.correct === false)              cls = 'wrong';
+    return `<div class="fq-q-dot ${cls}" onclick="fqGoTo(${i})" title="Q${i + 1}">${i + 1}</div>`;
+  }).join('');
+}
+
+function _renderFQQuestion(idx) {
+  _fqCurrentIdx = idx;
+  const q = _fqQuestions[idx];
+  if (!q) return;
+
+  const state = _fqAnswerState[idx];
+
+  document.getElementById('fq-q-counter').textContent = `Question ${idx + 1} / ${_fqQuestions.length}`;
+  document.getElementById('fq-text').textContent = q.text;
+
+  // Feedback
+  const fb = document.getElementById('fq-feedback');
+  if (state && !state.pending) {
+    fb.className  = 'ch-feedback ' + (state.correct ? 'correct' : 'wrong');
+    fb.textContent = state.correct
+      ? `✓ Correct! +${state.points} points`
+      : '✗ Wrong. +0 points';
+  } else {
+    fb.className  = 'ch-feedback';
+    fb.textContent = '';
+  }
+
+  // Options
+  const optWrap = document.getElementById('fq-options');
+  optWrap.innerHTML = '';
+  const answered = !!state;
+
+  if (q.type === 'short_answer') {
+    const prevVal = state?.answer || '';
+    optWrap.innerHTML = `
+      <input type="text" class="ch-short-input" id="fq-short-input"
+        placeholder="Type your answer…" value="${_esc(prevVal)}" ${answered ? 'disabled' : ''}>
+      <div style="margin-top:10px">
+        <button class="ch-btn primary" onclick="fqSubmitShort()" ${answered ? 'disabled' : ''}>Submit Answer</button>
+      </div>
+    `;
+    if (!answered) setTimeout(() => document.getElementById('fq-short-input')?.focus(), 80);
+  } else {
+    const letters = ['A', 'B', 'C', 'D'];
+    (q.options || []).forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className  = 'ch-option';
+      btn.dataset.val = opt;
+      btn.innerHTML  = `<span class="ch-option-letter">${letters[i] || i + 1}</span>${_esc(opt)}`;
+      btn.disabled   = answered;
+      btn.onclick    = () => _fqSubmitAnswer(opt);
+
+      if (state && opt === state.answer) {
+        if (state.pending)          btn.classList.add('selected');
+        else if (state.correct)     btn.classList.add('correct');
+        else                        btn.classList.add('wrong');
+      }
+      optWrap.appendChild(btn);
+    });
+  }
+
+  // Prev/Next buttons
+  const prevBtn = document.getElementById('fq-prev-btn');
+  const nextBtn = document.getElementById('fq-next-btn');
+  if (prevBtn) prevBtn.disabled = idx === 0;
+  if (nextBtn) nextBtn.disabled = idx === _fqQuestions.length - 1;
+
+  _renderFQDots();
+}
+
+function _fqSubmitAnswer(answer) {
+  const idx = _fqCurrentIdx;
+  if (_fqAnswerState[idx]) return;
+
+  const q = _fqQuestions[idx];
+  if (!q) return;
+
+  const responseMs = Date.now() - _fqStartTs;
+
+  document.querySelectorAll('#fq-options .ch-option').forEach(btn => {
+    btn.disabled = true;
+    if (btn.dataset.val === answer) btn.classList.add('selected');
+  });
+  const shortInp = document.getElementById('fq-short-input');
+  if (shortInp) shortInp.disabled = true;
+
+  _fqAnswerState[idx] = { pending: true, answer };
+  _fqPendingIdx = idx;
+  _renderFQDots();
+
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    _ws.send(JSON.stringify({
+      type:             'answer',
+      question_id:      q.id,
+      question_idx:     idx,
+      answer,
+      response_time_ms: responseMs,
+    }));
+  }
+}
+
+window.fqSubmitShort = function () {
+  const inp = document.getElementById('fq-short-input');
+  if (!inp || !inp.value.trim()) return;
+  _fqSubmitAnswer(inp.value.trim());
+};
+
+window.fqPrev = function () {
+  if (_fqCurrentIdx > 0) _renderFQQuestion(_fqCurrentIdx - 1);
+};
+
+window.fqNext = function () {
+  if (_fqCurrentIdx < _fqQuestions.length - 1) _renderFQQuestion(_fqCurrentIdx + 1);
+};
+
+window.fqGoTo = function (idx) {
+  if (idx >= 0 && idx < _fqQuestions.length) _renderFQQuestion(idx);
+};
+
+function _startFQTimer(seconds) {
+  _clearFQTimer();
+  let remaining = seconds;
+  const timerBox = document.getElementById('fq-timer-box');
+  const timerEl  = document.getElementById('fq-timer-val');
+
+  const _tick = () => {
+    const display = remaining > 60
+      ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
+      : `${remaining}s`;
+    if (timerEl)  timerEl.textContent = display;
+    if (timerBox) timerBox.classList.toggle('danger', remaining <= 10);
+  };
+  _tick();
+  _fqTimerInt = setInterval(() => {
+    remaining--;
+    _tick();
+    if (remaining <= 0) {
+      _clearFQTimer();
+      // Disable any still-interactive inputs on current question
+      document.querySelectorAll('#fq-options .ch-option:not(:disabled)').forEach(b => b.disabled = true);
+      const shortBtn = document.querySelector('#fq-options .ch-btn.primary:not(:disabled)');
+      if (shortBtn) shortBtn.disabled = true;
+      if (!_fqAnswerState[_fqCurrentIdx]) {
+        const fb = document.getElementById('fq-feedback');
+        if (fb) {
+          fb.className  = 'ch-feedback wrong';
+          fb.textContent = "⏱ Time's up! Waiting for results…";
+        }
+      }
+    }
+  }, 1000);
+}
+
+function _clearFQTimer() {
+  if (_fqTimerInt) { clearInterval(_fqTimerInt); _fqTimerInt = null; }
+}
+
 // ── Timer countdown ────────────────────────────────────────────────────────────
 function _startTimer(seconds, timerValId = 'q-timer-val', timerWrapperId = 'q-timer') {
   let remaining   = seconds;
@@ -773,7 +1049,8 @@ window.openRecent = async function (id) {
         quiz_title:       ch.quiz_title,
         duration_seconds: ch.duration_seconds,
         question_count:   ch.question_count,
-        host_mode:        ch.host_mode || 'participant',
+        host_mode:        ch.host_mode  || 'participant',
+        timer_mode:       ch.timer_mode || 'per_question',
       };
       _myScore = 0;
       _enterWaiting();

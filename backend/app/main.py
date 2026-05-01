@@ -78,6 +78,16 @@ def on_startup():
         logger.warning("host_mode migration skipped: %s", e)
 
     try:
+        with engine.connect() as conn:
+            conn.execute(text("SET statement_timeout = '5000'"))
+            conn.execute(text(
+                "ALTER TABLE challenge_participants ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"
+            ))
+            conn.commit()
+    except Exception as e:
+        logger.warning("participant nickname migration skipped: %s", e)
+
+    try:
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.execute(text("SET statement_timeout = '5000'"))
             already = conn.execute(text(

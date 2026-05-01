@@ -453,6 +453,53 @@
       .ch-live-scores { display: none !important; }
       .ch-resp-time   { display: none; }
     }
+
+    /* ── Full Quiz Timer screen ── */
+    .fq-header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .fq-timer-box {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1.5rem; font-weight: 900; color: var(--primary);
+      background: rgba(0,119,255,.08); border: 2px solid rgba(0,119,255,.2);
+      border-radius: 12px; padding: 10px 18px; transition: all .3s;
+    }
+    .fq-timer-box.danger {
+      color: #ef4444; background: rgba(239,68,68,.08);
+      border-color: rgba(239,68,68,.3); animation: ch-pulse 1s infinite;
+    }
+    .fq-stat-box {
+      text-align: center;
+    }
+    .fq-stat-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-muted);
+    }
+    .fq-stat-val {
+      font-size: 1.1rem; font-weight: 800; color: var(--text); margin-top: 2px;
+    }
+    .fq-q-dots {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .fq-q-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 2px solid var(--border); background: var(--bg-card);
+      font-size: .72rem; font-weight: 700; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .12s; flex-shrink: 0;
+    }
+    .fq-q-dot:hover { border-color: var(--primary); }
+    .fq-q-dot.current { border-color: var(--primary); color: var(--primary); background: rgba(0,119,255,.08); }
+    .fq-q-dot.answered { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .fq-q-dot.wrong    { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .fq-q-dot.pending  { background: rgba(0,119,255,.3); border-color: var(--primary); color: #fff; }
+    .fq-nav-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .fq-nav-counter {
+      font-size: .88rem; color: var(--text-muted); font-weight: 600; flex: 1; text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -509,7 +556,7 @@
               </select>
             </div>
             <div class="ch-field">
-              <span class="ch-label">Seconds Per Question</span>
+              <span class="ch-label" id="host-duration-label">Seconds Per Question</span>
               <input type="number" class="ch-input" id="host-duration" value="30" min="10" max="300">
             </div>
             <div class="ch-field">
@@ -547,6 +594,11 @@
                 placeholder="Enter 6-character code" maxlength="6"
                 style="text-transform:uppercase;font-size:1.4rem;font-weight:900;letter-spacing:.15em;text-align:center"
                 oninput="this.value=this.value.toUpperCase()">
+            </div>
+            <div class="ch-field">
+              <span class="ch-label">Nickname <span style="font-weight:400;font-size:.75rem;color:var(--text-muted)">(shown to others in the challenge)</span></span>
+              <input type="text" class="ch-input" id="join-nickname-input"
+                placeholder="e.g. QuizKing, BrainBoss…" maxlength="50">
             </div>
             <div class="ch-btn-row2">
               <button class="ch-btn outline" onclick="showLanding()">Cancel</button>
@@ -697,6 +749,55 @@
               </div>
 
             </div><!-- /.ch-spectator-layout -->
+          </div>
+        </div>
+
+        <!-- ══ SCREEN: Full Quiz Timer ══ -->
+        <div class="ch-screen" id="screen-full-quiz">
+          <div class="ch-quiz-wrap">
+
+            <!-- Header: timer + stats -->
+            <div class="fq-header-row">
+              <div class="fq-timer-box" id="fq-timer-box">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span id="fq-timer-val">—</span>
+              </div>
+              <div class="fq-stat-box">
+                <div class="fq-stat-label">Answered</div>
+                <div class="fq-stat-val"><span id="fq-answered-count">0</span> / <span id="fq-total-count">—</span></div>
+              </div>
+              <div class="fq-stat-box" style="text-align:right">
+                <div class="fq-stat-label">Your Score</div>
+                <div class="fq-stat-val" style="color:var(--primary)" id="fq-my-score">0</div>
+              </div>
+            </div>
+
+            <!-- Progress (% answered) -->
+            <div class="ch-progress-bar-wrap">
+              <div class="ch-progress-bar" id="fq-progress" style="width:0%"></div>
+            </div>
+
+            <!-- Question dots -->
+            <div class="fq-q-dots" id="fq-q-dots"></div>
+
+            <!-- Prev / counter / Next -->
+            <div class="fq-nav-row">
+              <button class="ch-btn outline" id="fq-prev-btn" onclick="fqPrev()">← Prev</button>
+              <span class="fq-nav-counter" id="fq-q-counter">Question 1 / —</span>
+              <button class="ch-btn outline" id="fq-next-btn" onclick="fqNext()">Next →</button>
+            </div>
+
+            <!-- Question text -->
+            <div class="ch-question-text" id="fq-text">Loading…</div>
+
+            <!-- Options -->
+            <div class="ch-options" id="fq-options"></div>
+
+            <!-- Feedback -->
+            <div class="ch-feedback" id="fq-feedback"></div>
+
           </div>
         </div>
 

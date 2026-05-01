@@ -135,7 +135,8 @@ class CreateRequest(BaseModel):
     host_mode:        str          = "participant"   # participant | spectator
 
 class JoinRequest(BaseModel):
-    code: str
+    code:     str
+    nickname: Optional[str] = None
 
 # ── REST ───────────────────────────────────────────────────────────────────────
 
@@ -241,12 +242,21 @@ def join_challenge(
 
     q_count = db.query(Question).filter_by(quiz_id=ch.quiz_id).count()
 
+    nickname_clean = (payload.nickname or "").strip()[:50] or None
+
     if not existing:
         if ch.max_participants:
             count = db.query(ChallengeParticipant).filter_by(challenge_id=ch.id).count()
             if count >= ch.max_participants:
                 raise HTTPException(400, "Challenge is full.")
-        db.add(ChallengeParticipant(challenge_id=ch.id, user_id=current_user.id))
+        db.add(ChallengeParticipant(
+            challenge_id=ch.id,
+            user_id=current_user.id,
+            nickname=nickname_clean,
+        ))
+        db.commit()
+    elif nickname_clean:
+        existing.nickname = nickname_clean
         db.commit()
 
         # Notify host that someone joined
@@ -314,7 +324,7 @@ async def start_challenge(
     task = asyncio.create_task(
         _run_questions(
             str(challenge_id), q_list, q_answers,
-            ch.duration_seconds, ch.host_mode, str(ch.host_id),
+            ch.duration_seconds, ch.host_mode, str(ch.host_id), ch.timer_mode,
         )
     )
     _mgr.set_task(str(challenge_id), task)
@@ -347,9 +357,9 @@ def get_challenge(
         "participants": [
             {
                 "user_id": str(p.user_id),
-                "name":    _display_name(p.user),
+                "name":    _p_name(p),
                 "score":   p.score,
-                "avatar":  _avatar(p.user),
+                "avatar":  _p_avatar(p),
                 "is_host": str(p.user_id) == str(ch.host_id),
             }
             for p in participants
@@ -387,9 +397,9 @@ def get_leaderboard(
         full.append({
             "rank":         i + 1,
             "user_id":      str(p.user_id),
-            "name":         _display_name(p.user),
+            "name":         _p_name(p),
             "score":        p.score,
-            "avatar":       _avatar(p.user),
+            "avatar":       _p_avatar(p),
             "correct":      correct,
             "wrong":        answered - correct,
             "answered":     answered,
@@ -452,7 +462,7 @@ async def challenge_ws(
 
         is_host = str(ch.host_id) == str(user.id)
         uid     = str(user.id)
-        name    = _display_name(user)
+        name    = _p_name(participant) if participant else _display_name(user)
         room    = _mgr.room(str(challenge_id))
 
         await room.add(uid, ws)
@@ -463,7 +473,7 @@ async def challenge_ws(
             "type":    "participant_joined",
             "user_id": uid,
             "name":    name,
-            "avatar":  _avatar(user),
+            "avatar":  name[0].upper() if name else "?",
             "is_host": is_host,
             "is_spectator": is_spectator_host,
             "count":   p_count,
@@ -536,6 +546,7 @@ async def _run_questions(
     duration_sec: int,
     host_mode:    str = "participant",
     host_id:      str = "",
+    timer_mode:   str = "per_question",
 ):
     """Server-driven question progression. Runs as a background asyncio task."""
     db = SessionLocal()
@@ -543,83 +554,97 @@ async def _run_questions(
         room   = _mgr.room(cid)
         dur_ms = duration_sec * 1000
 
-        for idx, q in enumerate(questions):
-            # Update current index
+        if timer_mode == "full_quiz":
             ch = db.query(Challenge).filter_by(id=cid).first()
             if not ch or ch.status != "active":
-                break
-            ch.current_question_idx = idx
-            db.commit()
-
-            # Broadcast question (NO correct_answer)
+                return
             await room.broadcast({
-                "type":        "question",
-                "idx":         idx,
-                "total":       len(questions),
-                "question":    q,
-                "duration_ms": dur_ms,
-                "server_ts":   time.time(),
+                "type":              "full_quiz_start",
+                "questions":         questions,
+                "total":             len(questions),
+                "total_duration_ms": dur_ms,
+                "server_ts":         time.time(),
             })
-
             await asyncio.sleep(duration_sec)
 
-            # Snapshot scores after question
-            ranked = (
-                db.query(ChallengeParticipant)
-                .filter_by(challenge_id=cid)
-                .order_by(ChallengeParticipant.score.desc())
-                .all()
-            )
-            scores = [
-                {"user_id": str(p.user_id), "name": _display_name(p.user),
-                 "score": p.score, "rank": i + 1}
-                for i, p in enumerate(ranked)
-            ]
+        else:
+            for idx, q in enumerate(questions):
+                # Update current index
+                ch = db.query(Challenge).filter_by(id=cid).first()
+                if not ch or ch.status != "active":
+                    break
+                ch.current_question_idx = idx
+                db.commit()
 
-            await room.broadcast({
-                "type":           "question_ended",
-                "idx":            idx,
-                "correct_answer": q_answers.get(q["id"], ""),
-                "scores":         scores,
-                "next_in":        3 if idx < len(questions) - 1 else 0,
-            })
-
-            # For spectator host: send per-participant responses after each question
-            if host_mode == "spectator" and host_id:
-                parts = (
-                    db.query(ChallengeParticipant)
-                    .filter_by(challenge_id=cid)
-                    .all()
-                )
-                correct_ans = q_answers.get(q["id"], "")
-                responses_data = []
-                for p in parts:
-                    resp = (
-                        db.query(ChallengeResponse)
-                        .filter_by(participant_id=p.id, question_idx=idx)
-                        .first()
-                    )
-                    responses_data.append({
-                        "user_id":          str(p.user_id),
-                        "name":             _display_name(p.user),
-                        "answer":           resp.answer           if resp else None,
-                        "is_correct":       resp.is_correct       if resp else False,
-                        "response_time_ms": resp.response_time_ms if resp else None,
-                        "points":           resp.points_earned    if resp else 0,
-                    })
-                await room.send_to(host_id, {
-                    "type":           "question_responses",
-                    "idx":            idx,
-                    "correct_answer": correct_ans,
-                    "responses":      responses_data,
+                # Broadcast question (NO correct_answer)
+                await room.broadcast({
+                    "type":        "question",
+                    "idx":         idx,
+                    "total":       len(questions),
+                    "question":    q,
+                    "duration_ms": dur_ms,
+                    "server_ts":   time.time(),
                 })
 
-            if idx < len(questions) - 1:
-                room.reset_next()
-                try:
-                    await asyncio.wait_for(room.wait_for_next(), timeout=300.0)
-                except asyncio.TimeoutError:
-                    pass  # auto-advance after 5 min if host is gone
+                await asyncio.sleep(duration_sec)
+
+                # Snapshot scores after question
+                ranked = (
+                    db.query(ChallengeParticipant)
+                    .filter_by(challenge_id=cid)
+                    .order_by(ChallengeParticipant.score.desc())
+                    .all()
+                )
+                scores = [
+                    {"user_id": str(p.user_id), "name": _p_name(p),
+                     "score": p.score, "rank": i + 1}
+                    for i, p in enumerate(ranked)
+                ]
+
+                await room.broadcast({
+                    "type":           "question_ended",
+                    "idx":            idx,
+                    "correct_answer": q_answers.get(q["id"], ""),
+                    "scores":         scores,
+                    "next_in":        3 if idx < len(questions) - 1 else 0,
+                })
+
+                # For spectator host: send per-participant responses after each question
+                if host_mode == "spectator" and host_id:
+                    parts = (
+                        db.query(ChallengeParticipant)
+                        .filter_by(challenge_id=cid)
+                        .all()
+                    )
+                    correct_ans = q_answers.get(q["id"], "")
+                    responses_data = []
+                    for p in parts:
+                        resp = (
+                            db.query(ChallengeResponse)
+                            .filter_by(participant_id=p.id, question_idx=idx)
+                            .first()
+                        )
+                        responses_data.append({
+                            "user_id":          str(p.user_id),
+                            "name":             _p_name(p),
+                            "answer":           resp.answer           if resp else None,
+                            "is_correct":       resp.is_correct       if resp else False,
+                            "response_time_ms": resp.response_time_ms if resp else None,
+                            "points":           resp.points_earned    if resp else 0,
+                        })
+                    await room.send_to(host_id, {
+                        "type":           "question_responses",
+                        "idx":            idx,
+                        "correct_answer": correct_ans,
+                        "responses":      responses_data,
+                    })
+
+                if idx < len(questions) - 1:
+                    room.reset_next()
+                    try:
+                        await asyncio.wait_for(room.wait_for_next(), timeout=300.0)
+                    except asyncio.TimeoutError:
+                        pass  # auto-advance after 5 min if host is gone
 
         # Mark completed
         ch = db.query(Challenge).filter_by(id=cid).first()
@@ -637,7 +662,7 @@ async def _run_questions(
         )
         full_lb = [
             {"rank": i + 1, "user_id": str(p.user_id),
-             "name": _display_name(p.user), "score": p.score, "avatar": _avatar(p.user)}
+             "name": _p_name(p), "score": p.score, "avatar": _p_avatar(p)}
             for i, p in enumerate(ranked)
         ]
 
@@ -752,8 +777,19 @@ def _display_name(user) -> str:
     return user.full_name or user.username or user.email.split("@")[0] if user else "?"
 
 
+def _p_name(p) -> str:
+    """Participant display name — nickname overrides account name."""
+    if p and p.nickname and p.nickname.strip():
+        return p.nickname.strip()
+    return _display_name(p.user) if p else "?"
+
+
 def _avatar(user) -> str:
     return (_display_name(user) or "?")[0].upper()
+
+
+def _p_avatar(p) -> str:
+    return (_p_name(p) or "?")[0].upper()
 
 
 def _ch_summary(ch: Challenge, user_id, db: Session) -> dict:

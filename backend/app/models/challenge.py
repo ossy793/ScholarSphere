@@ -49,6 +49,7 @@ class ChallengeParticipant(Base):
                           nullable=False, index=True)
     user_id      = Column(UUID(as_uuid=True), ForeignKey("users.id",      ondelete="CASCADE"),
                           nullable=False)
+    nickname     = Column(String(50), nullable=True)
     score        = Column(Integer,  default=0)
     finished     = Column(Boolean,  default=False)
     joined_at    = Column(DateTime, default=datetime.utcnow)
