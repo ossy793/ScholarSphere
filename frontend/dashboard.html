@@ -83,20 +83,27 @@
           </div>
         </div>
 
-        <!-- Challenge Registration Banner -->
+        <!-- Challenge Live Banner -->
         <div class="challenge-reg-banner" id="challenge-reg-banner">
           <div class="crb-glow"></div>
           <div class="crb-left">
             <div class="crb-icon">🏆</div>
             <div class="crb-body">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                <p class="crb-title" style="margin:0">Challenge</p>
-                <span class="crb-closed-badge">Registration Closed</span>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+                <p class="crb-title" style="margin:0">Pritis Challenge 2026</p>
+                <span class="crb-live-badge"><span class="crb-live-dot"></span>LIVE</span>
               </div>
-              <p class="crb-sub">Pritis' first General Knowledge Challenge. Registration has ended — stay tuned for more!</p>
+              <p class="crb-sub" style="margin-bottom:4px">
+                <strong>Jed (UNILAG)</strong> vs <strong>Oluwateniola (YABATECH)</strong> — Semi-Finals &nbsp;·&nbsp; 🕣 8:30pm
+              </p>
+              <p class="crb-sub">
+                <a href="https://meet.google.com/yqj-mfmz-zza" target="_blank" rel="noopener" class="crb-meet-link">
+                  📹 Watch live on Google Meet →
+                </a>
+              </p>
             </div>
           </div>
-          <button class="crb-btn" onclick="openChallengeReg()">Learn More</button>
+          <a href="https://meet.google.com/yqj-mfmz-zza" target="_blank" rel="noopener" class="crb-btn crb-watch-btn">▶ Watch Live</a>
         </div>
 
         <!-- Quick Actions -->
@@ -352,6 +359,40 @@
       transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
     }
     .crb-btn:hover { background: #f0f7ff; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,119,255,0.2); }
+    .crb-live-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 20px;
+      background: #dc2626; color: #fff;
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em;
+      box-shadow: 0 0 0 0 rgba(220,38,38,0.5);
+      animation: crb-live-pulse 1.8s infinite;
+    }
+    .crb-live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #fff; flex-shrink: 0;
+      animation: crb-dot-blink 1.2s infinite;
+    }
+    @keyframes crb-live-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+      50%      { box-shadow: 0 0 0 5px rgba(220,38,38,0); }
+    }
+    @keyframes crb-dot-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .crb-meet-link {
+      color: #1d4ed8; font-weight: 600; font-size: 0.83rem;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .crb-meet-link:hover { color: #1e40af; text-decoration: underline; }
+    .crb-watch-btn {
+      background: #dc2626 !important; color: #fff !important;
+      font-weight: 700 !important;
+      box-shadow: 0 2px 10px rgba(220,38,38,0.3) !important;
+      text-decoration: none; display: inline-block;
+    }
+    .crb-watch-btn:hover {
+      background: #b91c1c !important;
+      box-shadow: 0 4px 16px rgba(220,38,38,0.4) !important;
+    }
     .crb-closed-badge {
       display: inline-block; padding: 2px 9px; border-radius: 20px;
       background: #fee2e2; color: #b91c1c;
