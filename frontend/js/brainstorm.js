@@ -76,7 +76,7 @@ function _renderModelPicker() {
       ${isDisabled ? 'disabled title="API key not configured"' : ''}>
       <span class="model-logo-wrap">${_URPADI_LOGO}</span>
       <span class="model-option-info">
-        <span class="model-option-name">UrPadi × ${displayName}</span>
+        <span class="model-option-name">UrPadi powered by ${displayName}</span>
         ${isDisabled ? `<span class="model-option-provider">key not set</span>` : ''}
       </span>
       ${isActive ? '<span class="model-option-badge">Active</span>' : ''}
@@ -146,7 +146,7 @@ function _renderSetupModelCards() {
     return `
     <button class="setup-model-card${isSelected ? ' selected' : ''}" onclick="setupPickModel('${m.id}')">
       <span class="setup-model-logo">${_URPADI_LOGO}</span>
-      <span class="setup-model-name">UrPadi × ${displayName}</span>
+      <span class="setup-model-name">UrPadi powered by ${displayName}</span>
     </button>`;
   }).join('');
 }
