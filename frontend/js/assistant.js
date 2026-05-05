@@ -91,6 +91,7 @@ function _injectStyles() {
   z-index: 8901;
   display: flex; flex-direction: column; align-items: flex-end;
   gap: 10px; pointer-events: none;
+  width: fit-content; height: fit-content;
 }
 
 /* ── Idle bubble ── */
@@ -103,13 +104,13 @@ function _injectStyles() {
   color: var(--text, #0f172a);
   max-width: 224px;
   box-shadow: 0 4px 18px rgba(0,0,0,.11);
-  pointer-events: all; cursor: pointer;
+  pointer-events: none; cursor: pointer;
   display: flex; align-items: center; gap: 8px;
   opacity: 0; transform: translateY(10px) scale(.94);
   transition: opacity .3s ease, transform .3s ease;
   user-select: none;
 }
-#pa-bubble.pa-vis { opacity: 1; transform: translateY(0) scale(1); }
+#pa-bubble.pa-vis { opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
 #pa-bdismiss {
   flex-shrink: 0; background: none; border: none;
   font-size: 1rem; line-height: 1;
