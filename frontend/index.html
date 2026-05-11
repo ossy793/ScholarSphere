@@ -445,6 +445,189 @@
       /* On very narrow screens ensure the GIS iframe never bleeds out */
       .google-signin-wrap > div { width: 100% !important; }
     }
+
+    /* ── Feature Showcase Carousel ── */
+    .feature-showcase {
+      background: linear-gradient(180deg, #F0F6FF 0%, #fff 100%);
+      padding: 96px 5%; overflow: hidden;
+    }
+    .fs-inner {
+      max-width: 1140px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1.15fr;
+      gap: 72px; align-items: center;
+    }
+    .fs-left { display: flex; flex-direction: column; }
+    .fs-content-wrap {
+      transition: opacity 0.28s ease, transform 0.28s ease;
+      margin-bottom: 36px;
+    }
+    .fs-content-wrap.fs-fading { opacity: 0; transform: translateX(-20px); }
+    .fs-num {
+      font-size: 5rem; font-weight: 900; line-height: 1;
+      color: transparent; -webkit-text-stroke: 2px rgba(0,119,255,0.18);
+      margin-bottom: -10px; user-select: none;
+    }
+    .fs-title {
+      font-size: clamp(1.65rem, 3vw, 2.3rem); font-weight: 900;
+      color: var(--text); letter-spacing: -0.025em; line-height: 1.15;
+      margin-bottom: 14px; margin-top: 8px;
+    }
+    .fs-desc {
+      font-size: 1.02rem; color: var(--text-muted); line-height: 1.78;
+      max-width: 440px;
+    }
+    .fs-pills {
+      display: flex; gap: 9px; flex-wrap: wrap; margin-top: 20px;
+    }
+    .fs-pill {
+      display: inline-flex; align-items: center;
+      background: rgba(0,119,255,0.08); color: var(--blue);
+      border: 1px solid rgba(0,119,255,0.18);
+      border-radius: 100px; padding: 5px 14px;
+      font-size: 0.76rem; font-weight: 600;
+    }
+    .fs-progress-bar {
+      height: 3px; background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .fs-progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      border-radius: 2px;
+    }
+    .fs-controls {
+      display: flex; align-items: center; gap: 14px; margin-top: 18px;
+    }
+    .fs-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 11px 22px; border-radius: 10px; font-size: 0.88rem;
+      font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+      transition: all 0.17s; white-space: nowrap;
+    }
+    .fs-prev {
+      background: #fff; color: var(--text-muted);
+      border: 1.5px solid var(--border);
+    }
+    .fs-prev:hover { border-color: var(--blue); color: var(--blue); }
+    .fs-next {
+      background: var(--blue); color: #fff;
+      box-shadow: 0 4px 16px rgba(0,119,255,0.28);
+    }
+    .fs-next:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,119,255,0.4); }
+    .fs-dots {
+      display: flex; align-items: center; gap: 7px; flex: 1; justify-content: center;
+    }
+    .fs-dot {
+      width: 8px; height: 8px; border-radius: 50%; border: none;
+      background: var(--border); cursor: pointer; padding: 0;
+      transition: all 0.22s;
+    }
+    .fs-dot.active { width: 26px; border-radius: 4px; background: var(--blue); }
+
+    /* Image frame */
+    .fs-right { position: relative; }
+    .fs-img-frame {
+      background: #fff; border: 1.5px solid var(--border);
+      border-radius: 22px; padding: 14px;
+      box-shadow: 0 28px 72px rgba(0,119,255,0.13), 0 4px 18px rgba(0,0,0,0.06);
+      position: relative; overflow: hidden;
+    }
+    .fs-img-frame::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+    .fs-img-frame img {
+      width: 100%; border-radius: 12px; display: block;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+    .fs-img-frame img.fs-fading {
+      opacity: 0; transform: scale(0.97) translateX(14px);
+    }
+    .fs-badge {
+      position: absolute; bottom: 24px; left: 24px;
+      background: rgba(10,22,40,0.72); backdrop-filter: blur(8px);
+      color: #fff; border-radius: 10px; padding: 8px 14px;
+      display: flex; align-items: center; gap: 9px;
+      font-size: 0.82rem; font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.12);
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    .fs-badge-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 960px) {
+      .fs-inner { grid-template-columns: 1fr; gap: 40px; }
+      .fs-right { order: -1; }
+      .fs-desc { max-width: 100%; }
+    }
+    @media (max-width: 540px) {
+      .feature-showcase { padding: 64px 5%; }
+      .fs-num { font-size: 3.5rem; }
+      .fs-controls { flex-wrap: wrap; }
+      .fs-dots { order: -1; width: 100%; }
+      .fs-title { font-size: 1.5rem; }
+    }
+
+    /* ── Page Animations ─────────────────────────────────────────────────── */
+    /* Hero entrance — pure CSS, no JS needed (above the fold) */
+    @keyframes _drop     { from { opacity:0; transform:translateY(-18px); } to { opacity:1; transform:none; } }
+    @keyframes _rise     { from { opacity:0; transform:translateY(34px);  } to { opacity:1; transform:none; } }
+    @keyframes _riseScl  { from { opacity:0; transform:translateY(48px) scale(0.97); } to { opacity:1; transform:none; } }
+
+    .hero-badge  { animation: _drop    0.65s cubic-bezier(0.22,1,0.36,1) 0.1s  both; }
+    .hero h1     { animation: _rise    0.75s cubic-bezier(0.22,1,0.36,1) 0.25s both; }
+    .hero > p    { animation: _rise    0.75s cubic-bezier(0.22,1,0.36,1) 0.42s both; }
+    .hero-cta    { animation: _rise    0.75s cubic-bezier(0.22,1,0.36,1) 0.58s both; }
+    .hero-visual { animation: _riseScl 0.95s cubic-bezier(0.22,1,0.36,1) 0.72s both; }
+
+    /* Scroll-triggered base states — JS adds .in when in viewport */
+    .anim-up {
+      opacity: 0; transform: translateY(38px);
+      transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.7s cubic-bezier(0.22,1,0.36,1);
+    }
+    .anim-left {
+      opacity: 0; transform: translateX(-42px);
+      transition: opacity 0.72s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.72s cubic-bezier(0.22,1,0.36,1);
+    }
+    .anim-right {
+      opacity: 0; transform: translateX(42px);
+      transition: opacity 0.72s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.72s cubic-bezier(0.22,1,0.36,1);
+    }
+    .anim-up.in, .anim-left.in, .anim-right.in {
+      opacity: 1; transform: none;
+    }
+
+    /* Stagger: children animate in sequence */
+    [data-stagger] > * {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.6s cubic-bezier(0.22,1,0.36,1);
+    }
+    [data-stagger].in > *:nth-child(1) { opacity:1; transform:none; transition-delay:0s;    }
+    [data-stagger].in > *:nth-child(2) { opacity:1; transform:none; transition-delay:0.11s; }
+    [data-stagger].in > *:nth-child(3) { opacity:1; transform:none; transition-delay:0.22s; }
+    [data-stagger].in > *:nth-child(4) { opacity:1; transform:none; transition-delay:0.33s; }
+    [data-stagger].in > *:nth-child(5) { opacity:1; transform:none; transition-delay:0.44s; }
+    [data-stagger].in > *:nth-child(6) { opacity:1; transform:none; transition-delay:0.55s; }
+
+    /* Stat items hover lift */
+    .stat-item { transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    .stat-item:hover { transform: scale(1.07) translateY(-2px); }
+
+    /* Pillar hover already done — add subtle icon bounce */
+    @keyframes _iconBounce { 0%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} 70%{transform:translateY(-2px)} }
+    .pillar:hover .pillar-icon { animation: _iconBounce 0.55s ease; }
+
+    /* Step number pulse on hover */
+    .step-num { transition: box-shadow 0.2s, transform 0.2s; }
+    .step:hover .step-num { transform: scale(1.1); box-shadow: 0 8px 28px rgba(0,119,255,0.5); }
   </style>
 </head>
 <body>
@@ -514,7 +697,7 @@
   </section>
 
   <!-- ── Stats bar ── -->
-  <div class="stats-bar">
+  <div class="stats-bar" data-stagger>
     <div class="stat-item">
       <div class="stat-number" id="stat-questions">—</div>
       <div class="stat-label">Questions Generated</div>
@@ -690,9 +873,51 @@
     </div>
   </div>
 
+  <!-- ── Feature Showcase Carousel ── -->
+  <section id="features" class="feature-showcase">
+    <div class="fs-inner">
+
+      <!-- Left: text + controls -->
+      <div class="fs-left anim-left">
+        <div class="fs-content-wrap" id="fs-content-wrap">
+          <span class="section-label">All Features</span>
+          <div class="fs-num" id="fs-num">01</div>
+          <h2 class="fs-title" id="fs-title">AI Quiz Generation</h2>
+          <p class="fs-desc" id="fs-desc">Upload a PDF or paste any text, and the AI instantly builds a complete, accurate quiz — MCQ, short-answer, or essay. No setup needed. Curriculum-ready practice questions in seconds.</p>
+          <div class="fs-pills" id="fs-pills">
+            <span class="fs-pill">MCQ</span>
+            <span class="fs-pill">Short Answer</span>
+            <span class="fs-pill">Essay</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="fs-progress-bar"><div class="fs-progress-fill" id="fs-progress"></div></div>
+          <div class="fs-controls">
+            <button class="fs-btn fs-prev" onclick="fsPrev()">&#8592; Prev</button>
+            <div class="fs-dots" id="fs-dots"></div>
+            <button class="fs-btn fs-next" onclick="fsNext()">Next &#8594;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: image -->
+      <div class="fs-right anim-right">
+        <div class="fs-img-frame">
+          <img id="fs-img" src="assets/AI Generate.png" alt="AI Quiz Generation">
+          <div class="fs-badge" id="fs-badge">
+            <span class="fs-badge-dot"></span>
+            <span id="fs-badge-text">AI Quiz Generation</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- ── 3 Core Pillars ── -->
   <section id="pillars" class="pillars-section">
-    <div class="text-center">
+    <div class="text-center anim-up">
       <span class="section-label">Three Pillars</span>
       <h2 class="section-title">Everything a student needs, in one platform</h2>
       <p class="section-sub mx-auto">
@@ -700,7 +925,7 @@
         reading, brainstorming, and testing — so you can master any subject thoroughly.
       </p>
     </div>
-    <div class="pillars-grid">
+    <div class="pillars-grid" data-stagger>
       <div class="pillar">
         <span class="pillar-tag tag-core">Core</span>
         <div class="pillar-icon">📖</div>
@@ -724,12 +949,12 @@
 
   <!-- ── How It Works ── -->
   <section id="how-it-works" class="how-bg">
-    <div class="text-center">
+    <div class="text-center anim-up">
       <span class="section-label">How It Works</span>
       <h2 class="section-title">From document to mastery in four steps</h2>
       <p class="section-sub mx-auto">A simple, focused workflow designed for how students actually study.</p>
     </div>
-    <div class="steps">
+    <div class="steps" data-stagger>
       <div class="step">
         <div class="step-num">1</div>
         <h3>Upload Your Material</h3>
@@ -753,53 +978,12 @@
     </div>
   </section>
 
-  <!-- ── Full Features ── -->
-  <section id="features">
-    <div class="text-center">
-      <span class="section-label">All Features</span>
-      <h2 class="section-title">A complete toolkit for smarter studying</h2>
-      <p class="section-sub mx-auto">Everything built specifically for students who want to go beyond passive reading.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon icon-blue">🤖</div>
-        <h3>AI Quiz Generation</h3>
-        <p>Upload a PDF or paste text, and the AI generates a complete, accurate quiz in seconds — MCQ, short-answer, or essay.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon icon-cyan">💬</div>
-        <h3>Brainstorm Sessions</h3>
-        <p>Chat directly with AI about any document you've uploaded. Get explanations, summaries, and concept clarifications instantly.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon icon-violet">✏️</div>
-        <h3>Manual Question Input</h3>
-        <p>Prefer full control? Type questions manually, choose the type, add answer options, and include explanations.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon icon-green">🎯</div>
-        <h3>Exam &amp; Practice Modes</h3>
-        <p>Exam mode hides answers until you submit. Practice mode gives instant feedback per question with explanations.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon icon-amber">📊</div>
-        <h3>Performance Analytics</h3>
-        <p>Track scores over time with visual charts. See which topics need more attention and watch your progress improve.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon icon-rose">🔗</div>
-        <h3>Share Quizzes</h3>
-        <p>Generate a shareable link for any quiz so classmates and study groups can practice the same material together.</p>
-      </div>
-    </div>
-  </section>
-
   <!-- ── Pricing ── -->
   <section id="pricing" class="pricing-section">
-    <span class="section-label">Pricing</span>
-    <h2>Upgrade Your Plan</h2>
-    <p>Unlock more features and study smarter</p>
-    <div class="pricing-grid">
+    <span class="section-label anim-up">Pricing</span>
+    <h2 class="anim-up" style="transition-delay:0.08s">Upgrade Your Plan</h2>
+    <p class="anim-up" style="transition-delay:0.16s">Unlock more features and study smarter</p>
+    <div class="pricing-grid" data-stagger>
 
       <!-- Free plan -->
       <div class="pricing-card">
@@ -883,9 +1067,9 @@
 
   <!-- ── CTA ── -->
   <section class="cta-section">
-    <h2>Start learning the smarter way today</h2>
-    <p>Create your free Pritis account and transform the way you study. No credit card required — always free to start.</p>
-    <button class="btn btn-white btn-xl" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">🚀 Get Started</button>
+    <h2 class="anim-up">Start learning the smarter way today</h2>
+    <p class="anim-up" style="transition-delay:0.12s">Create your free Pritis account and transform the way you study. No credit card required — always free to start.</p>
+    <button class="btn btn-white btn-xl anim-up" style="transition-delay:0.24s" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">🚀 Get Started</button>
   </section>
 
   <!-- ── Footer ── -->
@@ -1103,6 +1287,157 @@
       const btn = document.getElementById('pwa-install-btn');
       if (btn) btn.style.display = 'none';
     }
+
+    // ── Scroll Animations ─────────────────────────────────────────────────────
+    (function () {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            obs.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.08, rootMargin: '0px 0px -36px 0px' });
+
+      document.querySelectorAll('.anim-up, .anim-left, .anim-right, [data-stagger]')
+        .forEach(el => obs.observe(el));
+    })();
+
+    // ── Feature Showcase Carousel ──────────────────────────────────────────────
+    const FS_FEATURES = [
+      {
+        num: '01',
+        title: 'AI Quiz Generation',
+        desc: 'Upload a PDF or paste any text, and the AI instantly builds a complete, accurate quiz — MCQ, short-answer, or essay. No setup needed. Curriculum-ready practice questions in seconds.',
+        img: 'assets/AI Generate.png',
+        pills: ['MCQ', 'Short Answer', 'Essay'],
+      },
+      {
+        num: '02',
+        title: 'Create Your Own Quiz',
+        desc: 'Prefer full control? Build quizzes from scratch — write your own questions, set answer options, and add detailed explanations. Perfect for structured revision or sharing with your study group.',
+        img: 'assets/Create Quiz.png',
+        pills: ['Custom Questions', 'Multiple Types', 'Explanations'],
+      },
+      {
+        num: '03',
+        title: 'Study Zone',
+        desc: 'Your personal AI study companion. Get structured study sessions, ask deep follow-up questions, and explore any topic — powered by the AI model of your choice.',
+        img: 'assets/Study Zone 2.png',
+        pills: ['UrPadi AI', 'ChatGPT', 'Claude'],
+      },
+      {
+        num: '04',
+        title: 'Smart Study Strategy',
+        desc: 'Let AI analyse your weak areas and generate a personalised study roadmap. Know exactly what to focus on, when, and how — so every minute of revision counts.',
+        img: 'assets/Study Strategy.png',
+        pills: ['Personalised Plan', 'AI Roadmap', 'Progress Aware'],
+      },
+      {
+        num: '05',
+        title: 'Student Dashboard',
+        desc: 'Your command centre for everything. Track quizzes, documents, brainstorm sessions, and performance metrics — all beautifully organised in one place.',
+        img: 'assets/Screenshot 2026-05-11 080628.png',
+        pills: ['All-in-One View', 'Progress Tracking', 'Quick Access'],
+      },
+    ];
+
+    let _fsIdx = 0;
+    let _fsAutoTimer = null;
+    const FS_DELAY = 5500;
+
+    function fsInit() {
+      const dotsEl = document.getElementById('fs-dots');
+      if (!dotsEl) return;
+      dotsEl.innerHTML = FS_FEATURES.map((_, i) =>
+        `<button class="fs-dot${i === 0 ? ' active' : ''}" onclick="fsGo(${i})" aria-label="Feature ${i + 1}"></button>`
+      ).join('');
+      fsApply(0);
+      fsAutoStart();
+
+      const section = document.querySelector('.feature-showcase');
+      if (section) {
+        section.addEventListener('mouseenter', fsAutoStop);
+        section.addEventListener('mouseleave', fsAutoStart);
+        // Touch swipe
+        let _tx = null;
+        section.addEventListener('touchstart', e => { _tx = e.touches[0].clientX; }, { passive: true });
+        section.addEventListener('touchend', e => {
+          if (_tx === null) return;
+          const dx = e.changedTouches[0].clientX - _tx;
+          _tx = null;
+          if (Math.abs(dx) > 50) dx < 0 ? fsNext() : fsPrev();
+        });
+      }
+    }
+
+    function fsAutoStart() {
+      fsAutoStop();
+      fsProgressAnim();
+      _fsAutoTimer = setInterval(() => {
+        _fsIdx = (_fsIdx + 1) % FS_FEATURES.length;
+        fsTransition(_fsIdx);
+      }, FS_DELAY);
+    }
+
+    function fsAutoStop() {
+      clearInterval(_fsAutoTimer);
+      _fsAutoTimer = null;
+      const fill = document.getElementById('fs-progress');
+      if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
+    }
+
+    function fsProgressAnim() {
+      const fill = document.getElementById('fs-progress');
+      if (!fill) return;
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        fill.style.transition = `width ${FS_DELAY}ms linear`;
+        fill.style.width = '100%';
+      }));
+    }
+
+    function fsGo(idx) {
+      if (idx === _fsIdx) return;
+      fsAutoStop();
+      _fsIdx = idx;
+      fsTransition(idx);
+      fsAutoStart();
+    }
+
+    function fsTransition(idx) {
+      const wrap = document.getElementById('fs-content-wrap');
+      const img  = document.getElementById('fs-img');
+      const badge = document.getElementById('fs-badge');
+      wrap.classList.add('fs-fading');
+      img.classList.add('fs-fading');
+      if (badge) badge.style.opacity = '0';
+      setTimeout(() => {
+        fsApply(idx);
+        wrap.classList.remove('fs-fading');
+        img.classList.remove('fs-fading');
+        if (badge) badge.style.opacity = '1';
+      }, 280);
+    }
+
+    function fsApply(idx) {
+      const f = FS_FEATURES[idx];
+      document.getElementById('fs-num').textContent   = f.num;
+      document.getElementById('fs-title').textContent = f.title;
+      document.getElementById('fs-desc').textContent  = f.desc;
+      document.getElementById('fs-pills').innerHTML   = f.pills.map(p => `<span class="fs-pill">${p}</span>`).join('');
+      const img = document.getElementById('fs-img');
+      img.src = f.img; img.alt = f.title;
+      const bt = document.getElementById('fs-badge-text');
+      if (bt) bt.textContent = f.title;
+      document.querySelectorAll('.fs-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    function fsNext() { fsGo((_fsIdx + 1) % FS_FEATURES.length); }
+    function fsPrev() { fsGo((_fsIdx - 1 + FS_FEATURES.length) % FS_FEATURES.length); }
+
+    window.addEventListener('DOMContentLoaded', fsInit);
   </script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="module" src="js/auth.js"></script>

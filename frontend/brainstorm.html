@@ -2585,6 +2585,72 @@
       margin-bottom: 4px;
     }
 
+
+    /* ── Tutorial Modal ── */
+    .tut-overlay {
+      position: fixed; inset: 0; z-index: 1500;
+      background: rgba(10,22,40,0.6); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      transition: opacity 0.25s;
+    }
+    .tut-modal {
+      background: #fff; border-radius: 20px; width: 100%;
+      max-width: 620px; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+      animation: tutIn 0.28s ease;
+    }
+    @keyframes tutIn {
+      from { opacity: 0; transform: scale(0.95) translateY(14px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .tut-modal-head {
+      background: linear-gradient(135deg, #0055CC, #0077FF);
+      padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .tut-modal-label {
+      display: flex; align-items: center; gap: 9px;
+      font-weight: 700; font-size: 0.88rem; color: #fff;
+      text-transform: uppercase; letter-spacing: 0.07em;
+    }
+    .tut-modal-label svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .tut-modal-close {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1); color: #fff;
+      font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .tut-modal-close:hover { background: rgba(255,255,255,0.25); }
+    .tut-modal-body { padding: 20px 22px 22px; }
+    .tut-modal-title { font-size: 1rem; font-weight: 700; color: #0A1628; margin-bottom: 3px; }
+    .tut-modal-sub { font-size: 0.82rem; color: #4A6080; margin-bottom: 16px; }
+    .tut-video-wrap {
+      position: relative; padding-bottom: 56.25%; height: 0;
+      overflow: hidden; border-radius: 10px; background: #0A1628;
+    }
+    .tut-video-wrap iframe {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      border: none; border-radius: 10px;
+    }
+    .tut-footer {
+      display: flex; align-items: center; gap: 12px; margin-top: 16px;
+    }
+    .tut-dont-show {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.82rem; color: #4A6080; cursor: pointer; user-select: none;
+    }
+    .tut-dont-show input { accent-color: #0077FF; width: 15px; height: 15px; cursor: pointer; }
+    .tut-start-btn {
+      margin-left: auto; padding: 9px 22px;
+      background: #0077FF; color: #fff;
+      border: none; border-radius: 9px;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.15s;
+    }
+    .tut-start-btn:hover { background: #0055CC; }
   </style>
 </head>
 <body>
@@ -3071,6 +3137,63 @@
   <!-- jsPDF for client-side summary PDF generation -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <!-- Mermaid.js for visual diagram rendering -->
+  <!-- Tutorial Modal — Study Zone -->
+  <div class="tut-overlay" id="tut-overlay" style="display:none" onclick="handleTutOverlayClick(event)">
+    <div class="tut-modal">
+      <div class="tut-modal-head">
+        <div class="tut-modal-label">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
+          How to Use This Feature
+        </div>
+        <button class="tut-modal-close" onclick="closeTutorial()" aria-label="Close tutorial">&times;</button>
+      </div>
+      <div class="tut-modal-body">
+        <p class="tut-modal-title">Study Zone — Full Walkthrough</p>
+        <p class="tut-modal-sub">Watch this quick tutorial to get the most out of your AI study companion.</p>
+        <div class="tut-video-wrap">
+          <iframe
+            loading="lazy"
+            src="https://www.youtube.com/embed/qQGVGoQmQaY"
+            title="Study Zone Tutorial"
+            frameborder="0"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        </div>
+        <div class="tut-footer">
+          <label class="tut-dont-show">
+            <input type="checkbox" id="tut-dont-show-cb">
+            Don't show again
+          </label>
+          <button class="tut-start-btn" onclick="closeTutorial()">Start Studying &#8594;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function initTutorial() {
+      if (localStorage.getItem('pritis_tutorial_study_zone')) return;
+      document.getElementById('tut-overlay').style.display = 'flex';
+    }
+    function closeTutorial() {
+      const overlay = document.getElementById('tut-overlay');
+      if (!overlay) return;
+      if (document.getElementById('tut-dont-show-cb').checked) {
+        localStorage.setItem('pritis_tutorial_study_zone', '1');
+      }
+      const iframe = overlay.querySelector('iframe');
+      if (iframe) { const s = iframe.src; iframe.src = ''; iframe.src = s; }
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.25s';
+      setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = ''; }, 260);
+    }
+    function handleTutOverlayClick(e) {
+      if (e.target === document.getElementById('tut-overlay')) closeTutorial();
+    }
+    window.addEventListener('load', initTutorial);
+  </script>
+
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>

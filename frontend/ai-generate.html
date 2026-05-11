@@ -99,6 +99,48 @@
       font-size: 0.78rem;
       color: var(--text-muted);
     }
+
+    /* ── Tutorial Video Card ── */
+    .tutorial-card {
+      background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+      border: 1.5px solid rgba(0,119,255,0.2);
+      border-radius: 16px; padding: 20px;
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .tutorial-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #0077FF, #00C8FF);
+    }
+    .tutorial-header {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 12px;
+    }
+    .tutorial-label {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #0077FF;
+    }
+    .tutorial-label svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .tutorial-close {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 1.5px solid rgba(0,119,255,0.25);
+      background: rgba(255,255,255,0.7); color: #0077FF;
+      font-size: 1rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .tutorial-close:hover { background: #0077FF; color: #fff; border-color: #0077FF; }
+    .tutorial-card-title { font-size: 0.95rem; font-weight: 700; color: #0A1628; margin-bottom: 3px; }
+    .tutorial-card-sub { font-size: 0.8rem; color: #4A6080; margin-bottom: 14px; }
+    .tutorial-video-wrap {
+      position: relative; padding-bottom: 56.25%; height: 0;
+      overflow: hidden; border-radius: 10px; background: #0A1628;
+    }
+    .tutorial-video-wrap iframe {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      border: none; border-radius: 10px;
+    }
   </style>
 </head>
 <body>
@@ -116,6 +158,29 @@
 
       <main class="page-body">
         <div style="max-width: 760px;">
+
+          <!-- Tutorial Video -->
+          <div class="tutorial-card" id="tutorial-card">
+            <div class="tutorial-header">
+              <div class="tutorial-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
+                How to Use This Feature
+              </div>
+              <button class="tutorial-close" onclick="dismissTutorial('ai_generate')" aria-label="Dismiss tutorial">&times;</button>
+            </div>
+            <p class="tutorial-card-title">AI Quiz Generation — Quick Tutorial</p>
+            <p class="tutorial-card-sub">Watch this short walkthrough to generate your first quiz from any document in minutes.</p>
+            <div class="tutorial-video-wrap">
+              <iframe
+                loading="lazy"
+                src="https://www.youtube.com/embed/hBAl0ax6W0Q"
+                title="AI Generate Tutorial"
+                frameborder="0"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
 
           <!-- Course + title -->
           <div class="card mb-4">
@@ -341,6 +406,33 @@
     </div>
   </div>
 
+  <script>
+    (function() {
+      if (localStorage.getItem('pritis_tutorial_ai_generate')) {
+        const el = document.getElementById('tutorial-card');
+        if (el) el.style.display = 'none';
+      }
+    })();
+    function dismissTutorial(key) {
+      localStorage.setItem('pritis_tutorial_' + key, '1');
+      const el = document.getElementById('tutorial-card');
+      if (!el) return;
+      el.style.transition = 'opacity 0.25s, transform 0.25s';
+      el.style.opacity = '0';
+      el.style.transform = 'scale(0.97)';
+      setTimeout(() => {
+        el.style.maxHeight = el.offsetHeight + 'px';
+        el.style.overflow = 'hidden';
+        requestAnimationFrame(() => {
+          el.style.transition = 'opacity 0.25s, transform 0.25s, max-height 0.35s, margin-bottom 0.3s, padding 0.3s';
+          el.style.maxHeight = '0';
+          el.style.marginBottom = '0';
+          el.style.padding = '0';
+        });
+        setTimeout(() => el.remove(), 360);
+      }, 250);
+    }
+  </script>
   <script type="module" src="js/ai-generate.js"></script>
 </body>
 </html>
