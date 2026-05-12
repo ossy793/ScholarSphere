@@ -78,51 +78,65 @@
     /* ── Hero ── */
     .hero {
       min-height: 100vh;
-      background: linear-gradient(135deg, #050D1E 0%, #061A40 35%, #0A3080 65%, #0055CC 100%);
+      background:
+        linear-gradient(160deg,
+          rgba(5, 13, 40, 0.90) 0%,
+          rgba(0, 45, 120, 0.82) 28%,
+          rgba(0, 80, 180, 0.68) 52%,
+          rgba(60, 140, 220, 0.52) 72%,
+          rgba(173, 216, 230, 0.60) 88%,
+          rgba(225, 240, 255, 0.65) 100%
+        ),
+        url('assets/hero-bg.jpg') center / cover no-repeat;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       text-align: center; padding: 120px 5% 80px; position: relative; overflow: hidden;
     }
+    /* Subtle light-leak glow top-left */
     .hero::before {
-      content: ''; position: absolute; width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(0,119,255,0.25) 0%, transparent 65%);
-      top: -150px; left: -150px; pointer-events: none;
+      content: ''; position: absolute; width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,119,255,0.20) 0%, transparent 65%);
+      top: -100px; left: -100px; pointer-events: none;
     }
+    /* Soft bottom-right warm tone */
     .hero::after {
-      content: ''; position: absolute; width: 500px; height: 500px;
-      background: radial-gradient(circle, rgba(0,200,255,0.18) 0%, transparent 65%);
-      bottom: -80px; right: -80px; pointer-events: none;
+      content: ''; position: absolute; width: 480px; height: 480px;
+      background: radial-gradient(circle, rgba(173,216,230,0.22) 0%, transparent 65%);
+      bottom: -60px; right: -60px; pointer-events: none;
     }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 7px;
-      background: rgba(0,119,255,0.18); border: 1px solid rgba(0,119,255,0.4);
+      background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.35);
       border-radius: 100px; padding: 6px 18px;
-      font-size: 0.8rem; font-weight: 600; color: #80CCFF;
-      margin-bottom: 28px; backdrop-filter: blur(6px);
+      font-size: 0.8rem; font-weight: 600; color: #d0eaff;
+      margin-bottom: 28px; backdrop-filter: blur(8px);
     }
     .hero h1 {
       font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 900; line-height: 1.1;
       color: #fff; max-width: 860px; margin-bottom: 22px; letter-spacing: -0.03em;
+      text-shadow: 0 2px 24px rgba(0,20,80,0.35);
     }
     .hero h1 em {
       font-style: normal;
-      background: linear-gradient(90deg, #60BFFF, #00C8FF);
+      background: linear-gradient(90deg, #60BFFF, #00E0FF);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
     .hero p {
-      font-size: clamp(1rem, 2vw, 1.18rem); color: rgba(255,255,255,0.7);
+      font-size: clamp(1rem, 2vw, 1.18rem); color: rgba(255,255,255,0.82);
       max-width: 600px; margin: 0 auto 40px; line-height: 1.75;
+      text-shadow: 0 1px 12px rgba(0,10,50,0.4);
     }
     .hero-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
     .hero-visual { margin-top: 64px; position: relative; z-index: 1; max-width: 920px; width: 100%; }
     .hero-mockup {
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--radius-lg); padding: 20px; backdrop-filter: blur(10px); text-align: left;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: var(--radius-lg); padding: 20px; backdrop-filter: blur(12px); text-align: left;
+      box-shadow: 0 24px 64px rgba(0,10,60,0.35);
     }
     .mock-topbar { display: flex; align-items: center; gap: 7px; margin-bottom: 16px; }
     .mock-dot { width: 11px; height: 11px; border-radius: 50%; }
     .mock-dot-r { background: #ff5f57; } .mock-dot-y { background: #febc2e; } .mock-dot-g { background: #28c840; }
-    .mock-title { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-left: auto; }
+    .mock-title { font-size: 0.75rem; color: rgba(255,255,255,0.40); margin-left: auto; }
     .mock-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .mock-col { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; }
     .mock-col-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--cyan); margin-bottom: 10px; }
@@ -356,6 +370,25 @@
       transition: all 0.15s; font-family: inherit; box-shadow: 0 4px 16px rgba(0,119,255,0.35);
     }
     .btn-pricing-pro:hover { background: #0055CC; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,119,255,0.45); }
+    /* Cycle toggle */
+    .lp-cycle-toggle {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px; padding: 4px; margin-bottom: 40px;
+    }
+    .lp-cycle-btn {
+      padding: 8px 22px; border-radius: 9px; border: none; cursor: pointer;
+      font-size: 0.88rem; font-weight: 600; font-family: inherit;
+      background: none; color: #94a3b8; transition: all 0.18s;
+    }
+    .lp-cycle-btn.active { background: #0077FF; color: #fff; box-shadow: 0 2px 12px rgba(0,119,255,0.4); }
+    .lp-save-chip {
+      font-size: 0.65rem; font-weight: 700; background: rgba(34,197,94,0.2);
+      color: #4ade80; border-radius: 999px; padding: 2px 8px; margin-left: 4px;
+    }
+    /* Pro card — white */
+    .pricing-card.pro-max { background: #fff; border-color: #818cf8; border-width: 2px; }
+    .pricing-card.pro-max:hover { border-color: #6366f1; box-shadow: 0 12px 40px rgba(99,102,241,0.18); }
     @media (max-width: 900px) {
       .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
     }
@@ -983,6 +1016,15 @@
     <span class="section-label anim-up">Pricing</span>
     <h2 class="anim-up" style="transition-delay:0.08s">Upgrade Your Plan</h2>
     <p class="anim-up" style="transition-delay:0.16s">Unlock more features and study smarter</p>
+
+    <!-- Billing cycle toggle -->
+    <div class="lp-cycle-toggle anim-up" style="transition-delay:0.22s">
+      <button class="lp-cycle-btn active" id="lp-btn-weekly" onclick="lpSetCycle('weekly')">Weekly</button>
+      <button class="lp-cycle-btn" id="lp-btn-monthly" onclick="lpSetCycle('monthly')">
+        Monthly <span class="lp-save-chip">Save more</span>
+      </button>
+    </div>
+
     <div class="pricing-grid" data-stagger>
 
       <!-- Free plan -->
@@ -998,11 +1040,12 @@
         <div class="pricing-divider"></div>
         <ul class="pricing-features">
           <li><span class="pf-check">✓</span> 3 AI Generates · 20 questions max</li>
-          <li><span class="pf-check">✓</span> 3 Study Zone sessions · 30 min</li>
+          <li><span class="pf-check">✓</span> 10 Study Zone sessions · 20 min</li>
           <li><span class="pf-check">✓</span> 2 Quiz uploads</li>
+          <li><span class="pf-check">✓</span> YouTube resources (10/month)</li>
+          <li><span class="pf-check">✓</span> Visual Explanation (10/month)</li>
           <li><span class="pf-check">✓</span> Groq &amp; ChatGPT models</li>
-          <li class="muted"><span class="pf-cross">✗</span> YouTube resources</li>
-          <li class="muted"><span class="pf-cross">✗</span> Visual Explanation</li>
+          <li class="muted"><span class="pf-cross">✗</span> Ask Friends</li>
           <li class="muted"><span class="pf-cross">✗</span> Claude model</li>
         </ul>
         <button class="btn-pricing-free" onclick="scrollToAuth()">Current Plan</button>
@@ -1014,20 +1057,20 @@
         <div class="pricing-plan-icon">✨</div>
         <div class="pricing-plan-name-lg">Basic</div>
         <div class="pricing-original">
-          <span class="pricing-strike">₦1,000</span>
-          <span class="pricing-sale-tag">50% OFF</span>
+          <span class="pricing-strike" id="lp-basic-original">₦1,000</span>
+          <span class="pricing-sale-tag" id="lp-basic-tag">50% OFF</span>
         </div>
         <div class="pricing-price">
           <span class="pricing-currency">₦</span>
-          <span class="pricing-amount">500</span>
-          <span class="pricing-period-inline">/week</span>
+          <span class="pricing-amount" id="lp-basic-amount">500</span>
+          <span class="pricing-period-inline" id="lp-basic-period">/week</span>
         </div>
         <div class="pricing-desc">Everything you need to study effectively</div>
         <div class="pricing-divider"></div>
         <ul class="pricing-features">
           <li><span class="pf-check">✓</span> Unlimited Study &amp; AI Generate</li>
-          <li><span class="pf-check">✓</span> YouTube resources (10/month)</li>
-          <li><span class="pf-check">✓</span> Visual Explanation (10/month)</li>
+          <li><span class="pf-check">✓</span> YouTube resources (30/month)</li>
+          <li><span class="pf-check">✓</span> Visual Explanation (30/month)</li>
           <li><span class="pf-check">✓</span> Ask Friends feature</li>
           <li><span class="pf-check">✓</span> Groq, ChatGPT &amp; Claude models</li>
           <li class="muted"><span class="pf-cross">✗</span> Unlimited YouTube &amp; Visual</li>
@@ -1039,27 +1082,27 @@
       <div class="pricing-card pro-max">
         <div class="pricing-badge pro-badge">Pro Max</div>
         <div class="pricing-plan-icon">🚀</div>
-        <div class="pricing-plan-name-lg" style="color:#fff">Pro</div>
+        <div class="pricing-plan-name-lg">Pro</div>
         <div class="pricing-original">
-          <span class="pricing-strike" style="color:#94a3b8">₦1,500</span>
-          <span class="pricing-sale-tag pro-sale">Save 33%</span>
+          <span class="pricing-strike" id="lp-pro-original">₦1,500</span>
+          <span class="pricing-sale-tag pro-sale" id="lp-pro-tag">Save 33%</span>
         </div>
         <div class="pricing-price">
-          <span class="pricing-currency" style="color:#fff">₦</span>
-          <span class="pricing-amount" style="color:#fff">1,000</span>
-          <span class="pricing-period-inline" style="color:#94a3b8">/week</span>
+          <span class="pricing-currency">₦</span>
+          <span class="pricing-amount" id="lp-pro-amount">1,000</span>
+          <span class="pricing-period-inline" id="lp-pro-period">/week</span>
         </div>
-        <div class="pricing-desc" style="color:#94a3b8">Full access, zero restrictions</div>
-        <div class="pricing-divider" style="background:rgba(255,255,255,0.1)"></div>
+        <div class="pricing-desc">Full access, zero restrictions</div>
+        <div class="pricing-divider"></div>
         <ul class="pricing-features">
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> Everything in Basic</li>
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> Unlimited YouTube &amp; Visual</li>
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> AI Study Recommendations</li>
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> All AI models — Groq, ChatGPT, Claude</li>
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> No daily or monthly limits</li>
-          <li style="color:#cbd5e1"><span class="pf-check">✓</span> Priority fast response</li>
+          <li><span class="pf-check">✓</span> Everything in Basic</li>
+          <li><span class="pf-check">✓</span> Unlimited YouTube &amp; Visual</li>
+          <li><span class="pf-check">✓</span> AI Study Recommendations</li>
+          <li><span class="pf-check">✓</span> All AI models — Groq, ChatGPT, Claude</li>
+          <li><span class="pf-check">✓</span> No daily or monthly limits</li>
+          <li><span class="pf-check">✓</span> Priority fast response</li>
         </ul>
-        <button class="btn-pricing-pro" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">Get Pro ↗</button>
+        <button class="btn-pricing-pro" style="background:linear-gradient(135deg,#6366f1,#4f46e5)" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">Get Pro ↗</button>
       </div>
 
     </div>
@@ -1068,7 +1111,7 @@
   <!-- ── CTA ── -->
   <section class="cta-section">
     <h2 class="anim-up">Start learning the smarter way today</h2>
-    <p class="anim-up" style="transition-delay:0.12s">Create your free Pritis account and transform the way you study. No credit card required — always free to start.</p>
+    <p class="anim-up" style="transition-delay:0.12s">Create your free Pritis account and transform the way you study.</p>
     <button class="btn btn-white btn-xl anim-up" style="transition-delay:0.24s" onclick="scrollToAuth(); setTimeout(()=>showTab&&showTab('register'),400)">🚀 Get Started</button>
   </section>
 
@@ -1136,6 +1179,27 @@
     window.addEventListener('scroll', () => {
       navbar.classList.toggle('scrolled', window.scrollY > 10);
     });
+
+    // Landing page pricing cycle toggle
+    const _LP_PRICES = {
+      weekly:  { basic: { amount: '500',   original: '₦1,000', tag: '50% OFF', period: '/week'  },
+                 pro:   { amount: '1,000', original: '₦1,500', tag: 'Save 33%', period: '/week' } },
+      monthly: { basic: { amount: '1,500', original: '₦3,000', tag: '50% OFF', period: '/month' },
+                 pro:   { amount: '3,000', original: '₦4,000', tag: 'Save 25%', period: '/month' } },
+    };
+    function lpSetCycle(c) {
+      document.getElementById('lp-btn-weekly') .classList.toggle('active', c === 'weekly');
+      document.getElementById('lp-btn-monthly').classList.toggle('active', c === 'monthly');
+      const p = _LP_PRICES[c];
+      document.getElementById('lp-basic-amount').textContent   = p.basic.amount;
+      document.getElementById('lp-basic-original').textContent = p.basic.original;
+      document.getElementById('lp-basic-tag').textContent      = p.basic.tag;
+      document.getElementById('lp-basic-period').textContent   = p.basic.period;
+      document.getElementById('lp-pro-amount').textContent     = p.pro.amount;
+      document.getElementById('lp-pro-original').textContent   = p.pro.original;
+      document.getElementById('lp-pro-tag').textContent        = p.pro.tag;
+      document.getElementById('lp-pro-period').textContent     = p.pro.period;
+    }
 
     // Scroll to auth section
     function scrollToAuth() {

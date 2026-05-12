@@ -199,12 +199,21 @@
 
         <!-- ── Pricing Section ── -->
         <div class="dash-pricing-section">
-          <div class="dash-pricing-header">
-            <h2 class="dash-pricing-title">Upgrade Your Plan</h2>
-            <p class="dash-pricing-sub">Unlock more features and study smarter</p>
+          <div class="dash-pricing-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <h2 class="dash-pricing-title">Upgrade Your Plan</h2>
+              <p class="dash-pricing-sub">Unlock more features and study smarter</p>
+            </div>
+            <!-- Cycle toggle -->
+            <div class="dash-cycle-toggle">
+              <button class="dash-cycle-btn active" id="dash-btn-weekly" onclick="dashSetCycle('weekly')">Weekly</button>
+              <button class="dash-cycle-btn" id="dash-btn-monthly" onclick="dashSetCycle('monthly')">
+                Monthly <span class="dash-cycle-save">Save more</span>
+              </button>
+            </div>
           </div>
 
-          <div class="dash-pricing-grid">
+          <div class="dash-pricing-grid" style="margin-top:16px">
 
             <!-- Free -->
             <div class="dash-price-card">
@@ -216,12 +225,12 @@
               </div>
               <ul class="dash-plan-feats">
                 <li class="yes">3 AI Generates · 20 questions max</li>
-                <li class="yes">3 Study Zone sessions · 30 min</li>
+                <li class="yes">10 Study Zone sessions · 20 min</li>
                 <li class="yes">2 Quiz uploads</li>
+                <li class="yes">YouTube resources (10/month)</li>
+                <li class="yes">Visual Explanation (10/month)</li>
                 <li class="yes">Groq &amp; ChatGPT models</li>
-                <li class="no">YouTube resources</li>
-                <li class="no">Visual Explanation</li>
-                <li class="no">Claude model</li>
+                <li class="no">Ask Friends · Claude model</li>
               </ul>
               <a href="dashboard.html" class="dash-plan-btn dash-plan-btn-ghost">Current Plan</a>
             </div>
@@ -232,17 +241,17 @@
               <div class="dash-price-card-top">
                 <div class="dash-plan-icon">✨</div>
                 <div class="dash-plan-name">Basic</div>
-                <div class="dash-plan-amount">
-                  <span class="dash-orig-price">₦1,000</span>
-                  <span class="dash-off-badge">50% OFF</span><br>
-                  ₦500<span>/week</span>
+                <div class="dash-plan-amount" id="dash-basic-price">
+                  <span class="dash-orig-price" id="dash-basic-orig">₦1,000</span>
+                  <span class="dash-off-badge" id="dash-basic-tag">50% OFF</span><br>
+                  <span id="dash-basic-amt">₦500</span><span id="dash-basic-period">/week</span>
                 </div>
                 <div class="dash-plan-tagline">Everything you need to study effectively</div>
               </div>
               <ul class="dash-plan-feats">
                 <li class="yes">Unlimited Study &amp; AI Generate</li>
-                <li class="yes">YouTube resources (10/month)</li>
-                <li class="yes">Visual Explanation (10/month)</li>
+                <li class="yes">YouTube resources (30/month)</li>
+                <li class="yes">Visual Explanation (30/month)</li>
                 <li class="yes">Ask Friends feature</li>
                 <li class="yes">Groq, ChatGPT &amp; Claude models</li>
                 <li class="no">Unlimited YouTube &amp; Visual</li>
@@ -256,10 +265,10 @@
               <div class="dash-price-card-top">
                 <div class="dash-plan-icon">🚀</div>
                 <div class="dash-plan-name">Pro</div>
-                <div class="dash-plan-amount">
-                  <span class="dash-orig-price">₦1,500</span>
-                  <span class="dash-off-badge">33% OFF</span><br>
-                  ₦1,000<span>/week</span>
+                <div class="dash-plan-amount" id="dash-pro-price">
+                  <span class="dash-orig-price" id="dash-pro-orig">₦1,500</span>
+                  <span class="dash-off-badge" id="dash-pro-tag">33% OFF</span><br>
+                  <span id="dash-pro-amt">₦1,000</span><span id="dash-pro-period">/week</span>
                 </div>
                 <div class="dash-plan-tagline">Full access, zero restrictions</div>
               </div>
@@ -474,6 +483,27 @@
 
   <script type="module" src="js/dashboard.js"></script>
   <script>
+    // ── Dashboard pricing cycle toggle ──────────────────────────────────────────
+    const _DASH_PRICES = {
+      weekly:  { basic: { amt: '₦500',   orig: '₦1,000', tag: '50% OFF', period: '/week'  },
+                 pro:   { amt: '₦1,000', orig: '₦1,500', tag: '33% OFF', period: '/week'  } },
+      monthly: { basic: { amt: '₦1,500', orig: '₦3,000', tag: '50% OFF', period: '/month' },
+                 pro:   { amt: '₦3,000', orig: '₦4,000', tag: '25% OFF', period: '/month' } },
+    };
+    function dashSetCycle(c) {
+      document.getElementById('dash-btn-weekly') .classList.toggle('active', c === 'weekly');
+      document.getElementById('dash-btn-monthly').classList.toggle('active', c === 'monthly');
+      const p = _DASH_PRICES[c];
+      document.getElementById('dash-basic-amt').textContent    = p.basic.amt;
+      document.getElementById('dash-basic-orig').textContent   = p.basic.orig;
+      document.getElementById('dash-basic-tag').textContent    = p.basic.tag;
+      document.getElementById('dash-basic-period').textContent = p.basic.period;
+      document.getElementById('dash-pro-amt').textContent      = p.pro.amt;
+      document.getElementById('dash-pro-orig').textContent     = p.pro.orig;
+      document.getElementById('dash-pro-tag').textContent      = p.pro.tag;
+      document.getElementById('dash-pro-period').textContent   = p.pro.period;
+    }
+
     let _deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();

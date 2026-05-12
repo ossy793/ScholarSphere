@@ -98,6 +98,10 @@ def login_user(payload: LoginRequest, db: Session) -> dict:
         return {"requires_2fa": True, "pre_auth_token": pre_token}
 
     user.last_login_at = datetime.utcnow()
+
+    from ..utils.access import _handle_subscription_expiry
+    _handle_subscription_expiry(db, user)
+
     db.commit()
 
     token = create_access_token(str(user.id))

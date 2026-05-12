@@ -127,9 +127,10 @@ async function loadPlanCard() {
 
   if (plan === 'free') {
     const items = [
-      { key: 'ai_generate',     label: 'AI Generate',    limit: usage.ai_generate?.limit     ?? 3 },
-      { key: 'study_zone',      label: 'Study Zone',     limit: usage.study_zone?.limit      ?? 3 },
-      { key: 'input_questions', label: 'Input Questions', limit: usage.input_questions?.limit ?? 3 },
+      { key: 'ai_generate',     label: 'AI Generate',   limit: usage.ai_generate?.limit     ?? 3  },
+      { key: 'study_zone',      label: 'Study Zone',    limit: usage.study_zone?.limit      ?? 10 },
+      { key: 'youtube_resources',  label: 'YouTube',    limit: usage.youtube_resources?.limit  ?? 10 },
+      { key: 'visual_explanation', label: 'Visual',     limit: usage.visual_explanation?.limit ?? 10 },
     ];
     const bars = items.map(({ key, label, limit }) =>
       usageBar(label, usage[key]?.used ?? 0, limit)
@@ -141,14 +142,14 @@ async function loadPlanCard() {
 
   } else if (plan === 'basic') {
     const resourcesUsed = usage.youtube_resources?.used  ?? 0;
-    const resourcesLim  = usage.youtube_resources?.limit ?? 10;
+    const resourcesLim  = usage.youtube_resources?.limit ?? 30;
     const visualUsed    = usage.visual_explanation?.used  ?? 0;
-    const visualLim     = usage.visual_explanation?.limit ?? 10;
+    const visualLim     = usage.visual_explanation?.limit ?? 30;
 
     rightSection = `
       ${dateRow(startStr, expiryStr, daysRemaining)}
       <div class="plan-usage-row" style="flex-wrap:wrap;gap:6px">
-        ${usageBar('Resources', resourcesUsed, resourcesLim)}
+        ${usageBar('YouTube', resourcesUsed, resourcesLim)}
         ${usageBar('Visual Explain', visualUsed, visualLim)}
       </div>
       <a href="upgrade.html" class="plan-upgrade-btn pro-btn">Go Max ↗</a>`;
@@ -178,8 +179,8 @@ async function loadPlanCard() {
 }
 
 function _planDesc(plan) {
-  if (plan === 'free')  return '3 AI Generates · 3 Study sessions · 3 Input uploads (15 questions max)';
-  if (plan === 'basic') return 'Unlimited core · Claude model · 10 Resources & Visual/month';
+  if (plan === 'free')  return '3 AI Generates · 10 Study sessions · YouTube & Visual (10/month)';
+  if (plan === 'basic') return 'Unlimited core · Claude model · YouTube & Visual (30/month)';
   if (plan === 'pro' || plan === 'max') return 'Full access · All models (Groq, ChatGPT, Claude) · No limits';
   return '';
 }

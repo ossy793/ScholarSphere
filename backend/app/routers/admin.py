@@ -857,6 +857,65 @@ def finance_payments(
     }
 
 
+@router.get("/finance/subscriptions")
+def finance_subscriptions(
+    admin: User    = Depends(get_current_admin),
+    db:    Session = Depends(get_db),
+):
+    """Return all users with an active or recently-expired subscription."""
+    now = datetime.utcnow()
+
+    # Latest payment cycle per user (to determine weekly/monthly)
+    latest_txn_sq = (
+        db.query(
+            PaymentTransaction.user_id,
+            func.max(PaymentTransaction.paid_at).label("latest_paid"),
+        )
+        .group_by(PaymentTransaction.user_id)
+        .subquery()
+    )
+    cycle_sq = (
+        db.query(
+            PaymentTransaction.user_id,
+            PaymentTransaction.cycle,
+        )
+        .join(
+            latest_txn_sq,
+            (PaymentTransaction.user_id == latest_txn_sq.c.user_id)
+            & (PaymentTransaction.paid_at == latest_txn_sq.c.latest_paid),
+        )
+        .subquery()
+    )
+
+    rows = (
+        db.query(User, cycle_sq.c.cycle)
+        .outerjoin(cycle_sq, User.id == cycle_sq.c.user_id)
+        .filter(User.subscription_plan.in_(["basic", "max", "pro"]))
+        .filter(User.is_admin == False)  # noqa: E712
+        .order_by(User.subscription_expiry.desc())
+        .all()
+    )
+
+    result = []
+    for user, cycle in rows:
+        expiry = user.subscription_expiry
+        is_active = expiry and expiry > now
+        days_remaining = max(0, (expiry - now).days) if expiry and is_active else 0
+        result.append({
+            "id":                str(user.id),
+            "full_name":         user.full_name or "—",
+            "email":             user.email or "—",
+            "plan":              user.subscription_plan,
+            "cycle":             cycle or "—",
+            "start":             user.subscription_start.isoformat()  if user.subscription_start  else None,
+            "expiry":            expiry.isoformat() if expiry else None,
+            "days_remaining":    days_remaining,
+            "status":            "active" if is_active else "expired",
+        })
+
+    return {"subscriptions": result, "total": len(result)}
+
+
 @router.get("/finance/export/pdf")
 def finance_export_pdf(
     admin: User    = Depends(get_current_admin),

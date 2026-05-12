@@ -324,19 +324,35 @@
 }
 .dash-price-highlight:hover { box-shadow: 0 6px 28px rgba(0,119,255,0.2); }
 
-/* Pro card */
+/* Pro card — white with indigo accent */
 .dash-price-pro {
-  background: linear-gradient(160deg, #0a0f1e 0%, #0d1a40 100%);
-  border-color: rgba(0,119,255,0.4);
+  background: var(--bg-card);
+  border-color: #818cf8;
+  border-width: 2px;
 }
-.dash-price-pro .dash-plan-name,
-.dash-price-pro .dash-plan-amount,
-.dash-price-pro .dash-plan-amount span,
-.dash-price-pro .dash-plan-tagline { color: rgba(255,255,255,0.9); }
-.dash-price-pro .dash-plan-feats li { color: rgba(255,255,255,0.7); }
-.dash-price-pro .dash-plan-feats li.yes::before { color: #60efff; }
-.dash-price-pro .dash-plan-feats li.no { color: rgba(255,255,255,0.3); }
-.dash-price-pro:hover { box-shadow: 0 8px 32px rgba(0,119,255,0.3); }
+.dash-price-pro:hover { box-shadow: 0 8px 32px rgba(99,102,241,0.2); border-color: #6366f1; }
+.dash-pro-badge { background: linear-gradient(90deg, #6366f1, #818cf8); color: #fff; }
+.dash-plan-btn-pro {
+  background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff;
+  box-shadow: 0 2px 14px rgba(99,102,241,0.35);
+}
+
+/* Cycle toggle */
+.dash-cycle-toggle {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 3px;
+}
+.dash-cycle-btn {
+  padding: 6px 16px; border-radius: 7px; border: none; cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; font-family: inherit;
+  background: none; color: var(--text-muted); transition: all 0.15s;
+}
+.dash-cycle-btn.active { background: var(--primary); color: #fff; box-shadow: 0 1px 8px rgba(0,119,255,0.35); }
+.dash-cycle-save {
+  font-size: 0.6rem; font-weight: 700; background: rgba(34,197,94,0.15);
+  color: #16a34a; border-radius: 999px; padding: 1px 6px; margin-left: 3px;
+}
 
 .dash-popular-badge, .dash-pro-badge {
   position: absolute;

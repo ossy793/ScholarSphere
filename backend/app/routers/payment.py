@@ -6,7 +6,7 @@ Cycles: weekly (7 days) | monthly (30 days)
 
 Pricing (kobo) — discounted launch prices:
   basic  weekly  = 50 000  (₦500  · was ₦1 000 · 50% OFF)
-  basic  monthly = 180 000 (₦1 800 · was ₦3 000 · 40% OFF)
+  basic  monthly = 150 000 (₦1 500 · was ₦3 000 · 50% OFF)
   max    weekly  = 100 000 (₦1 000 · was ₦1 500 · 33% OFF)
   max    monthly = 300 000 (₦3 000 · was ₦4 000 · 25% OFF)
 
@@ -50,7 +50,7 @@ router = APIRouter(prefix="/payment", tags=["payment"])
 _PLANS = {
     "basic": {
         "weekly":  {"kobo":  50_000, "original_kobo": 100_000, "discount_pct": 50, "days": 7,  "label": "₦500 / week"},
-        "monthly": {"kobo": 180_000, "original_kobo": 300_000, "discount_pct": 40, "days": 30, "label": "₦1,800 / month"},
+        "monthly": {"kobo": 150_000, "original_kobo": 300_000, "discount_pct": 50, "days": 30, "label": "₦1,500 / month"},
     },
     "max": {
         "weekly":  {"kobo": 100_000, "original_kobo": 150_000, "discount_pct": 33, "days": 7,  "label": "₦1,000 / week"},

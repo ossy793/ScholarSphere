@@ -786,7 +786,7 @@ let _financeTotalPages = 1;
 let _chartInstances = {};
 
 async function loadFinance() {
-  await Promise.all([loadFinanceStats(), loadPayments(1)]);
+  await Promise.all([loadFinanceStats(), loadPayments(1), loadSubscriptions()]);
 }
 
 async function loadFinanceStats() {
@@ -867,6 +867,56 @@ window.changePaymentPage = function (dir) {
   if (next < 1 || next > _financeTotalPages) return;
   loadPayments(next);
 };
+
+async function loadSubscriptions() {
+  const tbody = document.getElementById('subs-tbody');
+  const badge = document.getElementById('subs-count-badge');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading…</td></tr>';
+  try {
+    const data = await api.get('/admin/finance/subscriptions');
+    const subs = data.subscriptions || [];
+
+    if (badge) badge.textContent = `${subs.length} subscriber${subs.length !== 1 ? 's' : ''}`;
+
+    const fmtDate = (iso) => iso
+      ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '—';
+
+    if (!subs.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No active subscriptions.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = subs.map(s => {
+      const planBadge = s.plan === 'max' || s.plan === 'pro'
+        ? '<span class="badge badge-pro">PRO</span>'
+        : '<span class="badge" style="background:#dbeafe;color:#1e40af">BASIC</span>';
+      const statusBadge = s.status === 'active'
+        ? '<span class="badge" style="background:#dcfce7;color:#166534">Active</span>'
+        : '<span class="badge" style="background:#fee2e2;color:#991b1b">Expired</span>';
+      const cycleLabel = s.cycle === 'weekly' ? 'Weekly' : s.cycle === 'monthly' ? 'Monthly' : s.cycle;
+      const daysLeft = s.status === 'active'
+        ? `<span style="font-weight:700;color:${s.days_remaining <= 2 ? '#ef4444' : s.days_remaining <= 5 ? '#f59e0b' : 'var(--success)'}">${s.days_remaining}d</span>`
+        : '—';
+      return `
+        <tr>
+          <td>
+            <div class="user-name">${escHtml(s.full_name)}</div>
+            <div class="user-email">${escHtml(s.email)}</div>
+          </td>
+          <td>${planBadge}</td>
+          <td style="color:var(--text-muted);font-size:.82rem">${escHtml(cycleLabel)}</td>
+          <td style="color:var(--text-muted);white-space:nowrap">${fmtDate(s.start)}</td>
+          <td style="color:var(--text-muted);white-space:nowrap">${fmtDate(s.expiry)}</td>
+          <td>${daysLeft}</td>
+          <td>${statusBadge}</td>
+        </tr>`;
+    }).join('');
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-empty" style="color:var(--danger)">Failed: ${escHtml(err.message)}</td></tr>`;
+  }
+}
 
 window.copyAllEmails = async function () {
   const btn = document.getElementById('copy-emails-btn');

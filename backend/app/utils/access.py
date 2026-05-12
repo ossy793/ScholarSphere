@@ -2,8 +2,8 @@
 Feature access control and usage tracking.
 
 Tier matrix:
-  free  → hard limits on core features; groq/openai only; no claude/youtube/visual/friends
-  basic → unlimited core; groq/openai/claude; 10/month youtube + visual
+  free  → limited core features; groq/openai only; 10/month youtube + visual; no claude/friends
+  basic → unlimited core; groq/openai/claude; 30/month youtube + visual
   max   → no restrictions
   admin → always treated as max (no restrictions)
 
@@ -34,9 +34,9 @@ PLAN_LIMITS: dict[str, dict] = {
     "free": {
         "input_questions":    {"limit": 3,  "reset_days": None, "max_q": 15},
         "ai_generate":        {"limit": 3,  "reset_days": None, "max_q": 20},
-        "study_zone":         {"limit": 3,  "reset_days": None, "session_mins": 20},
-        "youtube_resources":  None,
-        "visual_explanation": None,
+        "study_zone":         {"limit": 10, "reset_days": None, "session_mins": 20},
+        "youtube_resources":  {"limit": 10, "reset_days": 30},
+        "visual_explanation": {"limit": 10, "reset_days": 30},
         "ask_friends":        None,
         "ai_recommendations": None,
         "challenge":          {},
@@ -49,8 +49,8 @@ PLAN_LIMITS: dict[str, dict] = {
         "input_questions":    {},
         "ai_generate":        {"max_q": 50},
         "study_zone":         {},
-        "youtube_resources":  {"limit": 10, "reset_days": 30},
-        "visual_explanation": {"limit": 10, "reset_days": 30},
+        "youtube_resources":  {"limit": 30, "reset_days": 30},
+        "visual_explanation": {"limit": 30, "reset_days": 30},
         "ask_friends":        {},
         "ai_recommendations": {},
         "challenge":          {},
@@ -78,9 +78,8 @@ PLAN_LIMITS: dict[str, dict] = {
 PLAN_LIMITS["pro"] = PLAN_LIMITS["max"]
 
 # Which plan first unlocks a feature (used in upgrade error messages)
+# Only features that are None (completely blocked) on the free plan need an entry here.
 _FEATURE_MIN_PLAN: dict[str, str] = {
-    "youtube_resources":  "basic",
-    "visual_explanation": "basic",
     "ask_friends":        "basic",
     "ai_recommendations": "basic",
     "model_claude":       "basic",
@@ -147,6 +146,36 @@ def _next_plan(current: str) -> str:
     return PLAN_ORDER[min(idx + 1, len(PLAN_ORDER) - 1)]
 
 
+def _handle_subscription_expiry(db: "Session", user) -> None:
+    """
+    Called at the start of every access check.  When a paid subscription has
+    just expired this function:
+      1. Resets every FeatureUsage counter to 0 (fresh start on the free tier).
+      2. Writes subscription_plan = "free" so subsequent calls skip the reset.
+
+    This guarantees that downgraded users never inherit leftover quota from
+    their paid period and can start their free allowance from scratch.
+    """
+    from ..models.feature_usage import FeatureUsage
+
+    plan = getattr(user, "subscription_plan", "free") or "free"
+    if plan not in ("basic", "max", "pro"):
+        return  # Already free — nothing to do
+
+    expiry = getattr(user, "subscription_expiry", None)
+    if not expiry or datetime.utcnow() <= expiry:
+        return  # Still active or admin-granted (no expiry)
+
+    # Subscription has expired: wipe counters and downgrade stored plan
+    now = datetime.utcnow()
+    rows = db.query(FeatureUsage).filter(FeatureUsage.user_id == user.id).all()
+    for row in rows:
+        row.usage_count  = 0
+        row.period_start = now
+    user.subscription_plan = "free"
+    db.commit()
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def check_access(
@@ -163,6 +192,7 @@ def check_access(
 
     Pass increment=True to record one usage unit atomically with the check.
     """
+    _handle_subscription_expiry(db, user)
     plan   = effective_plan(user)
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"]).get(feature)
 
@@ -220,6 +250,7 @@ def check_access(
 def get_usage_status(db: "Session", user) -> dict:
     """Return a summary of the user's current usage across all tracked features."""
     from ..models.feature_usage import FeatureUsage
+    _handle_subscription_expiry(db, user)
     plan = effective_plan(user)
     rows = {
         r.feature_name: r

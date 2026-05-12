@@ -350,6 +350,30 @@
             </div>
           </div>
 
+          <!-- Subscriptions table -->
+          <div class="admin-toolbar" style="margin-top:28px">
+            <h2>Active Subscriptions</h2>
+            <span id="subs-count-badge" style="font-size:.78rem;color:var(--text-muted)"></span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Plan</th>
+                  <th>Type</th>
+                  <th>Start Date</th>
+                  <th>Expiry Date</th>
+                  <th>Days Left</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="subs-tbody">
+                <tr><td colspan="7" class="table-loading">Loading subscriptions…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
       </div><!-- /#tab-finance -->
 

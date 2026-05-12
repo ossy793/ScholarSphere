@@ -8,7 +8,7 @@ let _selectedPlan = null;   // 'basic' | 'max'
 const _PRICES = {
   basic: {
     weekly:  { kobo:  50000, original_kobo: 100000, discount_pct: 50, label: '₦500',   original_label: '₦1,000' },
-    monthly: { kobo: 180000, original_kobo: 300000, discount_pct: 40, label: '₦1,800', original_label: '₦3,000' },
+    monthly: { kobo: 150000, original_kobo: 300000, discount_pct: 50, label: '₦1,500', original_label: '₦3,000' },
   },
   max: {
     weekly:  { kobo: 100000, original_kobo: 150000, discount_pct: 33, label: '₦1,000', original_label: '₦1,500' },
