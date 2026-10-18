@@ -1,0 +1,10 @@
+Hello {{ full_name }},
+
+{% if kind == "deadline_day" %}Today is the last day to pay.{% else %}3 days left to pay.{% endif %}
+
+{{ title }} for {{ class_name }} closes on {{ deadline }}. Total to pay: {{ total }}.
+After the deadline the due closes and can't be paid online.
+
+Pay now: {{ link }}
+
+Already paid? You can ignore this email; it may have crossed with your payment.

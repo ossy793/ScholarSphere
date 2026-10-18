@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      {% if kind == "requested" %}
+      <p style="margin:0 0 16px;font-size:17px;font-weight:bold;">A refund is waiting for approval</p>
+      <p style="margin:0 0 16px;">{{ requested_by }} asked to refund payment <strong>{{ reference }}</strong> ({{ amount }}).</p>
+      <p style="margin:0 0 16px;padding:12px;background:#F0F6FF;border-radius:10px;"><strong>Reason:</strong> {{ reason }}</p>
+      {% else %}
+      <p style="margin:0 0 16px;font-size:17px;font-weight:bold;color:#DC2626;">A refund failed</p>
+      <p style="margin:0 0 16px;">The refund of payment <strong>{{ reference }}</strong> ({{ amount }}) didn't go through. The rep's share is back on their balance; it can be requested again.</p>
+      <p style="margin:0 0 16px;padding:12px;background:#FFF0F0;border-radius:10px;"><strong>Paystack said:</strong> {{ reason }}</p>
+      {% endif %}
+      <p style="margin:0;"><a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open refunds</a></p>
+    </td></tr>
+  </table>
+</body>
+</html>

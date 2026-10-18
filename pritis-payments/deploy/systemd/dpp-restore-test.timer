@@ -1,0 +1,10 @@
+# /etc/systemd/system/dpp-restore-test.timer — the monthly restore test (design section 12).
+[Unit]
+Description=Monthly Pritis Class Dues restore test
+
+[Timer]
+OnCalendar=*-*-01 03:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

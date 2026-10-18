@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify your email · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/verify-email.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <a class="brand" href="/"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Verify your email</h1>
+      <p class="muted">We sent a 6-digit code to <strong id="email"></strong>. It expires in 10 minutes.</p>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+      <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+      <form id="code-form" novalidate>
+        <label>Verification code
+          <input class="code-input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9]{6}" maxlength="6" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Verify</button>
+      </form>
+
+      <p class="muted small center">
+        Didn't get it? Check your spam folder, or
+        <button type="button" class="btn-link" id="resend">send a new code</button>
+      </p>
+      <p class="small center"><a id="later" href="/dashboard.html">I'll do this later</a></p>
+    </section>
+  </main>
+</body>
+</html>

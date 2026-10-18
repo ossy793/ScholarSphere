@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      {% if audience == "student" %}
+        {% if kind == "requested" %}
+      <p style="margin:0 0 16px;">We've started a refund of your payment for <strong>{{ title }}</strong>. It needs one more approval; we'll email you at each step.</p>
+        {% elif kind == "approved" %}
+      <p style="margin:0 0 16px;">Your refund for <strong>{{ title }}</strong> is approved. <strong>{{ amount }}</strong> is on its way back to the card or account you paid with. Banks can take a few working days to show it.</p>
+        {% elif kind == "processed" %}
+      <p style="margin:0 0 16px;font-size:17px;font-weight:bold;color:#15803D;">Refund complete</p>
+      <p style="margin:0 0 16px;"><strong>{{ amount }}</strong> for <strong>{{ title }}</strong> has been sent back to the card or account you paid with. If your class still needs this due, you can pay it again.</p>
+        {% elif kind == "rejected" %}
+      <p style="margin:0 0 16px;">The refund of your payment for <strong>{{ title }}</strong> wasn't approved, so your payment stands.</p>
+      <p style="margin:0 0 16px;padding:12px;background:#FFF0F0;border-radius:10px;"><strong>Reason:</strong> {{ reason }}</p>
+        {% else %}
+      <p style="margin:0 0 16px;">The refund of your payment for <strong>{{ title }}</strong> didn't go through, so your payment stands for now. Our team will look into it.</p>
+        {% endif %}
+      {% else %}
+        {% if kind == "requested" %}
+      <p style="margin:0 0 16px;">A refund has been requested for <strong>{{ student_name }}</strong>'s payment for <strong>{{ title }}</strong>. If it's approved, their share comes off your balance.</p>
+        {% elif kind == "approved" %}
+      <p style="margin:0 0 16px;">A refund for <strong>{{ student_name }}</strong>'s payment for <strong>{{ title }}</strong> is approved. <strong>{{ share }}</strong> is reserved from your balance while Paystack sends it.</p>
+        {% elif kind == "processed" %}
+      <p style="margin:0 0 16px;"><strong>{{ student_name }}</strong> has been refunded for <strong>{{ title }}</strong>. <strong>{{ share }}</strong> has come off your balance. If you were already paid out, it comes off your next payments.</p>
+        {% elif kind == "rejected" %}
+      <p style="margin:0 0 16px;">The refund requested for <strong>{{ student_name }}</strong>'s payment for <strong>{{ title }}</strong> wasn't approved. Nothing changes on your balance.</p>
+        {% else %}
+      <p style="margin:0 0 16px;">The refund for <strong>{{ student_name }}</strong>'s payment for <strong>{{ title }}</strong> didn't go through, so <strong>{{ share }}</strong> is back on your balance.</p>
+        {% endif %}
+      {% endif %}
+      <p style="margin:0;"><a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">{% if audience == "student" %}Open your dashboard{% else %}Open your rep dashboard{% endif %}</a></p>
+    </td></tr>
+  </table>
+</body>
+</html>

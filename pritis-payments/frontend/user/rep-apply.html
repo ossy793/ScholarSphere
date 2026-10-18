@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Become a class rep · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/rep-apply.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <a class="btn btn-inline" href="/dashboard.html?view=student">Student view</a>
+  </header>
+
+  <main class="page">
+    <h1>Become a class rep</h1>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="muted" id="loading">Loading…</p>
+
+    <!-- Shown while an application is being reviewed -->
+    <section class="card" id="pending" hidden>
+      <h2>Your application is being reviewed</h2>
+      <p class="muted">We're checking your details and proof of studentship for <strong id="pending-class"></strong>. We'll email you as soon as it's decided, usually within a day.</p>
+      <p class="muted small">Until then you can still pay dues as a student.</p>
+    </section>
+
+    <!-- Must verify email / finish profile first -->
+    <section class="card" id="not-ready" hidden>
+      <h2>One step first</h2>
+      <p class="muted" id="not-ready-text"></p>
+      <a class="btn btn-primary" id="not-ready-link" href="/verify-email.html"></a>
+    </section>
+
+    <form id="apply-form" class="card" novalidate hidden>
+      <p class="alert alert-error" id="rejected" hidden></p>
+      <p class="muted">Verified reps can create dues for their class and receive the money collected. Our team checks every application.</p>
+
+      <h2 class="subhead">About you</h2>
+      <label>Full name (as on your school ID)
+        <input type="text" name="full_name" autocomplete="name" required minlength="2" maxlength="200">
+      </label>
+      <label>Matric number
+        <input type="text" name="matric_no" required maxlength="30" autocapitalize="characters">
+      </label>
+      <label>Phone number
+        <input type="tel" name="phone" inputmode="tel" autocomplete="tel-national" placeholder="0803 123 4567" required>
+      </label>
+
+      <h2 class="subhead">Your class</h2>
+      <label>University
+        <input type="text" name="university" list="universities" autocomplete="off" placeholder="Start typing, e.g. UNILAG" required>
+        <datalist id="universities"></datalist>
+      </label>
+      <label>Department
+        <input type="text" name="department" required maxlength="200" placeholder="e.g. Computer Science">
+      </label>
+      <div class="form-grid cols-2">
+        <label>Level
+          <select name="level" required>
+            <option value="">Choose level</option>
+            <option value="100">100 level</option>
+            <option value="200">200 level</option>
+            <option value="300">300 level</option>
+            <option value="400">400 level</option>
+            <option value="500">500 level</option>
+          </select>
+        </label>
+        <label>Academic session
+          <select name="session" required id="session"></select>
+        </label>
+      </div>
+      <label>Class name
+        <input type="text" name="class_name" required maxlength="200" placeholder="e.g. Computer Science 200 Level">
+        <span class="muted small">What your classmates will see on dues.</span>
+      </label>
+
+      <h2 class="subhead">Proof you're a student</h2>
+      <label>School ID card, or a screenshot of your student email
+        <input type="file" name="proof" accept="image/jpeg,image/png,image/webp,application/pdf" required>
+        <span class="muted small">JPG, PNG, WebP or PDF, up to 5 MB. Only our verification team sees it.</span>
+      </label>
+
+      <h2 class="subhead">Where payouts go</h2>
+      <label>Bank
+        <select name="bank_code" required id="bank"><option value="">Loading banks…</option></select>
+      </label>
+      <label>Account number
+        <input type="text" name="account_number" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" required placeholder="10 digits">
+      </label>
+      <p class="alert" id="account-name" aria-live="polite" hidden></p>
+
+      <button type="submit" class="btn btn-primary">Submit application</button>
+    </form>
+  </main>
+</body>
+</html>

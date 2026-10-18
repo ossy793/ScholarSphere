@@ -1,0 +1,13 @@
+.env
+*.env
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+backend/var/
+
+# The design document stays private (the repository is public).
+docs/*.pdf

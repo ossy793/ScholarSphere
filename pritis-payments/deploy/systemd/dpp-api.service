@@ -1,0 +1,27 @@
+# /etc/systemd/system/dpp-api.service — the Pritis Class Dues API (both sites' /api).
+[Unit]
+Description=Pritis Class Dues API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=dpp
+Group=dpp
+WorkingDirectory=/srv/pritis-dues/repo/pritis-payments/backend
+EnvironmentFile=/etc/pritis-dues/env
+# Only Nginx on this machine talks to it; it trusts X-Forwarded-For from 127.0.0.1 only.
+ExecStart=/srv/pritis-dues/venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8100 --workers 3 \
+    --proxy-headers --forwarded-allow-ips 127.0.0.1 \
+    --no-server-header
+Restart=always
+RestartSec=3
+# Hardening: the service can write only where it must.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/pritis-dues/var
+
+[Install]
+WantedBy=multi-user.target

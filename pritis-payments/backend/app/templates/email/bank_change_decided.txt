@@ -1,0 +1,11 @@
+Hello {{ full_name }},
+
+{% if approved -%}
+Your payout account is now {{ account }}. Payouts are back on.
+{%- else -%}
+We couldn't approve your new payout account ({{ account }}). Your previous account stays in use.
+
+Reason: {{ reason }}
+{%- endif %}
+
+{{ link }}

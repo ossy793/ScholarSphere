@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      {% if kind == "approved" %}
+      <p style="margin:0 0 16px;">Your payout of <strong>{{ amount }}</strong> is approved and on its way. <strong>{{ net }}</strong> is being sent to {{ bank }}.</p>
+      {% elif kind == "paid" %}
+      <p style="margin:0 0 16px;font-size:17px;font-weight:bold;color:#15803D;">Payout complete</p>
+      <p style="margin:0 0 16px;"><strong>{{ net }}</strong> has been sent to {{ bank }}.</p>
+      {% elif kind == "rejected" %}
+      <p style="margin:0 0 16px;">Your payout request of <strong>{{ amount }}</strong> wasn't approved. The money is back in your Available balance.</p>
+      <p style="margin:0 0 16px;padding:12px;background:#FFF0F0;border-radius:10px;"><strong>Reason:</strong> {{ reason }}</p>
+      {% else %}
+      <p style="margin:0 0 16px;">Your payout of <strong>{{ amount }}</strong> didn't go through, so the money is back in your Available balance. You can request it again.</p>
+      <p style="margin:0 0 16px;padding:12px;background:#FFF0F0;border-radius:10px;"><strong>Reason:</strong> {{ reason }}</p>
+      {% endif %}
+      <p style="margin:0;"><a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open your rep dashboard</a></p>
+    </td></tr>
+  </table>
+</body>
+</html>

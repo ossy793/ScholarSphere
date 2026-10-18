@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Payments · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/payments.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Payments</h1></div>
+    <form class="range-bar" id="search" novalidate>
+      <label>Search
+        <input type="search" name="q" placeholder="Reference, receipt number, student email or name">
+      </label>
+      <label>Status
+        <select name="status">
+          <option value="">Any</option>
+          <option value="success">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Failed</option>
+          <option value="abandoned">Abandoned</option>
+          <option value="refunded">Refunded</option>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-primary btn-inline">Search</button>
+    </form>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="muted small">Showing the 100 most recent matches.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>When</th><th>Student</th><th>Due · class</th><th class="num">Total</th><th class="num">Due</th><th class="num">Charge</th><th class="num">Paystack fee</th><th>Status</th><th>Reference · receipt</th><th>Settled</th><th>Refund</th></tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

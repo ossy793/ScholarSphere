@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Complete your profile · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/complete-profile.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <a class="brand" href="/"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Complete your profile</h1>
+      <p class="muted">Just a few details so your class rep can find you.</p>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+      <form id="profile-form" novalidate>
+        <label>Full name
+          <input type="text" name="full_name" autocomplete="name" required minlength="2" maxlength="200">
+        </label>
+        <label>Phone number
+          <input type="tel" name="phone" inputmode="tel" autocomplete="tel-national" placeholder="0803 123 4567" required>
+        </label>
+        <label>University
+          <input type="text" name="university" list="universities" autocomplete="off"
+                 placeholder="Start typing, e.g. UNILAG" required>
+          <datalist id="universities"></datalist>
+        </label>
+        <label>Level
+          <select name="level" required>
+            <option value="">Choose your level</option>
+            <option value="100">100 level</option>
+            <option value="200">200 level</option>
+            <option value="300">300 level</option>
+            <option value="400">400 level</option>
+            <option value="500">500 level</option>
+          </select>
+        </label>
+        <button type="submit" class="btn btn-primary">Continue</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

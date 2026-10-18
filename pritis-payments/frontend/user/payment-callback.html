@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirming payment · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/payment-callback.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <span class="brand"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></span>
+    <section class="card center" aria-live="polite">
+      <div id="checking">
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>Confirming your payment…</h1>
+        <p class="muted">This usually takes a few seconds. Please don't close this page.</p>
+      </div>
+
+      <div id="success" hidden>
+        <p class="big-tick" aria-hidden="true">✓</p>
+        <h1>Payment confirmed</h1>
+        <p class="muted" id="success-text"></p>
+        <a class="btn btn-primary" href="/dashboard.html">Back to your dashboard</a>
+      </div>
+
+      <div id="failed" hidden>
+        <h1>Payment didn't go through</h1>
+        <p class="muted" id="failed-text">No money was taken. You can try again.</p>
+        <a class="btn btn-primary" id="retry-link" href="/dashboard.html">Try again</a>
+      </div>
+
+      <div id="slow" hidden>
+        <h1>Still confirming</h1>
+        <p class="muted">Paystack hasn't confirmed this payment yet. If you completed it, it will show as Paid on your dashboard shortly and your receipt will be emailed to you. If you didn't complete it, you can pay again from the due.</p>
+        <a class="btn btn-primary" href="/dashboard.html">Go to your dashboard</a>
+      </div>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+    </section>
+  </main>
+</body>
+</html>

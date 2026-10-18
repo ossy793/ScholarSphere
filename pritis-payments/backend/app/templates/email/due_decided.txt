@@ -1,0 +1,22 @@
+Hello {{ full_name }},
+
+{% if approved -%}
+{% if kind == "edit" -%}
+Your change to "{{ title }}" ({{ class_name }}) is approved. Students now see the new terms.
+{%- else -%}
+Your due "{{ title }}" ({{ class_name }}) is approved. Switch it live on your rep dashboard,
+then share its link with your class.
+{%- endif %}
+{%- else -%}
+{% if kind == "edit" -%}
+Your change to "{{ title }}" ({{ class_name }}) wasn't approved. The current terms stay live.
+{%- else -%}
+Your due "{{ title }}" ({{ class_name }}) wasn't approved.
+{%- endif %}
+
+Reason: {{ reason }}
+
+You can edit it and submit again.
+{%- endif %}
+
+{{ link }}

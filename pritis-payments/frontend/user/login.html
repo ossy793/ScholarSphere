@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/login.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <a class="brand" href="/"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Log in</h1>
+
+      <div class="role-switch" role="group" aria-label="Log in as">
+        <button type="button" data-role="student" aria-pressed="true">I'm a student</button>
+        <button type="button" data-role="rep" aria-pressed="false">I'm a class rep</button>
+      </div>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+      <form id="login-form" novalidate>
+        <label>Email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Log in</button>
+        <p class="small center"><a id="forgot-link" href="/forgot-password.html">Forgot password?</a></p>
+      </form>
+
+      <div class="divider">or</div>
+      <a class="btn" id="google" href="/api/user/auth/google">Continue with Google</a>
+
+      <p class="muted small center">New here? <a id="signup-link" href="/signup.html">Create an account</a></p>
+    </section>
+  </main>
+</body>
+</html>

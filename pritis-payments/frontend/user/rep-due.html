@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Due · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/rep-due.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/rep.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Rep</span></span></a>
+    <a class="btn btn-inline" href="/rep.html">Back to dashboard</a>
+  </header>
+
+  <main class="page">
+    <h1 id="title">Create a due</h1>
+    <p class="alert alert-warning" id="live-note" hidden>This due is approved. Your changes will be checked by Pritis first; until then students keep seeing and paying the current terms.</p>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+    <form id="due-form" class="card" novalidate hidden>
+      <label>Title
+        <input type="text" name="title" required minlength="3" maxlength="120" placeholder="e.g. CSC201 Handout 2026">
+      </label>
+      <label>Description (optional)
+        <textarea name="description" rows="3" maxlength="2000" placeholder="What the money is for"></textarea>
+      </label>
+      <label>Amount per student (₦)
+        <input type="text" name="amount" inputmode="decimal" required placeholder="e.g. 5000">
+        <span class="muted small" id="amount-help">Students pay this plus a small service charge, included in the single total they see.</span>
+      </label>
+      <label>Deadline (Lagos time)
+        <input type="datetime-local" name="deadline" required>
+        <span class="muted small">After this the due closes and can't be paid. You can ask to extend it later.</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" name="require_matric">
+        <span>Students must enter their matric number to pay</span>
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary btn-inline" data-submit="true" id="submit-button">Submit for approval</button>
+        <button type="submit" class="btn btn-inline" data-submit="false" id="draft-button">Save as draft</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

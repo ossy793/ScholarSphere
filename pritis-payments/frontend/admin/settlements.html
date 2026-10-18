@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Settlements · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/settlements.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Settlements</h1></div>
+    <p class="muted small">When Paystack pays a payment out to Pritis's bank, the rep's share moves from <strong>Pending</strong> to <strong>Available</strong>, and only Available money can be paid out. The worker checks Paystack every hour. If Paystack's settlement data isn't available, tick the payments you can see on the bank statement and mark them settled.</p>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <section class="panel" id="recon-panel">
+      <h2>Last nightly check</h2>
+      <p id="recon-summary" class="muted"></p>
+      <ul class="changes" id="recon-items"></ul>
+    </section>
+
+    <section class="panel">
+      <div class="page-head">
+        <h2>Not yet settled</h2>
+        <span class="muted small" id="totals"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-all" aria-label="Select all"></th>
+              <th>Paid</th><th>Class · rep</th><th>Reference</th><th class="num">Student paid</th><th class="num">Paystack fee</th><th class="num">Rep's share</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <form id="mark-form" class="form-grid cols-2" novalidate>
+        <label>Bank statement reference
+          <input type="text" name="bank_reference" maxlength="100" placeholder="e.g. GTB statement 17 Oct, line 12">
+        </label>
+        <div class="actions align-end">
+          <button type="submit" class="btn btn-primary btn-inline" id="mark-button" disabled>Mark selected as settled</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Background jobs</h2>
+      <p class="muted small">If a job's last run is old or shows an error, the worker may have stopped. Start it with <span class="mono">python -m app.worker</span>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Job</th><th>Schedule</th><th>Last run</th><th>Result</th></tr></thead>
+          <tbody id="jobs"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

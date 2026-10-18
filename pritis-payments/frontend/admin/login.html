@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Staff log in · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/login.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <span class="brand"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Admin</span></span></span>
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Staff log in</h1>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+      <!-- Step 1: password -->
+      <form id="password-form" novalidate>
+        <label>Email
+          <input type="email" name="email" autocomplete="username" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Continue</button>
+      </form>
+
+      <!-- Step 2: authenticator code -->
+      <form id="code-form" novalidate hidden>
+        <p class="muted">Open your authenticator app and enter the 6-digit code for <strong>Pritis Class Dues</strong>.</p>
+        <label>Authenticator code
+          <input class="code-input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9]{6}" maxlength="6" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Log in</button>
+        <p class="small center"><button type="button" class="btn-link" id="back">Use a different account</button></p>
+      </form>
+
+      <p class="muted small center">Lost your phone or can't log in? Ask the super admin to reset your authenticator.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# /etc/systemd/system/dpp-worker.service — background jobs: emails, webhook retries,
+# payment and transfer/refund checks, settlements, reminders, nightly reconciliation.
+# Exactly one should run (each job also takes a PostgreSQL lock, so a second can't double up).
+[Unit]
+Description=Pritis Class Dues worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=dpp
+Group=dpp
+WorkingDirectory=/srv/pritis-dues/repo/pritis-payments/backend
+EnvironmentFile=/etc/pritis-dues/env
+ExecStart=/srv/pritis-dues/venv/bin/python -m app.worker
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/pritis-dues/var
+
+[Install]
+WantedBy=multi-user.target

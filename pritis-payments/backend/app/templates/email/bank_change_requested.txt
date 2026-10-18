@@ -1,0 +1,6 @@
+{{ rep_name }} ({{ class_name }}) wants to change their payout bank account to:
+
+{{ new_account }}
+
+Their payouts are paused until you approve or reject it:
+{{ link }}

@@ -1,0 +1,13 @@
+{% if kind == "requested" -%}
+A refund is waiting for approval.
+
+{{ requested_by }} asked to refund payment {{ reference }} ({{ amount }}).
+Reason: {{ reason }}
+{%- else -%}
+A refund failed.
+
+The refund of payment {{ reference }} ({{ amount }}) didn't go through. The rep's share is back on their balance; it can be requested again.
+Paystack said: {{ reason }}
+{%- endif %}
+
+{{ link }}

@@ -1,0 +1,3 @@
+# Files that run on the Linux server keep Unix line endings, whatever the editor.
+*.sh text eol=lf
+deploy/** text eol=lf

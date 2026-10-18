@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Payouts · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/payouts.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head">
+      <h1>Payouts</h1>
+      <div class="stat">
+        <span class="stat-label">Paystack balance</span>
+        <span class="stat-value" id="balance">…</span>
+      </div>
+    </div>
+    <p class="muted small">Approving sends the net amount from the Paystack balance to the rep's verified account. Top up the Paystack balance if it can't cover a transfer and its fee.</p>
+
+    <nav class="tabs" aria-label="Show">
+      <a href="?tab=requested" data-tab="requested">Waiting</a>
+      <a href="?tab=processing" data-tab="processing">Being sent</a>
+      <a href="?tab=paid" data-tab="paid">Paid</a>
+      <a href="?tab=rejected" data-tab="rejected">Rejected</a>
+      <a href="?tab=failed" data-tab="failed">Failed</a>
+      <a href="?tab=bank" data-tab="bank">Bank account changes</a>
+    </nav>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <div id="list"></div>
+  </main>
+</body>
+</html>

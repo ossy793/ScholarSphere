@@ -1,0 +1,9 @@
+Hello {{ full_name }},
+
+Your Pritis Class Dues verification code is:
+
+    {{ code }}
+
+It expires in {{ minutes }} minutes. Enter it on the verification page to confirm your email.
+
+If you did not create an account, you can ignore this email.

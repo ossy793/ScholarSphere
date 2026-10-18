@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Reports · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script src="/shared/vendor/chart.umd.min.js"></script>
+  <script type="module" src="/js/reports.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Reports</h1></div>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+    <section>
+      <h2 class="subhead">All time</h2>
+      <div class="stat-row" id="tiles"></div>
+    </section>
+
+    <section class="panel">
+      <form class="range-bar" id="range" novalidate>
+        <nav class="tabs" aria-label="Period">
+          <a href="#" data-days="7">Last 7 days</a>
+          <a href="#" data-days="30">Last 30 days</a>
+          <a href="#" data-days="90">Last 90 days</a>
+          <a href="#" data-days="mtd">This month</a>
+        </nav>
+        <label>From <input type="date" name="from"></label>
+        <label>To <input type="date" name="to"></label>
+        <button type="submit" class="btn btn-inline">Show</button>
+        <span class="actions push-right">
+          <a class="btn btn-inline" id="csv" href="#">Payments CSV</a>
+          <a class="btn btn-inline" id="pdf" href="#">Statement PDF</a>
+        </span>
+      </form>
+      <div class="stat-row" id="period-tiles"></div>
+    </section>
+
+    <div class="chart-grid cols-2">
+      <div class="chart-box">
+        <h3>Revenue by month</h3>
+        <p class="chart-note">Platform revenue from service charges (after Paystack's fees) and payout fees</p>
+        <div class="chart-canvas"><canvas id="c-revenue" aria-label="Revenue by month"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Owed to reps vs paid out</h3>
+        <p class="chart-note">End-of-day balance owed to reps, and payouts sent so far</p>
+        <div class="chart-canvas"><canvas id="c-owed" aria-label="Owed to reps versus paid out"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Payments per day</h3>
+        <p class="chart-note">Number of successful payments</p>
+        <div class="chart-canvas"><canvas id="c-count" aria-label="Payments per day, count"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Value paid per day</h3>
+        <p class="chart-note">What students paid, service charge included</p>
+        <div class="chart-canvas"><canvas id="c-value" aria-label="Payments per day, value"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Payment channel mix</h3>
+        <p class="chart-note">How students paid</p>
+        <div class="chart-canvas"><canvas id="c-channel" aria-label="Payment channel mix"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Payout requests by status</h3>
+        <p class="chart-note">Requested in this period</p>
+        <div class="chart-canvas"><canvas id="c-payouts" aria-label="Payout requests by status"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div class="chart-box">
+        <h3>Collections by class</h3>
+        <p class="chart-note">Dues collected (reps' share)</p>
+        <div class="chart-canvas"><canvas id="c-class" aria-label="Collections by class"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2>Nightly checks</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ran</th><th>For day</th><th>Result</th><th>Problems</th></tr></thead>
+          <tbody id="recon"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

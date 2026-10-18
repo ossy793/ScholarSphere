@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Class due · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/due.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <section class="card" aria-live="polite">
+      <p class="muted" id="loading">Opening your due…</p>
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+      <div id="due" hidden>
+        <p class="muted small" id="class-name"></p>
+        <h1 id="due-title"></h1>
+        <p class="muted" id="due-description"></p>
+        <p class="muted small" id="due-deadline"></p>
+
+        <!-- Paid -->
+        <div id="paid" hidden>
+          <p class="alert alert-success">You've paid this due. Thank you!</p>
+          <p class="muted small" id="receipt-note">Your receipt was emailed to you. Can't find it? Check your spam folder.</p>
+          <button type="button" class="btn" id="resend-receipt">Email me the receipt again</button>
+        </div>
+
+        <!-- Closed -->
+        <p class="alert alert-error" id="closed-note" hidden>This due is closed. The deadline has passed, so it can no longer be paid. If you think this is a mistake, contact your class rep.</p>
+
+        <!-- Unpaid: the three lines, then pay -->
+        <form id="pay-form" novalidate hidden>
+          <table class="quote" aria-label="What you'll pay">
+            <tr class="quote-total"><th scope="row">Total</th><td id="q-total"></td></tr>
+          </table>
+          <label id="matric-field" hidden>Matric number
+            <input type="text" name="matric_no" maxlength="30" autocapitalize="characters" placeholder="Your class rep asks for it">
+          </label>
+          <p class="alert alert-warning small" id="verify-note" hidden></p>
+          <button type="submit" class="btn btn-primary" id="pay">Pay</button>
+          <p class="muted small center">You'll pay securely on Paystack (card, bank transfer or USSD), then come back here.</p>
+        </form>
+      </div>
+
+      <p class="small center"><a href="/dashboard.html">Go to your dashboard</a></p>
+    </section>
+  </main>
+</body>
+</html>

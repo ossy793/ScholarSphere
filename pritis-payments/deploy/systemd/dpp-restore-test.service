@@ -1,0 +1,11 @@
+# /etc/systemd/system/dpp-restore-test.service — proves the latest backup restores.
+[Unit]
+Description=Pritis Class Dues backup restore test
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=dpp
+Group=dpp
+EnvironmentFile=/etc/pritis-dues/env
+ExecStart=/srv/pritis-dues/repo/pritis-payments/deploy/scripts/restore-test.sh

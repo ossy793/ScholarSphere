@@ -1,0 +1,11 @@
+# /etc/systemd/system/dpp-backup.service — nightly encrypted database backup to R2.
+[Unit]
+Description=Pritis Class Dues database backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=dpp
+Group=dpp
+EnvironmentFile=/etc/pritis-dues/env
+ExecStart=/srv/pritis-dues/repo/pritis-payments/deploy/scripts/backup.sh

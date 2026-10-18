@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      {% if reset|default(false) %}
+      <p style="margin:0 0 16px;">{{ invited_by }} has reset your Pritis Class Dues admin sign-in, usually because of a lost or new phone. Your old password and authenticator no longer work.</p>
+      {% else %}
+      <p style="margin:0 0 16px;">{{ invited_by }} has invited you to the Pritis Class Dues admin site as <strong>{{ role }}</strong>.</p>
+      {% endif %}
+      <p style="margin:0 0 20px;">
+        <a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">{% if reset|default(false) %}Set up sign-in again{% else %}Set up your account{% endif %}</a>
+      </p>
+      <p style="margin:0 0 16px;">The link expires in {{ hours }} hours and works once. You will need an authenticator app on your phone, such as Google Authenticator or Microsoft Authenticator.</p>
+      <p style="margin:0;color:#4A6080;font-size:13px;">If you were not expecting this, tell the super admin.</p>
+    </td></tr>
+  </table>
+</body>
+</html>

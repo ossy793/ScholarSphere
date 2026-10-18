@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Set up your account · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/accept-invite.js"></script>
+</head>
+<body>
+  <main class="auth">
+    <span class="brand"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Admin</span></span></span>
+    <section class="card" aria-labelledby="title">
+      <h1 id="title">Set up your staff account</h1>
+
+      <p class="alert alert-error" id="error" role="alert" hidden></p>
+      <p class="muted" id="loading">Checking your invitation…</p>
+
+      <form id="accept-form" novalidate hidden>
+        <p class="muted">Welcome, <strong id="who"></strong>. You're joining as <strong id="role"></strong>.</p>
+
+        <label>Email
+          <input type="email" name="email" autocomplete="username" readonly>
+        </label>
+        <label>Choose a password
+          <input type="password" name="password" autocomplete="new-password" required maxlength="128"
+                 aria-describedby="password-rules">
+          <ul class="password-rules" id="password-rules" aria-live="polite"></ul>
+        </label>
+        <label>Confirm password
+          <input type="password" name="confirm_password" autocomplete="new-password" required maxlength="128">
+        </label>
+
+        <h2 class="subhead">Set up your authenticator app</h2>
+        <ol class="steps">
+          <li>Install an authenticator app on your phone, such as Google Authenticator or Microsoft Authenticator.</li>
+          <li>In the app, add an account and scan this code.</li>
+          <li>Type the 6-digit code the app shows.</li>
+        </ol>
+        <img class="qr" id="qr" alt="QR code to add Pritis Class Dues to your authenticator app">
+        <p class="muted small center">Can't scan? Enter this key in the app instead:</p>
+        <p class="mono center" id="secret"></p>
+
+        <label>Code from the app
+          <input class="code-input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9]{6}" maxlength="6" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Finish setup</button>
+      </form>
+
+      <div id="done" hidden>
+        <p class="alert alert-success">Your account is ready. Log in with your email, password and a code from your app.</p>
+        <a class="btn btn-primary" href="/login.html">Go to staff log in</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

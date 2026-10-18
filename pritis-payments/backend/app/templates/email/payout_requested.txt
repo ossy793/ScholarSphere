@@ -1,0 +1,5 @@
+{{ rep_name }} ({{ class_name }}) has requested a payout of {{ amount }}.
+After the service charge, {{ net }} will be sent to their bank.
+
+Review it on the admin site:
+{{ link }}

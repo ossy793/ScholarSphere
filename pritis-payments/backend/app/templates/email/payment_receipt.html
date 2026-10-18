@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#15803D;">Payment confirmed</p>
+      <p style="margin:0 0 4px;font-weight:bold;">{{ title }}</p>
+      <p style="margin:0 0 16px;color:#4A6080;">{{ class_name }}</p>
+      <table role="presentation" width="100%" style="border-collapse:collapse;margin:0 0 16px;">
+        <tr><td style="padding:8px 0;border-top:1px solid #D6E4F7;font-weight:bold;">Total paid</td><td style="padding:8px 0;border-top:1px solid #D6E4F7;text-align:right;font-weight:bold;">{{ total }}</td></tr>
+      </table>
+      <p style="margin:0 0 4px;color:#4A6080;font-size:13px;">Receipt number: {{ receipt_no }}</p>
+      <p style="margin:0 0 16px;color:#4A6080;font-size:13px;">Reference: {{ reference }}</p>
+      <p style="margin:0 0 20px;">Your PDF receipt is attached.</p>
+      <p style="margin:0;">
+        <a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open your dashboard</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>

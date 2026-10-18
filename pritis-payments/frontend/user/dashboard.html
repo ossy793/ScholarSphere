@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/dashboard.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <button type="button" class="btn btn-inline" id="logout">Log out</button>
+  </header>
+
+  <main class="page" id="main" hidden>
+    <div class="alert alert-warning banner" id="verify-banner" hidden>
+      <span>Verify your email before you can pay dues.</span>
+      <a class="btn btn-inline" id="verify-link" href="/verify-email.html">Enter code</a>
+    </div>
+
+    <div>
+      <h1>Hello, <span id="name"></span></h1>
+      <p class="muted" id="email"></p>
+    </div>
+
+    <nav class="tabs" aria-label="View" id="view-tabs" hidden>
+      <a href="/dashboard.html?view=student" data-view="student">Student</a>
+      <a href="/rep.html" data-view="rep">Class rep</a>
+    </nav>
+
+    <section class="panel" id="student-view" hidden>
+      <h2>Your dues</h2>
+      <p class="muted small" id="classes-text"></p>
+      <div id="dues"></div>
+    </section>
+
+    <section class="panel" id="history-section" hidden>
+      <h2>Payment history</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Due</th><th class="num">Paid</th><th>Date</th><th>Receipt</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <p class="alert alert-error page" id="error" role="alert" hidden></p>
+</body>
+</html>

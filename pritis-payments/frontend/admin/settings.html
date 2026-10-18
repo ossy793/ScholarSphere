@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Settings · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/settings.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Settings</h1></div>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="saved" role="status" hidden>Settings saved. The change is in the audit log.</p>
+
+    <form id="settings-form" novalidate>
+      <section class="panel">
+        <h2>Student service charge</h2>
+        <p class="muted small">Students pay the due plus one service charge: the Paystack part plus the platform part. They only ever see the total charge. The approver can change the platform part for a single due.</p>
+        <div class="form-grid cols-2">
+          <label>Paystack part
+            <span class="input-suffix"><input type="text" name="paystack_fee_percent" inputmode="decimal" required><span>%</span></span>
+          </label>
+          <label>Platform part (default)
+            <span class="input-suffix"><input type="text" name="platform_fee_percent" inputmode="decimal" required><span>%</span></span>
+          </label>
+        </div>
+        <p class="muted small" id="charge-example"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Rep payouts</h2>
+        <p class="muted small">Taken from each payout: the platform fee on the dues paid out, plus Paystack's transfer fee for that payout.</p>
+        <label>Payout platform fee
+          <span class="input-suffix"><input type="text" name="payout_fee_percent" inputmode="decimal" required><span>%</span></span>
+        </label>
+        <h3 class="subhead">Paystack transfer fees</h3>
+        <p class="muted small">Check these against Paystack's pricing page. Leave "up to" empty on the last row: it covers every larger payout.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Payouts up to (₦)</th><th>Transfer fee (₦)</th><th></th></tr></thead>
+            <tbody id="bands"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-inline" id="add-band">Add a band</button>
+      </section>
+
+      <section class="panel">
+        <h2>Limits</h2>
+        <label>Maximum due amount (₦)
+          <input type="text" name="max_due_amount" inputmode="decimal" required>
+          <span class="muted small">Dues above this amount can only be approved by the super admin.</span>
+        </label>
+      </section>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary btn-inline">Save settings</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

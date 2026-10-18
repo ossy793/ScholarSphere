@@ -1,0 +1,9 @@
+{% if kind == "edit" -%}
+{{ rep_name }} has asked to change a live due for {{ class_name }}: "{{ title }}".
+Students keep paying the current terms until the change is approved.
+{%- else -%}
+{{ rep_name }} has submitted a new due for {{ class_name }}: "{{ title }}".
+{%- endif %}
+
+Review it on the admin site:
+{{ link }}

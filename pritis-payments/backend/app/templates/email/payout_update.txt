@@ -1,0 +1,17 @@
+Hello {{ full_name }},
+
+{% if kind == "approved" -%}
+Your payout of {{ amount }} is approved and on its way. {{ net }} is being sent to {{ bank }}.
+{%- elif kind == "paid" -%}
+Your payout is complete: {{ net }} has been sent to {{ bank }}.
+{%- elif kind == "rejected" -%}
+Your payout request of {{ amount }} wasn't approved. The money is back in your Available balance.
+
+Reason: {{ reason }}
+{%- else -%}
+Your payout of {{ amount }} didn't go through, so the money is back in your Available balance. You can request it again.
+
+Reason: {{ reason }}
+{%- endif %}
+
+{{ link }}

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rep dashboard · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script src="/shared/vendor/chart.umd.min.js"></script>
+  <script type="module" src="/js/rep.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/rep.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Rep</span></span></a>
+    <span class="actions">
+      <a class="btn btn-inline" href="/dashboard.html?view=student">Student view</a>
+      <button type="button" class="btn btn-inline" id="logout">Log out</button>
+    </span>
+  </header>
+
+  <main class="page" id="main" hidden>
+    <div>
+      <h1 id="class-name"></h1>
+      <p class="muted" id="class-meta"></p>
+    </div>
+
+    <p class="alert alert-error" id="action-error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <section class="panel">
+      <div class="page-head">
+        <h2>Dues</h2>
+        <a class="btn btn-primary btn-inline" href="/rep-due.html">Create a due</a>
+      </div>
+      <p class="muted small">New dues and changes are checked by Pritis before students see them. Once a due is approved, switch it live and share its link with your class.</p>
+      <div class="chart-box" id="collect-chart-box" hidden>
+        <h3>Collected and outstanding</h3>
+        <p class="chart-note">Per approved due, in naira</p>
+        <div class="chart-canvas"><canvas id="c-collect" aria-label="Collected and outstanding per due"></canvas></div>
+        <details class="chart-table"><summary>Show as table</summary></details>
+      </div>
+      <div id="dues"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Your class</h2>
+      <p><strong id="member-count"></strong> <span class="muted">students have joined so far.</span></p>
+      <p class="muted small">Students join your class when they open a dues link you share.</p>
+    </section>
+
+    <section class="panel" id="wallet-section">
+      <h2>Money collected</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-label">Pending</span>
+          <span class="stat-value" id="pending"></span>
+          <span class="muted small">Paid by students, waiting for Paystack to settle (usually 1 business day).</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Available</span>
+          <span class="stat-value" id="available"></span>
+          <span class="muted small">Settled and ready to be paid out.</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">On hold</span>
+          <span class="stat-value" id="held"></span>
+          <span class="muted small">In a payout that's waiting for approval or being sent.</span>
+        </div>
+      </div>
+      <p class="alert alert-warning small" id="refund-held" hidden></p>
+
+      <h3 class="subhead">Request a payout</h3>
+      <p class="alert alert-warning small" id="payout-blocked" hidden></p>
+      <form id="payout-form" novalidate hidden>
+        <div class="form-grid cols-2">
+          <label>Amount (₦)
+            <input type="text" name="amount" inputmode="decimal" placeholder="e.g. 5000">
+            <button type="button" class="btn-link small" id="payout-all">Pay out everything Available</button>
+          </label>
+          <table class="quote" aria-label="Your payout">
+            <tr><th scope="row">Payout</th><td id="pq-amount">—</td></tr>
+            <tr><th scope="row">Service charge</th><td id="pq-charge">—</td></tr>
+            <tr class="quote-total"><th scope="row">You receive</th><td id="pq-net">—</td></tr>
+          </table>
+        </div>
+        <button type="submit" class="btn btn-primary btn-inline" id="payout-button" disabled>Request payout</button>
+        <p class="muted small">Pritis checks every payout before it's sent to your account below.</p>
+      </form>
+
+      <h3 class="subhead">Payout history</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Requested</th><th class="num">Payout</th><th class="num">You receive</th><th>Status</th></tr></thead>
+          <tbody id="payouts"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Payout account</h2>
+      <p id="bank"></p>
+      <p class="muted small">Payouts can only go to this verified account.</p>
+      <p class="alert alert-warning small" id="change-status" hidden></p>
+      <button type="button" class="btn btn-inline" id="change-toggle">Change payout account</button>
+      <form id="change-form" novalidate hidden>
+        <p class="muted small">Your new account is checked by Pritis before it's used. Payouts are paused until then.</p>
+        <div class="form-grid cols-2">
+          <label>Bank
+            <select name="bank_code" id="change-bank"><option value="">Loading banks…</option></select>
+          </label>
+          <label>Account number
+            <input type="text" name="account_number" inputmode="numeric" maxlength="10" placeholder="10 digits">
+          </label>
+        </div>
+        <p class="alert" id="change-name" hidden></p>
+        <button type="submit" class="btn btn-primary btn-inline">Submit new account</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Students</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Matric number</th><th>Joined</th></tr></thead>
+          <tbody id="members"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <p class="alert alert-error page" id="error" role="alert" hidden></p>
+</body>
+</html>

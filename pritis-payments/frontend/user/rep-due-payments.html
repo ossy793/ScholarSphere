@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Who has paid · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/rep-due-payments.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/rep.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Rep</span></span></a>
+    <a class="btn btn-inline" href="/rep.html">Back to dashboard</a>
+  </header>
+
+  <main class="page" id="main" hidden>
+    <div class="page-head">
+      <div>
+        <h1 id="title"></h1>
+        <p class="muted small" id="updated"></p>
+      </div>
+      <span class="actions">
+        <a class="btn btn-inline" id="csv" href="#">Download CSV</a>
+        <a class="btn btn-inline" id="pdf" href="#">Download PDF</a>
+      </span>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><span class="stat-label">Paid</span><span class="stat-value" id="s-paid"></span></div>
+      <div class="stat"><span class="stat-label">Collected</span><span class="stat-value" id="s-collected"></span></div>
+      <div class="stat"><span class="stat-label">Outstanding</span><span class="stat-value" id="s-outstanding"></span></div>
+    </div>
+
+    <section class="panel">
+      <h2>Paid</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th id="matric-head">Matric number</th><th class="num">Amount</th><th>Date</th><th>Receipt</th></tr></thead>
+          <tbody id="paid"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Not yet paid</h2>
+      <p class="muted small">Students who joined your class but haven't paid this due.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Matric number</th></tr></thead>
+          <tbody id="unpaid"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <p class="alert alert-error page" id="error" role="alert" hidden></p>
+</body>
+</html>

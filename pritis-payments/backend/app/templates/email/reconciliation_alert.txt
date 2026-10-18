@@ -1,0 +1,7 @@
+The nightly check for {{ day }} found {{ count }} problem(s) ({{ status }}):
+
+{% for item in items -%}
+- {{ item }}
+{% endfor %}
+Look into it on the admin site:
+{{ link }}

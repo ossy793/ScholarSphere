@@ -1,0 +1,19 @@
+Hello {{ full_name }},
+
+{% if reset|default(false) -%}
+{{ invited_by }} has reset your Pritis Class Dues admin sign-in, usually because of a lost or
+new phone. Your old password and authenticator no longer work.
+
+Open this link to set a new password and add the account to your authenticator app again:
+{%- else -%}
+{{ invited_by }} has invited you to the Pritis Class Dues admin site as {{ role }}.
+
+Open this link to set your password and your authenticator app:
+{%- endif %}
+
+{{ link }}
+
+The link expires in {{ hours }} hours and works once. You will need an authenticator app
+on your phone, such as Google Authenticator or Microsoft Authenticator.
+
+If you were not expecting this, tell the super admin.

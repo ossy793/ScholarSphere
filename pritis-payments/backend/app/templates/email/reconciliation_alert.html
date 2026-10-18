@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 12px;font-size:17px;font-weight:bold;color:#DC2626;">Nightly check: {{ count }} problem(s)</p>
+      <p style="margin:0 0 12px;">The check for <strong>{{ day }}</strong> finished with status <strong>{{ status }}</strong>.</p>
+      <ul style="margin:0 0 16px;padding-left:18px;font-size:13px;color:#4A6080;">
+        {% for item in items %}<li style="margin-bottom:4px;">{{ item }}</li>{% endfor %}
+      </ul>
+      <p style="margin:0;">
+        <a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open the admin site</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>

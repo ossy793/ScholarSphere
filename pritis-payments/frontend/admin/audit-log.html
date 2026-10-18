@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Audit log · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/audit-log.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head">
+      <h1>Audit log</h1>
+      <label class="small">Show
+        <select id="filter">
+          <option value="">Everything</option>
+          <option value="settings.update">Settings changes</option>
+          <option value="admin.login">Staff logins</option>
+          <option value="admin.invite">Staff invitations</option>
+          <option value="admin.invite_accepted">Invitations accepted</option>
+          <option value="admin.disable">Staff disabled</option>
+          <option value="admin.enable">Staff enabled</option>
+          <option value="admin.reset_authenticator">Authenticator resets</option>
+          <option value="rep_application.approve">Rep approvals</option>
+          <option value="rep_application.reject">Rep rejections</option>
+          <option value="due.approve">Due approvals</option>
+          <option value="due.reject">Due rejections</option>
+          <option value="settlement.mark">Settlements marked</option>
+          <option value="payout.approve">Payout approvals</option>
+          <option value="payout.reject">Payout rejections</option>
+          <option value="bank_change.approve">Bank account changes approved</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>When</th><th>Who</th><th>What</th><th>Changes</th><th>IP</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <button type="button" class="btn btn-inline" id="prev">Newer</button>
+      <span class="muted small" id="page-info"></span>
+      <button type="button" class="btn btn-inline" id="next">Older</button>
+    </div>
+  </main>
+</body>
+</html>

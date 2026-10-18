@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      {% if kind == "edit" %}
+      <p style="margin:0 0 16px;">{{ rep_name }} has asked to change a live due for <strong>{{ class_name }}</strong>: "{{ title }}".</p>
+      <p style="margin:0 0 16px;color:#4A6080;">Students keep paying the current terms until the change is approved.</p>
+      {% else %}
+      <p style="margin:0 0 16px;">{{ rep_name }} has submitted a new due for <strong>{{ class_name }}</strong>: "{{ title }}".</p>
+      {% endif %}
+      <p style="margin:0;">
+        <a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Review on the admin site</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>

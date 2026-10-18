@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      {% if approved %}
+        {% if kind == "edit" %}
+        <p style="margin:0 0 16px;">Your change to <strong>{{ title }}</strong> ({{ class_name }}) is approved. Students now see the new terms.</p>
+        {% else %}
+        <p style="margin:0 0 16px;">Your due <strong>{{ title }}</strong> ({{ class_name }}) is approved. Switch it live on your rep dashboard, then share its link with your class.</p>
+        {% endif %}
+      {% else %}
+        {% if kind == "edit" %}
+        <p style="margin:0 0 16px;">Your change to <strong>{{ title }}</strong> ({{ class_name }}) wasn't approved. The current terms stay live.</p>
+        {% else %}
+        <p style="margin:0 0 16px;">Your due <strong>{{ title }}</strong> ({{ class_name }}) wasn't approved.</p>
+        {% endif %}
+        <p style="margin:0 0 16px;padding:12px;background:#FFF0F0;border-radius:10px;"><strong>Reason:</strong> {{ reason }}</p>
+        <p style="margin:0 0 16px;">You can edit it and submit again.</p>
+      {% endif %}
+      <p style="margin:0;">
+        <a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open your rep dashboard</a>
+      </p>
+    </td></tr>
+  </table>
+</body>
+</html>

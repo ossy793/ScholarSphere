@@ -1,0 +1,12 @@
+Hello {{ full_name }},
+
+Thank you, your payment is confirmed.
+
+{{ title }} ({{ class_name }})
+Total paid:     {{ total }}
+
+Receipt number: {{ receipt_no }}
+Reference:      {{ reference }}
+
+Your PDF receipt is attached. You can also download it any time from your dashboard:
+{{ link }}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Users · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/users.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Users</h1></div>
+    <form class="range-bar" id="search" novalidate>
+      <label>Search
+        <input type="search" name="q" minlength="2" placeholder="Name, email, phone or matric number" autofocus>
+      </label>
+      <button type="submit" class="btn btn-primary btn-inline">Search</button>
+    </form>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+    <div class="table-wrap" id="results-wrap" hidden>
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Matric</th><th>University · level</th><th>Joined</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+
+    <section class="panel" id="detail" hidden>
+      <h2 id="d-name"></h2>
+      <dl class="details" id="d-info"></dl>
+      <h3 class="subhead">Payments</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Due · class</th><th class="num">Total</th><th>Status</th><th>Reference</th><th>Receipt</th></tr></thead>
+          <tbody id="d-payments"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

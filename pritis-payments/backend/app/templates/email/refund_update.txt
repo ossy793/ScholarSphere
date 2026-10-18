@@ -1,0 +1,31 @@
+Hello {{ full_name }},
+
+{% if audience == "student" -%}
+{% if kind == "requested" -%}
+We've started a refund of your payment for {{ title }}. It needs one more approval; we'll email you at each step.
+{%- elif kind == "approved" -%}
+Your refund for {{ title }} is approved. {{ amount }} is on its way back to the card or account you paid with. Banks can take a few working days to show it.
+{%- elif kind == "processed" -%}
+Refund complete: {{ amount }} for {{ title }} has been sent back to the card or account you paid with. If your class still needs this due, you can pay it again.
+{%- elif kind == "rejected" -%}
+The refund of your payment for {{ title }} wasn't approved, so your payment stands.
+
+Reason: {{ reason }}
+{%- else -%}
+The refund of your payment for {{ title }} didn't go through, so your payment stands for now. Our team will look into it.
+{%- endif %}
+{%- else -%}
+{% if kind == "requested" -%}
+A refund has been requested for {{ student_name }}'s payment for {{ title }}. If it's approved, their share comes off your balance.
+{%- elif kind == "approved" -%}
+A refund for {{ student_name }}'s payment for {{ title }} is approved. {{ share }} is reserved from your balance while Paystack sends it.
+{%- elif kind == "processed" -%}
+{{ student_name }} has been refunded for {{ title }}. {{ share }} has come off your balance. If you were already paid out, it comes off your next payments.
+{%- elif kind == "rejected" -%}
+The refund requested for {{ student_name }}'s payment for {{ title }} wasn't approved. Nothing changes on your balance.
+{%- else -%}
+The refund for {{ student_name }}'s payment for {{ title }} didn't go through, so {{ share }} is back on your balance.
+{%- endif %}
+{%- endif %}
+
+{{ link }}

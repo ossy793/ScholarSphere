@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Ledger · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/ledger.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <div class="page-head"><h1>Ledger</h1></div>
+    <p class="muted small">Every money movement, as balanced debits and credits. Entries are never edited or deleted; mistakes are corrected by new entries. Click an account to see its entries, or a transaction to see all its lines.</p>
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+
+    <section class="panel">
+      <h2>Accounts</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Account</th><th>Type</th><th class="num">Entries</th><th class="num">Balance</th></tr></thead>
+          <tbody id="accounts"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Entries</h2>
+      <form class="range-bar" id="filters" novalidate>
+        <label>Account <input type="text" name="account" placeholder="e.g. platform_revenue or rep_pending:"></label>
+        <label>Kind
+          <select name="ref_type">
+            <option value="">Any</option>
+            <option value="payment">Payment</option>
+            <option value="settlement">Settlement</option>
+            <option value="payout_request">Payout requested</option>
+            <option value="payout_paid">Payout paid</option>
+            <option value="payout_release">Payout released</option>
+          </select>
+        </label>
+        <label>From <input type="date" name="from"></label>
+        <label>To <input type="date" name="to"></label>
+        <button type="submit" class="btn btn-inline">Show</button>
+        <button type="button" class="btn-link small" id="clear">Clear</button>
+      </form>
+      <p class="muted small" id="showing"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th>Transaction</th><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Kind</th><th>Memo</th></tr></thead>
+          <tbody id="entries"></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button type="button" class="btn btn-inline" id="prev">Newer</button>
+        <span class="muted small" id="page-info"></span>
+        <button type="button" class="btn btn-inline" id="next">Older</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
