@@ -174,7 +174,7 @@ async def test_reopening_the_invite_shows_the_same_qr(admin_client: AsyncClient)
     second = (await admin_client.post("/api/admin/auth/invite/start", json=body)).json()
     assert first["secret"] == second["secret"]
     assert first["qr_svg"].startswith("data:image/svg+xml")
-    assert first["otpauth_uri"].startswith("otpauth://totp/Pritis%20Class%20Dues:")
+    assert first["otpauth_uri"].startswith("otpauth://totp/Pritis%20DPP:")
 
     # The secret is stored encrypted, never as the plain value.
     async with SessionLocal() as db:

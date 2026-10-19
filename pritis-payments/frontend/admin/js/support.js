@@ -43,7 +43,7 @@ function ticketCard(t) {
       el('h2', { textContent: `#${t.ticket_no} · ${t.subject}` }),
       el('span', { className: 'badge', textContent: STATUS[t.status] })),
     el('p', { className: 'muted small', textContent:
-      `${t.user_name}${t.is_rep ? ' (class rep)' : ''} · ${t.email} · last message ${formatDateTime(t.last_message_at)}` }));
+      `${t.user_name}${t.is_rep ? ' (rep)' : ''} · ${t.email} · last message ${formatDateTime(t.last_message_at)}` }));
 
   const thread = el('div', { className: 'thread' });
   for (const m of t.messages) {

@@ -1,6 +1,6 @@
 Hello {{ full_name }},
 
-We couldn't approve your application to be the class rep for {{ class_name }}.
+We couldn't approve your application to be the rep for {{ class_name }}.
 
 Reason: {{ reason }}
 

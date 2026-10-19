@@ -91,7 +91,7 @@ async def get_current_rep(
 
     klass = await verified_rep_class(db, user.id)
     if klass is None:
-        raise AppError("not_a_rep", "Only verified class reps can do this", 403)
+        raise AppError("not_a_rep", "Only verified reps can do this", 403)
     return RepContext(user=user, klass=klass)
 
 

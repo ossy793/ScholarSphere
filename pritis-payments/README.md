@@ -1,4 +1,4 @@
-# Pritis Class Dues
+# Pritis DPP
 
 Class reps collect dues online, students pay through Paystack, and every naira is tracked
 in a ledger until it is paid out. The full design is in [docs/design.md](docs/design.md).
@@ -102,7 +102,7 @@ Interactive API docs are at `/api/docs` everywhere except production.
    SPF record (`v=spf1 …`), add Brevo's `include:` to it instead of creating a second one.
 2. Create an API key (SMTP & API > API keys).
 3. In `backend/.env`: `EMAIL_BACKEND=brevo`, `BREVO_API_KEY=…`, and `EMAIL_FROM` on that
-   domain, e.g. `Pritis Class Dues <no-reply@pritis.name.ng>`.
+   domain, e.g. `Pritis DPP <no-reply@pritis.name.ng>`.
 4. Restart, then `python -m app.cli send-test-email --to you@example.com`. It sends at once
    and prints Brevo's reason if it fails (unverified sender, blocked IP, bad key).
 
@@ -266,6 +266,11 @@ URL** to `https://<tunnel>/api/webhooks/paystack`.
   paid list drops it), ledger reversed. `refund.failed` or a refusal → reservation released.
   An unclear answer stays Processing; the 10-minute check asks Paystack (and gives up after an
   hour if Paystack never got it), so a refund is never sent twice.
+
+## Landing page
+
+`frontend/user/index.html` is the public home page of dpp.pritis.name.ng (signed-in visitors get
+a "Go to your dashboard" button). Footer: contact links and "Powered by CORAX LIMITED".
 
 ## Support
 

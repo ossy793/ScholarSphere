@@ -3,16 +3,140 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pritis Class Dues</title>
+  <title>Pritis DPP · Collect class dues, handouts and project money online</title>
+  <meta name="description" content="Pritis DPP lets reps create dues for class dues, handouts and group projects. Students pay online through Paystack, get an emailed receipt, and reps see who has paid in real time.">
   <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
   <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
   <meta name="theme-color" content="#0077FF">
+  <meta property="og:title" content="Pritis DPP">
+  <meta property="og:description" content="Create dues, share one link, and see who has paid. Students pay securely through Paystack.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <meta http-equiv="refresh" content="0; url=/dashboard.html">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <link rel="stylesheet" href="/shared/landing.css">
+  <script type="module" src="/js/landing.js"></script>
 </head>
-<body>
-  <p><a href="/dashboard.html">Continue to Pritis Class Dues</a></p>
+<body class="landing">
+  <header class="topbar landing-bar">
+    <a class="brand" href="/"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">DPP</span></span></a>
+    <nav class="actions" aria-label="Account">
+      <a class="btn btn-inline" id="login-btn" href="/login.html">Log in</a>
+      <a class="btn btn-primary btn-inline" id="start-btn" href="/signup.html">Get started</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-text">
+        <p class="eyebrow">Dues · Payments · Payouts</p>
+        <h1>Collect class money without chasing anyone.</h1>
+        <p class="lead">Pritis DPP lets reps create dues for class dues, handouts and group projects. Students pay online in a minute, and everyone can see exactly who has paid.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/signup.html">Create a free account</a>
+          <a class="btn" href="/login.html">I already have an account</a>
+        </div>
+        <p class="muted small">Payments are processed securely by Paystack: card, bank transfer or USSD.</p>
+      </div>
+
+      <div class="hero-demo" aria-hidden="true">
+        <div class="demo-card">
+          <div class="demo-head">
+            <span class="demo-title">Handout 2026</span>
+            <span class="badge badge-active">Live</span>
+          </div>
+          <p class="demo-sub">CSC 200 Level · closes Fri 7 Nov</p>
+          <div class="demo-amount">₦5,225</div>
+          <div class="demo-progress"><span></span></div>
+          <p class="demo-sub">34 of 50 paid · ₦170,000 collected</p>
+          <ul class="demo-list">
+            <li><span>Chiamaka Eze</span><span class="badge badge-active">Paid</span></li>
+            <li><span>Tunde Bello</span><span class="badge badge-active">Paid</span></li>
+            <li><span>Ngozi Okafor</span><span class="badge badge-invited">Unpaid</span></li>
+          </ul>
+          <span class="demo-pay">Pay ₦5,225</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="uses" aria-labelledby="uses-title">
+      <h2 id="uses-title">One platform for every class payment</h2>
+      <div class="use-grid">
+        <article class="use">
+          <span class="use-icon" aria-hidden="true">₦</span>
+          <h3>Class dues</h3>
+          <p>Semester or session dues, collected from everyone in the class with one shared link.</p>
+        </article>
+        <article class="use">
+          <span class="use-icon" aria-hidden="true">📘</span>
+          <h3>Handouts</h3>
+          <p>Course handouts and materials. Ask for matric numbers so the list matches the register.</p>
+        </article>
+        <article class="use">
+          <span class="use-icon" aria-hidden="true">👥</span>
+          <h3>Group projects</h3>
+          <p>Contributions for practicals, projects and class events, tracked to the last kobo.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <div class="how-grid">
+        <div class="how-col">
+          <h3>For reps</h3>
+          <ol class="steps">
+            <li><strong>Get verified.</strong> Apply as your class's rep with proof; Pritis checks it.</li>
+            <li><strong>Create a due.</strong> Set the amount and deadline. Pritis approves it before it goes live.</li>
+            <li><strong>Share one link.</strong> Post it in the class group. Students join and pay.</li>
+            <li><strong>Watch it fill up.</strong> See who has paid, download the list as PDF or CSV, and request a payout to your bank account.</li>
+          </ol>
+        </div>
+        <div class="how-col">
+          <h3>For students</h3>
+          <ol class="steps">
+            <li><strong>Open your rep's link.</strong> Create an account once; it works for every due.</li>
+            <li><strong>Pay in a minute.</strong> Card, bank transfer or USSD through Paystack. You see one total, no surprises.</li>
+            <li><strong>Get your receipt.</strong> It's emailed to you straight away, and your payment shows on your dashboard.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust" aria-labelledby="trust-title">
+      <h2 id="trust-title">Built so the money is always accounted for</h2>
+      <ul class="trust-list">
+        <li><strong>Verified reps only.</strong> Every rep and every due is checked by Pritis before students can pay.</li>
+        <li><strong>Secure payments.</strong> Paystack handles the payment; we never see your card details.</li>
+        <li><strong>Every naira recorded.</strong> Each payment and payout is kept in a ledger that can't be edited.</li>
+        <li><strong>Receipts for everyone.</strong> Students get a receipt by email; reps get a live paid list.</li>
+      </ul>
+    </section>
+
+    <section class="cta-band">
+      <h2>Ready to collect your next due?</h2>
+      <p>Create an account in a minute. Reps apply from their dashboard.</p>
+      <a class="btn btn-primary" href="/signup.html">Get started</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <a class="brand" href="/"><img src="/shared/img/logo.svg" alt="" width="32" height="32"><span>Pritis <span class="brand-sub">DPP</span></span></a>
+        <p class="muted small">Dues, payments and payouts for classes.</p>
+      </div>
+      <div>
+        <h3 class="footer-title">Contact us</h3>
+        <ul class="social">
+          <li><a href="https://wa.me/2349032833347" target="_blank" rel="noopener">WhatsApp · 0903 283 3347</a></li>
+          <li><a href="https://x.com/Pritisapp?s=20" target="_blank" rel="noopener">X (Twitter) · @Pritisapp</a></li>
+          <li><a href="https://www.instagram.com/pritisapp?utm_source=ig_web_button_share_sheet&amp;exln=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener">Instagram · @pritisapp</a></li>
+          <li><a href="https://lnkd.in/p/ej6vY9mQ" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="powered">Powered by <strong>CORAX LIMITED</strong></p>
+  </footer>
 </body>
 </html>

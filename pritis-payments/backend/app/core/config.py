@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     r2_backup_bucket: str | None = None  # nightly database backups; falls back to r2_bucket
 
     email_backend: Literal["console", "brevo"] = "console"
-    email_from: str = "Pritis Class Dues <no-reply@pritis.name.ng>"
+    email_from: str = "Pritis DPP <no-reply@pritis.name.ng>"
     brevo_api_key: str | None = None
 
     @property

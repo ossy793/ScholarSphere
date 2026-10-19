@@ -29,12 +29,12 @@ log = logging.getLogger("app.email")
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates" / "email"
 SUBJECTS = {
-    "verify_email": "Your Pritis Class Dues verification code",
-    "reset_password": "Your Pritis Class Dues password reset code",
-    "staff_invite": "You're invited to the Pritis Class Dues admin site",
-    "rep_application_received": "We've received your class rep application",
-    "rep_application_approved": "You're now a verified class rep",
-    "rep_application_rejected": "Your class rep application needs changes",
+    "verify_email": "Your Pritis DPP verification code",
+    "reset_password": "Your Pritis DPP password reset code",
+    "staff_invite": "You're invited to the Pritis DPP admin site",
+    "rep_application_received": "We've received your rep application",
+    "rep_application_approved": "You're now a verified rep",
+    "rep_application_rejected": "Your rep application needs changes",
     "due_submitted": "A due is waiting for approval",
     "due_decided": "Your due has been reviewed",
     "payment_receipt": "Your payment receipt",
@@ -44,7 +44,7 @@ SUBJECTS = {
     "bank_change_requested": "A rep wants to change their payout account",
     "bank_change_decided": "Your payout account change",
     "refund_update": "Update on a refund",
-    "refund_staff": "Pritis Class Dues refund",
+    "refund_staff": "Pritis DPP refund",
     "payment_reminder": "Reminder: your class due closes soon",
     # Subjects in {braces} are filled from the email's own details.
     "support_new": "Support message {ticket}: {subject}",
@@ -103,7 +103,7 @@ class BrevoEmailSender(EmailSender):
         if not email:
             raise RuntimeError("EMAIL_FROM must be an address, e.g. 'Pritis <no-reply@pritis.name.ng>'")
         self.api_key = api_key
-        self.sender = {"name": name or "Pritis Class Dues", "email": email}
+        self.sender = {"name": name or "Pritis DPP", "email": email}
         self.transport = transport  # tests pass a mock transport
 
     async def send(

@@ -1,6 +1,6 @@
 Hello {{ full_name }},
 
-We've received your application to be the class rep for {{ class_name }}.
+We've received your application to be the rep for {{ class_name }}.
 
 Our team will check your details and proof of studentship, usually within a day. We'll
 email you as soon as it's decided. Until then you can still pay dues as a student.

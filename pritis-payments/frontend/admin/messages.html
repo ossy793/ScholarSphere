@@ -16,7 +16,7 @@
 <body class="shell">
   <main class="shell-main" hidden>
     <h1>Send a message</h1>
-    <p class="muted small">An email to students and class reps. Only active accounts with a verified email receive it. Each person gets their own email; nobody sees who else it went to.</p>
+    <p class="muted small">An email to students and reps. Only active accounts with a verified email receive it. Each person gets their own email; nobody sees who else it went to.</p>
 
     <p class="alert alert-error" id="error" role="alert" hidden></p>
     <p class="alert alert-success" id="notice" role="status" hidden></p>
@@ -25,9 +25,9 @@
       <form id="message-form" novalidate>
         <fieldset class="choice-list">
           <legend>Send to</legend>
-          <label class="choice"><input type="radio" name="audience" value="all" checked><span><strong>Everyone</strong> · students and class reps</span></label>
-          <label class="choice"><input type="radio" name="audience" value="students"><span><strong>Students</strong> · everyone who isn't a verified class rep</span></label>
-          <label class="choice"><input type="radio" name="audience" value="reps"><span><strong>Class reps</strong> · verified reps only</span></label>
+          <label class="choice"><input type="radio" name="audience" value="all" checked><span><strong>Everyone</strong> · students and reps</span></label>
+          <label class="choice"><input type="radio" name="audience" value="students"><span><strong>Students</strong> · everyone who isn't a verified rep</span></label>
+          <label class="choice"><input type="radio" name="audience" value="reps"><span><strong>Reps</strong> · verified reps only</span></label>
           <label class="choice"><input type="radio" name="audience" value="selected"><span><strong>People I choose</strong></span></label>
         </fieldset>
 

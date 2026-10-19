@@ -1,0 +1,81 @@
+/* The public landing page (dpp.pritis.name.ng). Builds on styles.css tokens. */
+.landing { background: var(--bg); }
+.landing main { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
+.landing h1, .landing h2, .landing h3 { color: var(--text); }
+.landing-bar { position: sticky; top: 0; z-index: 10; }
+.landing-bar .actions { gap: 0.5rem; }
+
+/* Hero */
+.hero { display: grid; gap: 2rem; padding: 2.5rem 0 2rem; align-items: center; }
+.eyebrow { margin: 0 0 0.5rem; color: var(--primary); font-weight: 700; font-size: 0.8125rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.hero h1 { font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 1rem; }
+.lead { font-size: 1.125rem; line-height: 1.6; color: var(--muted); margin: 0 0 1.5rem; max-width: 36rem; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+.hero-cta .btn { width: auto; }
+
+/* The little product preview: plain HTML, decorative only */
+.hero-demo { display: flex; justify-content: center; }
+.demo-card {
+  width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 1.25rem;
+}
+.demo-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.demo-title { font-weight: 800; font-size: 1.125rem; }
+.demo-sub { margin: 0.25rem 0 0.75rem; color: var(--muted); font-size: 0.875rem; }
+.demo-amount { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; margin: 0.25rem 0 0.75rem; }
+.demo-progress { height: 8px; border-radius: 999px; background: var(--primary-soft); overflow: hidden; }
+.demo-progress span { display: block; height: 100%; width: 68%; background: var(--primary); border-radius: 999px; }
+.demo-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.5rem; }
+.demo-list li { display: flex; justify-content: space-between; align-items: center; font-size: 0.9375rem; padding: 0.5rem 0; border-top: 1px solid var(--border); }
+.demo-pay { display: block; text-align: center; background: var(--primary); color: #fff; font-weight: 700; border-radius: 12px; padding: 0.8rem; }
+
+/* Sections */
+.uses, .how, .trust { padding: 2.5rem 0; }
+.landing h2 { font-size: clamp(1.5rem, 4vw, 2rem); letter-spacing: -0.01em; margin: 0 0 1.25rem; }
+.use-grid, .how-grid { display: grid; gap: 1rem; }
+.use, .how-col {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem;
+}
+.use h3, .how-col h3 { margin: 0.5rem 0 0.4rem; font-size: 1.125rem; }
+.use p { margin: 0; color: var(--muted); line-height: 1.55; }
+.use-icon {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--primary-soft); color: var(--primary); font-weight: 800; font-size: 1.25rem;
+}
+.steps { margin: 0; padding-left: 1.25rem; display: grid; gap: 0.75rem; line-height: 1.55; color: var(--muted); }
+.steps strong { color: var(--text); }
+.trust-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.trust-list li {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: var(--radius); padding: 0.9rem 1rem; color: var(--muted); line-height: 1.55;
+}
+.trust-list strong { color: var(--text); }
+
+.cta-band {
+  margin: 1rem 0 3rem; padding: 2rem 1.25rem; text-align: center; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #0077FF, #0055CC); color: #fff;
+}
+.cta-band h2 { color: #fff; margin-bottom: 0.5rem; }
+.cta-band p { margin: 0 0 1.25rem; opacity: 0.92; }
+.cta-band .btn { width: auto; background: #fff; color: var(--primary); border-color: #fff; }
+
+/* Footer */
+.site-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 2rem 1rem 1.25rem; }
+.footer-inner { max-width: 1100px; margin: 0 auto; display: grid; gap: 1.5rem; }
+.footer-title { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 0.6rem; }
+.social { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.social a { color: var(--text); text-decoration: none; font-weight: 600; }
+.social a:hover { color: var(--primary); text-decoration: underline; }
+.powered { max-width: 1100px; margin: 1.5rem auto 0; padding-top: 1rem; border-top: 1px solid var(--border); text-align: center; color: var(--muted); font-size: 0.875rem; }
+.powered strong { color: var(--text); letter-spacing: 0.04em; }
+
+@media (min-width: 800px) {
+  .hero { grid-template-columns: 1.15fr 0.85fr; padding: 4rem 0 3rem; }
+  .use-grid { grid-template-columns: repeat(3, 1fr); }
+  .how-grid { grid-template-columns: 1fr 1fr; }
+  .trust-list { grid-template-columns: 1fr 1fr; }
+  .footer-inner { grid-template-columns: 1fr auto; align-items: start; }
+}
+@media (max-width: 420px) {
+  .landing-bar #login-btn { display: none; } /* the hero has a log-in button too */
+}

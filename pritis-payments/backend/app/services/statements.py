@@ -87,7 +87,7 @@ async def statement_pdf(db: AsyncSession, start: date, end: date) -> bytes:
         pdf.rect(0, height - 20 * mm, width, 20 * mm, stroke=0, fill=1)
         pdf.setFillColor(colors.white)
         pdf.setFont("Helvetica-Bold", 14)
-        pdf.drawString(14 * mm, height - 11 * mm, "Pritis Class Dues · Statement")
+        pdf.drawString(14 * mm, height - 11 * mm, "Pritis DPP · Statement")
         pdf.setFont("Helvetica", 9)
         pdf.drawString(14 * mm, height - 16.5 * mm,
                        f"{start:%d %b %Y} to {end:%d %b %Y} (Lagos time) · generated {_when(utcnow())}")

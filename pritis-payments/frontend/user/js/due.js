@@ -20,7 +20,7 @@ function showDue(d) {
   document.getElementById('due-description').hidden = !d.description;
   document.getElementById('due-deadline').textContent =
     `${d.status === 'closed' ? 'Closed' : 'Closes'} ${formatDeadline(d.deadline)}`;
-  document.title = `${d.title} · Pritis Class Dues`;
+  document.title = `${d.title} · Pritis DPP`;
   document.getElementById('due').hidden = false;
 }
 
@@ -94,7 +94,7 @@ form.addEventListener('submit', async (event) => {
 });
 
 async function init() {
-  if (!slug && !dueId) throw new Error('This link is incomplete. Ask your class rep to send it again.');
+  if (!slug && !dueId) throw new Error('This link is incomplete. Ask your rep to send it again.');
   // Not logged in? api sends them to /login.html?next=<this page>, and signup keeps "next" too.
   due = dueId ? await api.get(`/dues/${dueId}`) : await api.post(`/dues/by-link/${encodeURIComponent(slug)}`);
   const me = await api.get('/me');

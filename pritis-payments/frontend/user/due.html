@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Class due · Pritis Class Dues</title>
+  <title>Class due · Pritis DPP</title>
   <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
   <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
   <meta name="theme-color" content="#0077FF">
@@ -15,7 +15,7 @@
 </head>
 <body>
   <main class="auth">
-    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">DPP</span></span></a>
     <section class="card" aria-live="polite">
       <p class="muted" id="loading">Opening your due…</p>
       <p class="alert alert-error" id="error" role="alert" hidden></p>
@@ -34,7 +34,7 @@
         </div>
 
         <!-- Closed -->
-        <p class="alert alert-error" id="closed-note" hidden>This due is closed. The deadline has passed, so it can no longer be paid. If you think this is a mistake, contact your class rep.</p>
+        <p class="alert alert-error" id="closed-note" hidden>This due is closed. The deadline has passed, so it can no longer be paid. If you think this is a mistake, contact your rep.</p>
 
         <!-- Unpaid: the three lines, then pay -->
         <form id="pay-form" novalidate hidden>
@@ -42,7 +42,7 @@
             <tr class="quote-total"><th scope="row">Total</th><td id="q-total"></td></tr>
           </table>
           <label id="matric-field" hidden>Matric number
-            <input type="text" name="matric_no" maxlength="30" autocapitalize="characters" placeholder="Your class rep asks for it">
+            <input type="text" name="matric_no" maxlength="30" autocapitalize="characters" placeholder="Your rep asks for it">
           </label>
           <p class="alert alert-warning small" id="verify-note" hidden></p>
           <button type="submit" class="btn btn-primary" id="pay">Pay</button>

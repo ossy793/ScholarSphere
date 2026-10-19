@@ -84,7 +84,7 @@ async def start_payment(
     matric = (matric_no or "").strip() or None
     if due.require_matric:
         if not matric:
-            raise field_error("matric_no", "Your class rep asks for your matric number", "missing")
+            raise field_error("matric_no", "Your rep asks for your matric number", "missing")
         if not MATRIC.match(matric):
             raise field_error("matric_no", "Enter a valid matric number", "invalid")
 

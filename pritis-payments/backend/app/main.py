@@ -19,7 +19,7 @@ def create_app() -> FastAPI:
 
     docs = settings.docs_enabled
     app = FastAPI(
-        title="Pritis Class Dues",
+        title="Pritis DPP",
         docs_url="/api/docs" if docs else None,
         redoc_url=None,
         openapi_url="/api/openapi.json" if docs else None,

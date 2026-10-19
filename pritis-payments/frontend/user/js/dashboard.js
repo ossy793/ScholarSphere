@@ -1,5 +1,5 @@
 // Student dashboard: live dues of the student's classes, marked Unpaid, Paid or Due closed.
-// The class rep view lives on rep.html; choosing it here sends verified reps there and
+// The rep view lives on rep.html; choosing it here sends verified reps there and
 // everyone else to the rep application.
 import { api } from './api.js';
 import { formatDeadline } from './due-format.js';
@@ -7,7 +7,7 @@ import { formatNaira } from '/shared/money.js';
 import { showError, store } from '/shared/ui.js';
 
 const params = new URLSearchParams(location.search);
-// "rep" when chosen explicitly (the login page's class rep button) or remembered from last time.
+// "rep" when chosen explicitly (the login page's rep button) or remembered from last time.
 const askedView = params.get('view') ?? (store.get('dpp_role') === 'rep' ? 'rep-remembered' : 'student');
 
 const errorEl = document.getElementById('error');
@@ -19,7 +19,7 @@ async function init() {
     location.replace(`/complete-profile.html?next=${encodeURIComponent(here)}`);
     return;
   }
-  // Choosing "I'm a class rep" explicitly: reps go to their dashboard, others to the application.
+  // Choosing "I'm a rep" explicitly: reps go to their dashboard, others to the application.
   if (askedView === 'rep') {
     location.replace(me.is_rep ? '/rep.html' : '/rep-apply.html');
     return;
@@ -33,7 +33,7 @@ async function init() {
     store.set('dpp_role', 'student');
   }
 
-  // The student/class rep switch is only for people who are both.
+  // The student/rep switch is only for people who are both.
   document.getElementById('view-tabs').hidden = !me.is_rep;
 
   document.getElementById('name').textContent = me.full_name;
@@ -50,7 +50,7 @@ async function init() {
 
   document.getElementById('classes-text').textContent = me.memberships.length
     ? `Your classes: ${me.memberships.map((m) => m.class_name).join(', ')}.`
-    : 'Open the dues link your class rep shared to join your class and see what you owe.';
+    : 'Open the dues link your rep shared to join your class and see what you owe.';
   const [dues, history] = await Promise.all([api.get('/dues'), api.get('/payments')]);
   renderDues(dues);
   renderHistory(history);

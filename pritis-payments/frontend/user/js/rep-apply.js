@@ -74,7 +74,7 @@ async function init() {
     const here = encodeURIComponent('/rep-apply.html');
     document.getElementById('not-ready-text').textContent = me.email_verified
       ? 'Add your phone number, university and level to your profile before applying.'
-      : 'Verify your email address before applying to be a class rep.';
+      : 'Verify your email address before applying to be a rep.';
     const link = document.getElementById('not-ready-link');
     link.textContent = me.email_verified ? 'Complete profile' : 'Verify email';
     link.href = me.email_verified ? `/complete-profile.html?next=${here}` : `/verify-email.html?next=${here}`;

@@ -366,7 +366,7 @@ async def join_by_link(db: AsyncSession, user: User, slug: str) -> tuple[ClassDu
     """Opening a shared due link adds the student to that class (design section 4)."""
     due = await db.scalar(select(ClassDue).where(ClassDue.share_slug == slug.strip().upper()))
     if due is None or due.status != "approved":
-        raise AppError("not_found", "This dues link isn't valid. Ask your class rep for the right link.", 404)
+        raise AppError("not_found", "This dues link isn't valid. Ask your rep for the right link.", 404)
     klass = await db.get(Class, due.class_id)
     already = await db.scalar(select(exists().where(
         ClassMembership.user_id == user.id, ClassMembership.class_id == klass.id

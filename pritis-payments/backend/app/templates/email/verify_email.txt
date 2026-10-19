@@ -1,6 +1,6 @@
 Hello {{ full_name }},
 
-Your Pritis Class Dues verification code is:
+Your Pritis DPP verification code is:
 
     {{ code }}
 

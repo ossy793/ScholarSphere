@@ -1,4 +1,4 @@
-# Deploying Pritis Class Dues
+# Deploying Pritis DPP
 
 This puts the platform on **dpp.pritis.name.ng** (students and reps) and
 **admin.dpp.pritis.name.ng** (staff), on the same VPS as pritis.name.ng, **without
@@ -264,7 +264,7 @@ first try `--workers 4` in `dpp-api.service`, and check `top` for memory.
 
 - Authenticate pritis.name.ng (Senders, Domains & Dedicated IPs → Domains). This adds DNS records
   in Cloudflare: SPF, DKIM and DMARC.
-- Set `EMAIL_FROM="Pritis Class Dues <no-reply@pritis.name.ng>"`.
+- Set `EMAIL_FROM="Pritis DPP <no-reply@pritis.name.ng>"`.
 - Turn IP blocking back on with only the VPS's IP allowed.
 - Test with `python -m app.cli send-test-email --to you@example.com`.
 

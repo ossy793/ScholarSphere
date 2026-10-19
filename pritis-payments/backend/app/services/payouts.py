@@ -238,7 +238,7 @@ async def approve(
     try:
         data = await paystack.initiate_transfer(
             amount_kobo=payout.net_kobo, recipient_code=payout.recipient_code,
-            reference=payout.transfer_reference, reason="Pritis Class Dues payout",
+            reference=payout.transfer_reference, reason="Pritis DPP payout",
         )
     except TransferRefused as exc:
         payout = await db.get(PayoutRequest, payout.id, with_for_update=True, populate_existing=True)

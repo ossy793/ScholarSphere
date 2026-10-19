@@ -1,4 +1,4 @@
-"""Class rep applications: submit, review (approve / reject), and who counts as a rep."""
+"""Rep applications: submit, review (approve / reject), and who counts as a rep."""
 
 import secrets
 import string
@@ -136,7 +136,7 @@ async def submit_application(
 ) -> RepApplication:
     status = await rep_status(db, user.id)
     if status == "approved":
-        raise AppError("already_rep", "You're already a verified class rep", 409)
+        raise AppError("already_rep", "You're already a verified rep", 409)
     if status == "pending":
         raise AppError("application_pending", "Your application is already being reviewed", 409)
 

@@ -1,12 +1,12 @@
 Hello {{ full_name }},
 
 {% if reset|default(false) -%}
-{{ invited_by }} has reset your Pritis Class Dues admin sign-in, usually because of a lost or
+{{ invited_by }} has reset your Pritis DPP admin sign-in, usually because of a lost or
 new phone. Your old password and authenticator no longer work.
 
 Open this link to set a new password and add the account to your authenticator app again:
 {%- else -%}
-{{ invited_by }} has invited you to the Pritis Class Dues admin site as {{ role }}.
+{{ invited_by }} has invited you to the Pritis DPP admin site as {{ role }}.
 
 Open this link to set your password and your authenticator app:
 {%- endif %}

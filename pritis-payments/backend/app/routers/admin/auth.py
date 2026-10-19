@@ -213,7 +213,7 @@ async def invite_accept(
     step = totp.verify(admin.totp_secret, body.code, None)
     if step is None:
         raise AppError(
-            "code_invalid", "That code is not correct. Check the app shows Pritis Class Dues.", 400
+            "code_invalid", "That code is not correct. Use the Pritis DPP entry in your authenticator app (set up earlier, it may say Pritis Class Dues).", 400
         )
     now = utcnow()
     admin.password_hash = hash_password(body.password)

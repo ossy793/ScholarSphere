@@ -44,7 +44,7 @@ async def _row() -> EmailOutbox:
 
 def _brevo(handler) -> BrevoEmailSender:
     return BrevoEmailSender(
-        "test-key", "Pritis Class Dues <no-reply@pritis.name.ng>",
+        "test-key", "Pritis DPP <no-reply@pritis.name.ng>",
         transport=httpx.MockTransport(handler),
     )
 
@@ -62,7 +62,7 @@ async def test_brevo_sender_posts_the_email() -> None:
     assert request.headers["api-key"] == "test-key"
     body = json.loads(request.content)
     assert body == {
-        "sender": {"name": "Pritis Class Dues", "email": "no-reply@pritis.name.ng"},
+        "sender": {"name": "Pritis DPP", "email": "no-reply@pritis.name.ng"},
         "to": [{"email": "ada@example.com"}],
         "subject": "Hello",
         "htmlContent": "<p>Hi</p>",

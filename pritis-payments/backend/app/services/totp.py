@@ -8,7 +8,7 @@ import segno
 
 from app.core import crypto
 
-ISSUER = "Pritis Class Dues"
+ISSUER = "Pritis DPP"
 STEP_SECONDS = 30
 
 

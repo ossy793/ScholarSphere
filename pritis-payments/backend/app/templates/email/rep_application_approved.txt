@@ -1,8 +1,8 @@
 Hello {{ full_name }},
 
-Good news: you're now the verified class rep for {{ class_name }}.
+Good news: you're now the verified rep for {{ class_name }}.
 
-Log in and choose "I'm a class rep" to open your rep dashboard:
+Log in and choose "I'm a rep" to open your rep dashboard:
 {{ link }}
 
 Payouts will go to {{ bank_name }} account ending {{ last4 }} ({{ account_name }}).

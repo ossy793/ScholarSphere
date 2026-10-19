@@ -4,4 +4,4 @@ Hello {{ full_name }},
 
 {{ link }}
 
-Pritis Class Dues support
+Pritis DPP support
