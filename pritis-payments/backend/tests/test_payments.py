@@ -420,3 +420,14 @@ async def test_receipt_email_goes_out_with_the_pdf(setup: dict, fake: FakePaysta
     assert receipt[0] == "student@example.com"
     (attachment,) = receipt[2]
     assert attachment.filename.startswith("receipt-R") and attachment.content.startswith(b"%PDF")
+
+
+async def test_reps_see_what_students_will_pay(setup: dict) -> None:
+    # While creating a due: the student total for any amount (default 1.5% + 3%).
+    q = (await setup["rep"].get("/api/user/rep/dues/quote?amount_kobo=500000")).json()
+    assert q == {"amount_kobo": 500_000, "service_charge_kobo": 22_500, "total_kobo": 522_500}
+    # And on each approved due, the total students actually pay.
+    dues = (await setup["rep"].get("/api/user/rep/dues")).json()
+    assert dues[0]["student_total_kobo"] == 522_500
+    # Students can't use the rep quote.
+    assert (await setup["student"].get("/api/user/rep/dues/quote?amount_kobo=500000")).status_code == 403

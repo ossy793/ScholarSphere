@@ -56,6 +56,16 @@ class RepDueOut(BaseModel):
     paid_count: int = 0
     collected_kobo: int = 0
     outstanding_kobo: int = 0
+    # What each student pays for the live terms (due + service charge), for the rep to announce.
+    student_total_kobo: int | None = None
+
+
+class RepQuoteOut(BaseModel):
+    """What students would pay for an amount, shown while the rep types it."""
+
+    amount_kobo: int  # what the rep asked for (the due)
+    service_charge_kobo: int  # Paystack's processing charge and Pritis's fee, added on top
+    total_kobo: int  # what each student pays
 
 
 class StudentDueOut(BaseModel):

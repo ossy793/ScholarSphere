@@ -57,13 +57,45 @@ async function init() {
     form.elements.deadline.value = `${isoToLagosInput(d.toISOString()).slice(0, 10)}T23:59`;
   }
   form.hidden = false;
+  showQuote();
 }
 
-form.elements.amount.addEventListener('input', () => {
+// While the rep types the amount: what each student will pay, and a message to announce it.
+let quoteTimer = null;
+async function showQuote() {
+  const box = document.getElementById('quote-box');
   const kobo = nairaToKobo(form.elements.amount.value);
-  document.getElementById('amount-help').textContent = kobo
-    ? `${formatNaira(kobo)} per student, plus a small service charge included in the total they see.`
-    : 'Students pay this plus a small service charge, included in the single total they see.';
+  if (!kobo || kobo < 10_000) { box.hidden = true; return; }
+  try {
+    const q = await api.get(`/rep/dues/quote?amount_kobo=${kobo}`);
+    const title = form.elements.title.value.trim() || 'the due';
+    document.getElementById('q-amount').textContent = formatNaira(q.amount_kobo);
+    document.getElementById('q-charge').textContent = `+ ${formatNaira(q.service_charge_kobo)}`;
+    document.getElementById('q-total').textContent = formatNaira(q.total_kobo);
+    document.getElementById('q-message').textContent =
+      `Hi everyone, ${title} is ${formatNaira(q.amount_kobo)}. When you pay online on Pritis DPP you'll pay `
+      + `${formatNaira(q.total_kobo)}: the extra ${formatNaira(q.service_charge_kobo)} covers bank and payment `
+      + `processing charges, so they don't come out of the ${formatNaira(q.amount_kobo)}. I'll share the payment link soon.`;
+    box.hidden = false;
+  } catch {
+    box.hidden = true; // the quote is a help, never a blocker
+  }
+}
+function queueQuote() {
+  clearTimeout(quoteTimer);
+  quoteTimer = setTimeout(showQuote, 300);
+}
+form.elements.amount.addEventListener('input', queueQuote);
+form.elements.title.addEventListener('input', queueQuote);
+document.getElementById('q-copy').addEventListener('click', async (event) => {
+  const text = document.getElementById('q-message').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    event.target.textContent = 'Copied';
+    setTimeout(() => { event.target.textContent = 'Copy message'; }, 2000);
+  } catch {
+    window.prompt('Copy this message:', text);
+  }
 });
 
 form.addEventListener('submit', async (event) => {

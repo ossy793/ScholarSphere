@@ -477,3 +477,13 @@ input[type="file"] { padding: 0.55rem; background: var(--bg); }
 .promo { border-left: 4px solid var(--primary); background: linear-gradient(135deg, var(--surface), var(--primary-soft)); }
 .promo h2 { margin-bottom: 0.4rem; }
 .promo p { margin: 0 0 1rem; color: var(--muted); }
+
+/* Create a due: what students will pay, and a message to announce it */
+.quote-box { border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: var(--radius); background: var(--primary-soft); padding: 0.9rem 1rem; display: grid; gap: 0.6rem; }
+.quote-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.quote-figures div { display: grid; gap: 0.15rem; }
+.quote-figures strong { font-size: 1.0625rem; }
+.quote-figures .q-total { color: var(--primary); font-size: 1.25rem; }
+.quote-box p { margin: 0; }
+.quote-message { background: var(--surface); border-radius: 10px; padding: 0.7rem 0.85rem; line-height: 1.5; }
+.quote-box .btn { justify-self: start; }

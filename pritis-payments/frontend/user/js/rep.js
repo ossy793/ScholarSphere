@@ -51,8 +51,9 @@ function dueCard(due) {
     el('h3', { textContent: shown.title }),
     el('span', { className: phase.badge, textContent: due.closed ? `${phase.label} · Due closed` : phase.label }));
 
+  const studentPays = due.live_terms && due.student_total_kobo ? ` · students pay ${formatNaira(due.student_total_kobo)}` : '';
   const meta = el('p', { className: 'muted small',
-    textContent: `${formatNaira(shown.amount_kobo)} · closes ${formatDeadline(shown.deadline)}${shown.require_matric ? ' · matric number required' : ''}` });
+    textContent: `${formatNaira(shown.amount_kobo)}${studentPays} · closes ${formatDeadline(shown.deadline)}${shown.require_matric ? ' · matric number required' : ''}` });
 
   const card = el('div', { className: 'due-card' }, head, meta);
   if (due.live_terms) {

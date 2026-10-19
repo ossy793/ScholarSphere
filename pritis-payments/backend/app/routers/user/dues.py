@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,7 @@ from app.core.db import get_session
 from app.core.deps import RepContext, get_current_rep, get_current_user
 from app.core.errors import AppError
 from app.models import ClassDue, User
-from app.schemas.dues import DueCreateIn, DueTerms, RepDueOut, StudentDueOut
+from app.schemas.dues import DueCreateIn, DueTerms, RepDueOut, RepQuoteOut, StudentDueOut
 from app.services import dues, payments
 
 router = APIRouter(tags=["dues"])
@@ -72,6 +72,17 @@ async def create(
     due = await dues.create_due(db, rep, terms, body.submit)
     await db.commit()
     return await dues.rep_due_out(db, due)
+
+
+# Declared before /rep/dues/{due_id}, so "quote" isn't read as a due id.
+@router.get("/rep/dues/quote", response_model=RepQuoteOut)
+async def quote_for_rep(
+    amount_kobo: int = Query(gt=0, le=1_000_000_000_00),
+    _: RepContext = Depends(get_current_rep), db: AsyncSession = Depends(get_session),
+) -> RepQuoteOut:
+    """What each student would pay for this amount, so the rep can announce it."""
+    q = await dues.rep_quote(db, amount_kobo)
+    return RepQuoteOut(amount_kobo=q.due_kobo, service_charge_kobo=q.service_charge_kobo, total_kobo=q.total_kobo)
 
 
 @router.get("/rep/dues/{due_id}", response_model=RepDueOut)

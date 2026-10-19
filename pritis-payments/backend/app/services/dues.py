@@ -117,7 +117,13 @@ async def rep_due_out(db: AsyncSession, due: ClassDue) -> RepDueOut:
     open_rev = await open_revision(db, due.id)
     latest = await latest_revision(db, due.id)
     students, paid_count, collected_kobo, outstanding = await collected.summary(db, due)
+    student_total = None
+    if due.live_revision_id:
+        paystack_percent = Decimal((await app_settings.get_fee_settings(db)).paystack_fee_percent)
+        student_total = fees.student_total(
+            due.amount_kobo, paystack_percent, Decimal(due.platform_fee_percent)).total_kobo
     return RepDueOut(
+        student_total_kobo=student_total,
         students=students, paid_count=paid_count, collected_kobo=collected_kobo, outstanding_kobo=outstanding,
         id=due.id,
         phase=phase(due, open_rev),
@@ -129,6 +135,13 @@ async def rep_due_out(db: AsyncSession, due: ClassDue) -> RepDueOut:
         latest_revision=revision_out(latest),
         created_at=due.created_at,
     )
+
+
+async def rep_quote(db: AsyncSession, amount_kobo: int) -> fees.StudentQuote:
+    """Uses the default platform fee; the approver can adjust it per due, and the rep's due
+    then shows the final student total."""
+    settings = await app_settings.get_fee_settings(db)
+    return fees.student_total(amount_kobo, Decimal(settings.paystack_fee_percent), Decimal(settings.platform_fee_percent))
 
 
 def student_due_out(

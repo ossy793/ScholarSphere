@@ -33,8 +33,18 @@
       </label>
       <label>Amount per student (₦)
         <input type="text" name="amount" inputmode="decimal" required placeholder="e.g. 5000">
-        <span class="muted small" id="amount-help">Students pay this plus a small service charge, included in the single total they see.</span>
+        <span class="muted small" id="amount-help">Students pay this plus a small service charge that covers bank and payment processing charges.</span>
       </label>
+      <div class="quote-box" id="quote-box" hidden>
+        <div class="quote-figures">
+          <div><span class="stat-label">Your due</span><strong id="q-amount"></strong></div>
+          <div><span class="stat-label">Service charge</span><strong id="q-charge"></strong></div>
+          <div><span class="stat-label">Each student pays</span><strong class="q-total" id="q-total"></strong></div>
+        </div>
+        <p class="small">Tell your class the amount they'll pay. Something like:</p>
+        <p class="quote-message" id="q-message"></p>
+        <button type="button" class="btn btn-inline" id="q-copy">Copy message</button>
+      </div>
       <label>Deadline (Lagos time)
         <input type="datetime-local" name="deadline" required>
         <span class="muted small">After this the due closes and can't be paid. You can ask to extend it later.</span>
