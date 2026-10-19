@@ -13,7 +13,6 @@ let findUniversity = () => null;
 
 attachPasswordChecklist(form.elements.password, document.getElementById('password-rules'));
 
-document.getElementById('google').href = `/api/user/auth/google?next=${encodeURIComponent(landing)}`;
 document.getElementById('login-link').href = `/login.html?next=${encodeURIComponent(landing)}`;
 
 setupUniversityPicker(document.getElementById('universities'))

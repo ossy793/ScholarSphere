@@ -307,12 +307,14 @@ the server before launch; see deploy/README.md step 12.
   any lockout, and lets Google-only users set a password.
 - Signup also asks for a Nigerian mobile number (stored as +234…), the university (a
   searchable list of 249 Nigerian universities in the `universities` table, seeded from
-  `alembic/data/nigerian_universities.json`) and level (100–500). Google sign-ups fill
-  these in on `/complete-profile.html` before they can continue; paying and applying as a
+  `alembic/data/nigerian_universities.json`) and level (100–500). Accounts missing them
+  (made before this rule) fill them in on `/complete-profile.html`; paying and applying as a
   rep also require them (`get_verified_user`). To add a missing university, insert a row
   into `universities` (an admin screen can come with the staff site).
-- Google sign-in skips the code (Google has verified the email) and links to an existing
-  password account with the same email.
+- Google is for **logging in only** (owner's decision, 2026-10-19): the button is on the
+  login page, not signup. It logs into the existing account with the same (Google-verified)
+  email and links it; an email with no account is sent back to log in with
+  `google_no_account` ("create an account first").
 - Sessions: a 15-minute access JWT and a rotating 7-day refresh token, both HttpOnly
   cookies. Refresh tokens are stored hashed in `auth_sessions`; replaying an old one ends
   every session of that account.

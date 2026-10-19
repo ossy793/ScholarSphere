@@ -33,8 +33,10 @@ def google_client() -> StarletteOAuth2App | None:
 
 
 async def find_or_create_google_user(db: AsyncSession, info: dict[str, Any]) -> User:
-    """Matches by Google id, then links to an existing account with the same email,
-    otherwise creates one. Only Google-verified emails are trusted."""
+    """Matches by Google id, then links to an existing account with the same email.
+    Google is for logging in only (owner's decision, 2026-10-19): accounts are created
+    with the signup form, so an email with no account is refused. Only Google-verified
+    emails are trusted."""
     sub = info.get("sub")
     email = (info.get("email") or "").strip().lower()
     if not sub or not email:
@@ -50,13 +52,12 @@ async def find_or_create_google_user(db: AsyncSession, info: dict[str, Any]) -> 
             )
         user = await db.scalar(select(User).where(User.email == email))
         if user is None:
-            user = User(
-                email=email,
-                full_name=(info.get("name") or email.split("@")[0])[:200],
-                status="active",
+            raise AppError(
+                "google_no_account",
+                "There's no account with this Google email yet. Create an account first, then you can log in with Google.",
+                404,
             )
-            db.add(user)
-        elif user.google_sub is not None:
+        if user.google_sub is not None:
             raise AppError(
                 "google_account_conflict",
                 "This email is already linked to a different Google account.",

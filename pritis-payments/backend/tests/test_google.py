@@ -53,21 +53,14 @@ async def test_google_start_redirects_to_google(client: AsyncClient, fake_google
     assert "redirect_uri=http://test/api/user/auth/google/callback" in resp.headers["location"]
 
 
-async def test_new_google_user_completes_profile_then_returns_to_next(
-    client: AsyncClient, fake_google
-) -> None:
+async def test_google_never_creates_accounts(client: AsyncClient, fake_google) -> None:
+    # Owner's decision: accounts come from the signup form; Google only logs them in.
     fake_google(userinfo=_info())
-    await client.get("/api/user/auth/google?next=/dues/abc", follow_redirects=False)
     resp = await _callback(client)
-    assert resp.status_code == 303
-    # No phone, university or level yet, so the profile page comes first.
-    assert resp.headers["location"] == "/complete-profile.html?next=%2Fdues%2Fabc"
-
-    me = (await client.get("/api/user/me")).json()
-    assert me["email"] == "ada@gmail.com"
-    assert me["email_verified"] is True
-    assert me["has_password"] is False
-    assert me["profile_complete"] is False
+    assert resp.headers["location"] == "/login.html?error=google_no_account"
+    assert (await client.get("/api/user/me")).status_code == 401
+    async with SessionLocal() as db:
+        assert (await db.scalars(select(User))).all() == []
 
 
 async def test_returning_google_user_with_profile_goes_straight_to_next(
@@ -108,10 +101,11 @@ async def test_google_failure_goes_back_to_login(client: AsyncClient, fake_googl
 
 @pytest.mark.parametrize("bad_next", ["//evil.example", "https://evil.example", "/\\evil.example"])
 async def test_next_must_stay_on_site(client: AsyncClient, fake_google, bad_next: str) -> None:
+    await signup(client, email="ada@gmail.com")
     fake_google(userinfo=_info())
     await client.get("/api/user/auth/google", params={"next": bad_next}, follow_redirects=False)
     resp = await _callback(client)
-    assert resp.headers["location"] == "/complete-profile.html?next=%2Fdashboard.html"
+    assert resp.headers["location"] == "/dashboard.html"
 
 
 async def test_google_not_configured(client: AsyncClient, monkeypatch) -> None:
