@@ -472,3 +472,8 @@ input[type="file"] { padding: 0.55rem; background: var(--bg); }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.4rem 0.3rem 0.7rem; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: 0.875rem; font-weight: 600; }
 .chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.25rem; }
+
+/* "There's more to Pritis" box on the dashboards */
+.promo { border-left: 4px solid var(--primary); background: linear-gradient(135deg, var(--surface), var(--primary-soft)); }
+.promo h2 { margin-bottom: 0.4rem; }
+.promo p { margin: 0 0 1rem; color: var(--muted); }
