@@ -1,9 +1,11 @@
-"""Settlement (design sections 5 and 8): when Paystack has paid a payment out to Pritis's
-bank, the rep's share moves from Pending to Available (debit rep pending, credit rep
-available). Only Available money can be paid out.
+"""Settlement (design sections 5 and 8): the rep's share of a payment moves from Pending to
+Available (debit rep pending, credit rep available). Only Available money can be paid out.
 
-Two ways in: the hourly check reads Paystack's settlements; if that data isn't available,
-the accountant marks payments settled after checking the bank statement.
+How, by settlement mode (Settings):
+  balance (the default, owner's decision 2026-10-19): funds stay in the Paystack balance, so
+          a payment becomes Available a set number of hours after it was paid;
+  bank:   the hourly check reads Paystack's settlements to Pritis's bank.
+Either way the accountant can also mark payments settled by hand.
 """
 
 import logging
@@ -19,7 +21,7 @@ from app.core.clock import utcnow
 from app.core.db import SessionLocal
 from app.core.errors import AppError
 from app.models import AdminUser, Class, ClassDue, Payment
-from app.services import audit, ledger, refunds
+from app.services import app_settings, audit, ledger, refunds
 from app.services.paystack import PaystackClient
 
 log = logging.getLogger("app.settlements")
@@ -62,6 +64,37 @@ def _parse(value: Any) -> datetime | None:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+async def release_after_hold() -> int:
+    """Balance mode (the funds stay in the Paystack balance): a payment becomes Available to
+    the rep a set number of hours after it was paid. Idempotent."""
+    async with SessionLocal() as db:
+        settings = await app_settings.get_fee_settings(db)
+        cutoff = utcnow() - timedelta(hours=settings.available_after_hours)
+        payments = (await db.scalars(
+            select(Payment).where(Payment.status == "success", Payment.settled_at.is_(None), Payment.paid_at <= cutoff)
+            .order_by(Payment.paid_at).limit(500).with_for_update(skip_locked=True)
+        )).all()
+        released = 0
+        for payment in payments:
+            if await settle_payment(db, payment, utcnow(), "balance:auto"):
+                released += 1
+        await db.commit()
+    if released:
+        log.info("Balance mode: %d payment(s) moved to Available", released)
+    return released
+
+
+async def run(paystack: PaystackClient | None) -> str:
+    """The hourly job, by settlement mode."""
+    async with SessionLocal() as db:
+        mode = (await app_settings.get_fee_settings(db)).settlement_mode
+    if mode == "balance":
+        return f"balance mode: released {await release_after_hold()}"
+    if paystack is None:
+        return "skipped: Paystack not configured"
+    return f"settled {await check_paystack_settlements(paystack)}"
 
 
 async def check_paystack_settlements(paystack: PaystackClient) -> int:

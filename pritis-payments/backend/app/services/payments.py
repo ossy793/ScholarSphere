@@ -21,7 +21,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.errors import AppError, field_error
 from app.models import Class, ClassDue, ClassMembership, DueRevision, Payment, User, WebhookEvent
-from app.services import app_settings, dues, fees, ledger, payouts, refunds
+from app.services import app_settings, dues, fees, ledger, payouts, refunds, revenue
 from app.services import paystack as paystack_service
 from app.services.email import queue_email
 from app.services.paystack import PaystackClient
@@ -381,7 +381,10 @@ async def _dispatch(db: AsyncSession, event: WebhookEvent) -> str:
         await apply_paystack_result(db, payment, data)
         return "processed"
     if event.event_type in ("transfer.success", "transfer.failed", "transfer.reversed"):
-        return await payouts.apply_transfer_event(db, event.event_type, event.payload.get("data") or {})
+        data = event.payload.get("data") or {}
+        if str(data.get("reference", "")).startswith(revenue.REFERENCE_PREFIX):
+            return await revenue.apply_transfer_event(db, event.event_type, data)
+        return await payouts.apply_transfer_event(db, event.event_type, data)
     if event.event_type in ("refund.pending", "refund.processing", "refund.processed", "refund.failed"):
         return await refunds.apply_refund_event(db, event.event_type, event.payload.get("data") or {})
     return "ignored"

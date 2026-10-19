@@ -60,6 +60,19 @@
         </label>
       </section>
 
+      <section class="panel">
+        <h2>Where the money is kept</h2>
+        <fieldset class="choice-list">
+          <legend>Paystack funds</legend>
+          <label class="choice"><input type="radio" name="settlement_mode" value="balance"><span><strong>Keep in the Paystack balance</strong> · rep payouts are paid straight from it, and Pritis withdraws its revenue on the Revenue page. Ask Paystack to stop settling to your bank.</span></label>
+          <label class="choice"><input type="radio" name="settlement_mode" value="bank"><span><strong>Settle to Pritis's bank</strong> · Paystack pays out daily; money becomes Available to reps when Paystack reports the settlement, and the Paystack balance must be topped up for payouts.</span></label>
+        </fieldset>
+        <label>Hours before a payment is Available to the rep (balance mode)
+          <input type="text" name="available_after_hours" inputmode="numeric" required>
+          <span class="muted small">Gives Paystack time to put the money in the balance. 24 is a safe default; up to 240.</span>
+        </label>
+      </section>
+
       <div class="actions">
         <button type="submit" class="btn btn-primary btn-inline">Save settings</button>
       </div>

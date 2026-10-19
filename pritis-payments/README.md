@@ -250,6 +250,23 @@ URL** to `https://<tunnel>/api/webhooks/paystack`.
   email, phone (any of `0803…`, `803…`, `234803…`), matric number, reference or receipt number.
 - Days and months are Lagos time.
 
+## Revenue (funds kept in the Paystack balance)
+
+Owner's decision (2026-10-19): Paystack keeps the money in the Paystack balance instead of
+settling to the bank daily (ask Paystack to switch the account's settlement). Settings →
+"Where the money is kept" has the mode (`balance`, the default, or `bank`).
+
+- **Reps' money** becomes Available `available_after_hours` (default 24) after the payment;
+  the hourly job does it. In `bank` mode it waits for Paystack's settlement instead.
+- **Rep payouts** are sent from the balance, as before.
+- **Pritis's revenue** is withdrawn on **Revenue** (super admin; the accountant can look) to
+  Pritis's bank account saved there (looked up with Paystack; every super admin is emailed when
+  it changes). The most that can leave is the smaller of what the ledger says is Pritis's
+  (clearing − everything owed to reps) and the real Paystack balance − everything owed to reps,
+  less withdrawals being sent, with Paystack's transfer fee included. One at a time; same
+  never-sent-twice rules as payouts. Ledger when paid: debit `pritis_bank` A and
+  `withdrawal_fee_expense` F, credit `paystack_clearing` A + F.
+
 ## Refunds
 
 - **Who:** support, the accountant or the super admin starts one from **Payments**

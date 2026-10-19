@@ -9,6 +9,8 @@ Accounts:
     payout_hold:<user>       liability  requested payouts on hold (phase 8)
     refund_hold:<user>       liability  the rep's share of refunds being sent (phase 10)
     refund_fee_expense       expense    Paystack fees Pritis absorbs on refunds (phase 10)
+    pritis_bank              asset      revenue withdrawn from Paystack to Pritis's bank
+    withdrawal_fee_expense   expense    Paystack's transfer fees on those withdrawals
 """
 
 import uuid
@@ -28,6 +30,8 @@ SYSTEM_ACCOUNTS: dict[str, tuple[str, AccountType]] = {
     "platform_revenue": ("Platform revenue (service charges)", "revenue"),
     "payout_fee_revenue": ("Payout fee revenue", "revenue"),
     "refund_fee_expense": ("Paystack fees on refunds (borne by Pritis)", "expense"),
+    "pritis_bank": ("Revenue withdrawn to Pritis's bank", "asset"),
+    "withdrawal_fee_expense": ("Paystack fees on revenue withdrawals", "expense"),
 }
 REP_ACCOUNTS: dict[str, tuple[str, AccountType]] = {
     "rep_pending": ("Rep pending balance", "liability"),

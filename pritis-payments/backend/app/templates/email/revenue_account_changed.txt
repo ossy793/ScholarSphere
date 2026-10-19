@@ -1,0 +1,7 @@
+The revenue bank account was changed.
+
+{{ changed_by }} set the account Pritis DPP revenue is withdrawn to:
+New: {{ account }}
+Before: {{ previous }}
+
+If you didn't expect this, sign in to the admin site now, set the right account and check the audit log.

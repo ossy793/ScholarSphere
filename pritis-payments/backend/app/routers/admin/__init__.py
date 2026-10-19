@@ -10,6 +10,7 @@ from app.routers.admin import (
     refunds,
     rep_applications,
     reports,
+    revenue,
     search,
     settings,
     settlements,
@@ -19,6 +20,7 @@ from app.routers.admin import (
 
 router = APIRouter(prefix="/api/admin")
 router.include_router(reports.router)
+router.include_router(revenue.router)
 router.include_router(search.router)
 router.include_router(support.router)
 router.include_router(payouts.router)

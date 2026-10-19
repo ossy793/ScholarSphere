@@ -58,6 +58,8 @@ function fill(settings) {
   form.elements.platform_fee_percent.value = settings.platform_fee_percent;
   form.elements.payout_fee_percent.value = settings.payout_fee_percent;
   form.elements.max_due_amount.value = koboToNairaInput(settings.max_due_amount_kobo);
+  form.elements.settlement_mode.value = settings.settlement_mode;
+  form.elements.available_after_hours.value = String(settings.available_after_hours);
   bandsBody.replaceChildren(...settings.transfer_fee_bands.map(bandRow));
   updateExample();
 }
@@ -75,6 +77,10 @@ function read() {
   const maxDue = nairaToKobo(form.elements.max_due_amount.value);
   if (maxDue == null || maxDue < 10_000) throw new Error('Enter a maximum due amount of at least ₦100.');
   body.max_due_amount_kobo = maxDue;
+  body.settlement_mode = form.elements.settlement_mode.value || 'balance';
+  const hours = Number(String(form.elements.available_after_hours.value).trim());
+  if (!Number.isInteger(hours) || hours < 0 || hours > 240) throw new Error('Hours before Available must be a whole number from 0 to 240.');
+  body.available_after_hours = hours;
 
   const rows = [...bandsBody.children];
   body.transfer_fee_bands = rows.map((tr, i) => {

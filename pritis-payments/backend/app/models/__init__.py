@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.dues import ClassDue, DueRevision
 from app.models.payments import LedgerAccount, LedgerEntry, Payment, RepWallet, WebhookEvent
 from app.models.payouts import BankAccountChange, PayoutRequest
+from app.models.revenue import RevenueWithdrawal
 from app.models.refunds import PaymentReminder, Refund
 from app.models.support import Announcement, SupportMessage, SupportTicket
 from app.models.rep import RepApplication, RepBankAccount
@@ -34,6 +35,7 @@ __all__ = [
     "Payment",
     "PaymentReminder",
     "Refund",
+    "RevenueWithdrawal",
     "RepWallet",
     "WebhookEvent",
     "RateLimit",

@@ -22,6 +22,8 @@ DEFAULTS: dict[str, Any] = {
         {"up_to_kobo": 5_000_000, "fee_kobo": 2_500},
         {"up_to_kobo": None, "fee_kobo": 5_000},
     ],
+    "settlement_mode": "balance",
+    "available_after_hours": 24,
 }
 
 

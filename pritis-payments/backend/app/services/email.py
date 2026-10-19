@@ -50,6 +50,7 @@ SUBJECTS = {
     "support_new": "Support message {ticket}: {subject}",
     "support_reply": "Re: {subject} [support {ticket}]",
     "announcement": "{subject}",
+    "revenue_account_changed": "Pritis DPP: the revenue bank account was changed",
 }
 MAX_ATTEMPTS = 5
 

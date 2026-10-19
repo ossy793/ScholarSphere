@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -20,6 +20,13 @@ class FeeSettings(BaseModel):
     payout_fee_percent: Percent
     max_due_amount_kobo: int = Field(ge=10_000)  # at least ₦100
     transfer_fee_bands: list[TransferFeeBand] = Field(min_length=1, max_length=10)
+    # Where Paystack keeps the money (owner's decision, 2026-10-19: the Paystack balance).
+    #   balance: funds stay in the Paystack balance; a payment becomes Available to the rep
+    #            available_after_hours after it was paid; Pritis withdraws revenue in the app.
+    #   bank:    Paystack settles to Pritis's bank; payments become Available when Paystack
+    #            reports the settlement (or the accountant marks it).
+    settlement_mode: Literal["balance", "bank"] = "balance"
+    available_after_hours: int = Field(default=24, ge=0, le=240)
 
     @model_validator(mode="after")
     def _bands_in_order(self) -> "FeeSettings":

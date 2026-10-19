@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import time, timedelta
 
 from app.core.errors import AppError
-from app.services import payments, payouts, reconciliation, refunds, reminders, settlements
+from app.services import payments, payouts, reconciliation, refunds, reminders, revenue, settlements
 from app.services import paystack as paystack_service
 from app.services.email import send_pending
 
@@ -44,10 +44,7 @@ async def pending_payments() -> str:
 
 
 async def settlement_check() -> str:
-    client = _paystack()
-    if client is None:
-        return "skipped: Paystack not configured"
-    return f"settled {await settlements.check_paystack_settlements(client)}"
+    return await settlements.run(_paystack())
 
 
 async def transfer_status_check() -> str:
@@ -56,8 +53,10 @@ async def transfer_status_check() -> str:
         return "skipped: Paystack not configured"
     transfers = await payouts.check_processing(client)
     refund_counts = await refunds.check_processing(client)
+    withdrawals = await revenue.check_processing(client)
     return (", ".join(f"transfers {k} {v}" for k, v in transfers.items()) + "; "
-            + ", ".join(f"refunds {k} {v}" for k, v in refund_counts.items()))
+            + ", ".join(f"refunds {k} {v}" for k, v in refund_counts.items()) + "; "
+            + ", ".join(f"withdrawals {k} {v}" for k, v in withdrawals.items()))
 
 
 async def payment_reminders() -> str:
@@ -79,7 +78,7 @@ JOBS: list[Job] = [
     Job("transfer_status_check", transfer_status_check, every=timedelta(minutes=10),
         description="Checks payouts and refunds still Processing after 10 minutes, in case a webhook was missed"),
     Job("settlement_check", settlement_check, every=timedelta(hours=1),
-        description="Moves settled payments from the rep's Pending to Available"),
+        description="Moves payments from the rep's Pending to Available (after the hold, or when Paystack settles)"),
     Job("reminders", payment_reminders, daily_at=time(8, 0),
         description="Emails unpaid students 3 days before a deadline and on the deadline day"),
     Job("reconciliation", nightly_reconciliation, daily_at=time(2, 0),

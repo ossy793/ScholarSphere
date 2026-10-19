@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Revenue · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/revenue.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <h1>Revenue</h1>
+    <p class="muted small">The Paystack balance holds the reps' money and Pritis's revenue together. Only the revenue can be withdrawn, and only to Pritis's saved bank account; whatever reps are owed always stays.</p>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+    <p class="alert alert-warning small" id="mode-note" hidden>Settings say Paystack settles to Pritis's bank, so most revenue is already in the bank. Withdrawals here only take what's left in the Paystack balance.</p>
+
+    <section class="panel">
+      <div class="stat-row" id="tiles"></div>
+    </section>
+
+    <section class="panel" id="withdraw-panel">
+      <h2>Withdraw revenue</h2>
+      <p class="small" id="to-account"></p>
+      <form method="post" id="withdraw-form" novalidate>
+        <div class="form-grid cols-2">
+          <label>Amount to Pritis's bank (₦)
+            <input type="text" name="amount" inputmode="decimal" required placeholder="e.g. 50000">
+          </label>
+          <label>Note (optional)
+            <input type="text" name="note" maxlength="300" placeholder="e.g. October revenue">
+          </label>
+        </div>
+        <p class="small muted" id="fee-line"></p>
+        <div class="actions">
+          <button type="submit" class="btn btn-primary btn-inline" id="withdraw-btn">Withdraw</button>
+          <button type="button" class="btn btn-inline" id="max-btn">Fill in everything available</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Pritis's bank account</h2>
+      <p id="account-now"></p>
+      <form method="post" id="account-form" novalidate hidden>
+        <p class="alert alert-warning small">Changing this changes where Pritis's money goes. Every super admin is emailed when it changes.</p>
+        <div class="form-grid cols-2">
+          <label>Bank
+            <select name="bank_code" required><option value="">Loading banks…</option></select>
+          </label>
+          <label>Account number
+            <input type="text" name="account_number" inputmode="numeric" maxlength="10" required placeholder="10 digits">
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn btn-inline" id="account-btn">Look up and save</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Withdrawals</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>When</th><th class="num">Amount</th><th class="num">Paystack fee</th><th>To</th><th>Status</th><th>By</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
