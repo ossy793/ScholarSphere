@@ -46,6 +46,10 @@ SUBJECTS = {
     "refund_update": "Update on a refund",
     "refund_staff": "Pritis Class Dues refund",
     "payment_reminder": "Reminder: your class due closes soon",
+    # Subjects in {braces} are filled from the email's own details.
+    "support_new": "Support message {ticket}: {subject}",
+    "support_reply": "Re: {subject} [support {ticket}]",
+    "announcement": "{subject}",
 }
 MAX_ATTEMPTS = 5
 
@@ -143,7 +147,8 @@ def render(template: str, payload: dict[str, Any]) -> tuple[str, str, str]:
     """Returns (subject, html, text)."""
     html = _env.get_template(f"{template}.html").render(**payload)
     text = _env.get_template(f"{template}.txt").render(**payload)
-    return SUBJECTS[template], html, text
+    subject = SUBJECTS[template].format_map(payload) if "{" in SUBJECTS[template] else SUBJECTS[template]
+    return subject, html, text
 
 
 async def queue_email(

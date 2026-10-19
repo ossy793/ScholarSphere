@@ -13,6 +13,8 @@ const NAV = [
   { href: '/index.html', label: 'Overview', roles: ['super_admin', 'accountant', 'support'] },
   { href: '/reports.html', label: 'Reports', roles: ['super_admin', 'accountant'] },
   { href: '/ledger.html', label: 'Ledger', roles: ['super_admin', 'accountant'] },
+  { href: '/support.html', label: 'Support inbox', roles: ['super_admin', 'support'] },
+  { href: '/messages.html', label: 'Send a message', roles: ['super_admin', 'support'] },
   { href: '/users.html', label: 'Users', roles: ['super_admin', 'accountant', 'support'] },
   { href: '/payments.html', label: 'Payments', roles: ['super_admin', 'accountant', 'support'] },
   { href: '/dues.html', label: 'Due approvals', roles: ['super_admin', 'accountant'] },

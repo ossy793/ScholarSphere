@@ -1,0 +1,7 @@
+Hello {{ full_name }},
+
+{{ body }}
+
+{{ link }}
+
+Pritis Class Dues support

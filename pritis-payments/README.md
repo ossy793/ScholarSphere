@@ -267,6 +267,21 @@ URL** to `https://<tunnel>/api/webhooks/paystack`.
   An unclear answer stays Processing; the 10-minute check asks Paystack (and gives up after an
   hour if Paystack never got it), so a refund is never sent twice.
 
+## Support
+
+- **Contact support** (`/support.html`, button on the student and rep dashboards): a
+  signed-in student or rep writes a subject and message (works before email verification
+  too; 10 messages an hour). Support staff and the super admin are emailed that it's waiting.
+- **Support inbox** (admin, support and super admin): the conversation, an answer box and
+  "mark resolved". Each answer is emailed to the user's address and shows on their Contact
+  support page; their reply there reopens it. Numbered from #1001.
+- **Send a message** (admin, support and super admin): email everyone, students (not
+  verified reps), verified class reps, or people picked by search (up to 500). Only active
+  accounts with a verified email receive it; each gets their own email through the outbox
+  (about 120 a minute). Every message sent is kept, with who sent it and how many it reached.
+- Brevo's free plan sends 300 emails a day; a message to more people than that needs a
+  paid Brevo plan, or the rest fail after the outbox's 5 attempts.
+
 ## Payment reminders
 
 The worker emails unpaid students of a live due at 08:00 Lagos time, 3 days before the

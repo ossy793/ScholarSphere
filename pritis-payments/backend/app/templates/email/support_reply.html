@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      <p style="margin:0 0 8px;color:#4A6080;font-size:14px;">Pritis support replied to your message {{ ticket }}, "{{ subject }}":</p>
+      <p style="margin:0 0 16px;padding:14px;background:#F0F6FF;border-radius:10px;white-space:pre-line;">{{ reply }}</p>
+      {% if closed %}
+      <p style="margin:0 0 16px;font-size:14px;color:#4A6080;">We've marked this as resolved. If you still need help, write to us again from the site.</p>
+      {% else %}
+      <p style="margin:0 0 16px;font-size:14px;color:#4A6080;">To answer, open Contact support on the site and write under this message.</p>
+      {% endif %}
+      <p style="margin:0 0 20px;"><a href="{{ link }}" style="display:inline-block;background:#0077FF;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:10px;">Open your messages</a></p>
+      <p style="margin:0 0 6px;font-size:13px;color:#4A6080;">Your message:</p>
+      <p style="margin:0;font-size:13px;color:#4A6080;white-space:pre-line;border-left:3px solid #D6E4F7;padding-left:10px;">{{ original }}</p>
+    </td></tr>
+  </table>
+</body>
+</html>

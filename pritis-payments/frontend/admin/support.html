@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Support inbox · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/support.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <h1>Support inbox</h1>
+    <p class="muted small">Messages from students and reps. Your answer is emailed to them and shows on their Contact support page. Oldest waiting messages come first.</p>
+
+    <nav class="tabs" aria-label="Show">
+      <a href="?tab=open" data-tab="open">Waiting</a>
+      <a href="?tab=answered" data-tab="answered">Answered</a>
+      <a href="?tab=closed" data-tab="closed">Resolved</a>
+    </nav>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <div id="list"></div>
+  </main>
+</body>
+</html>

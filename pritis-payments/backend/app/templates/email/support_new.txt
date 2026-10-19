@@ -1,0 +1,6 @@
+New support message {{ ticket }}: {{ subject }}
+From {{ name }} ({{ email }})
+
+{{ body }}
+
+Answer on the admin site: {{ link }}

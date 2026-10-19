@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Send a message · Pritis Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/messages.js"></script>
+</head>
+<body class="shell">
+  <main class="shell-main" hidden>
+    <h1>Send a message</h1>
+    <p class="muted small">An email to students and class reps. Only active accounts with a verified email receive it. Each person gets their own email; nobody sees who else it went to.</p>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <section class="panel">
+      <form id="message-form" novalidate>
+        <fieldset class="choice-list">
+          <legend>Send to</legend>
+          <label class="choice"><input type="radio" name="audience" value="all" checked><span><strong>Everyone</strong> · students and class reps</span></label>
+          <label class="choice"><input type="radio" name="audience" value="students"><span><strong>Students</strong> · everyone who isn't a verified class rep</span></label>
+          <label class="choice"><input type="radio" name="audience" value="reps"><span><strong>Class reps</strong> · verified reps only</span></label>
+          <label class="choice"><input type="radio" name="audience" value="selected"><span><strong>People I choose</strong></span></label>
+        </fieldset>
+
+        <div id="picker" hidden>
+          <label>Find people (name, email, phone or matric number)
+            <input id="find" type="search" autocomplete="off" placeholder="Type at least 2 characters">
+          </label>
+          <div id="found" class="thread"></div>
+          <p class="muted small" id="chosen-empty">Nobody chosen yet.</p>
+          <div class="chips" id="chosen"></div>
+        </div>
+
+        <label>Subject
+          <input name="subject" maxlength="150" required placeholder="e.g. Site maintenance tonight">
+        </label>
+        <label>Message
+          <textarea name="message" rows="8" maxlength="5000" required placeholder="Write the message. Each email starts with &quot;Hello [their name],&quot;."></textarea>
+        </label>
+        <p class="small"><strong id="count">…</strong> <span class="muted">will receive this.</span></p>
+        <button type="submit" class="btn btn-primary" id="send">Send</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Sent messages</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sent</th><th>Subject</th><th>To</th><th class="num">People</th><th>By</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

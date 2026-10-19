@@ -6,12 +6,16 @@ from app.models.dues import ClassDue, DueRevision
 from app.models.payments import LedgerAccount, LedgerEntry, Payment, RepWallet, WebhookEvent
 from app.models.payouts import BankAccountChange, PayoutRequest
 from app.models.refunds import PaymentReminder, Refund
+from app.models.support import Announcement, SupportMessage, SupportTicket
 from app.models.rep import RepApplication, RepBankAccount
 from app.models.system import AppSetting, EmailOutbox, RateLimit
 from app.models.user import Class, ClassMembership, University, User, UserToken
 from app.models.worker import ReconciliationRun, WorkerJob
 
 __all__ = [
+    "Announcement",
+    "SupportMessage",
+    "SupportTicket",
     "AdminInvite",
     "AdminUser",
     "AppSetting",

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact support · Pritis Class Dues</title>
+  <link rel="icon" type="image/svg+xml" href="/shared/img/favicon.svg">
+  <link rel="apple-touch-icon" href="/shared/img/icon-192.png">
+  <meta name="theme-color" content="#0077FF">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/shared/styles.css">
+  <script type="module" src="/js/support.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dashboard.html"><img src="/shared/img/logo.svg" alt="" width="36" height="36"><span>Pritis <span class="brand-sub">Class Dues</span></span></a>
+    <span class="actions">
+      <a class="btn btn-inline" href="/dashboard.html">Back to dashboard</a>
+    </span>
+  </header>
+
+  <main class="page" id="main" hidden>
+    <h1>Contact support</h1>
+    <p class="muted">Tell us what's wrong: a payment, your class, your account, anything. Our support team answers by email to <strong id="email"></strong>, and you'll also see the answer here.</p>
+
+    <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="alert alert-success" id="notice" role="status" hidden></p>
+
+    <section class="panel">
+      <h2>New message</h2>
+      <form id="support-form" novalidate>
+        <label>Subject
+          <input name="subject" maxlength="150" required placeholder="e.g. My payment isn't showing">
+        </label>
+        <label>Message
+          <textarea name="message" rows="6" maxlength="5000" required placeholder="What happened? Include the due name or receipt number if it's about a payment."></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary">Send to support</button>
+      </form>
+    </section>
+
+    <section class="panel" id="history-section" hidden>
+      <h2>Your messages</h2>
+      <div id="tickets"></div>
+    </section>
+  </main>
+</body>
+</html>

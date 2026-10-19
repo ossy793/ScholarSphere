@@ -1,0 +1,12 @@
+Hello {{ full_name }},
+
+Pritis support replied to your message {{ ticket }}, "{{ subject }}":
+
+{{ reply }}
+
+{% if closed %}We've marked this as resolved. If you still need help, write to us again from the site.{% else %}To answer, open Contact support on the site and write under this message.{% endif %}
+
+{{ link }}
+
+Your message:
+{{ original }}

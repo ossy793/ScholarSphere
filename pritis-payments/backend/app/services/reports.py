@@ -23,6 +23,7 @@ from app.models import (
     ReconciliationRun,
     Refund,
     RepApplication,
+    SupportTicket,
     User,
 )
 
@@ -152,6 +153,7 @@ async def overview_counts(db: AsyncSession) -> dict[str, int]:
         "payouts_waiting": await count(PayoutRequest, PayoutRequest.status == "requested"),
         "bank_changes_waiting": await count(BankAccountChange, BankAccountChange.status == "pending"),
         "refunds_waiting": await count(Refund, Refund.status == "requested"),
+        "support_waiting": await count(SupportTicket, SupportTicket.status == "open"),
         "students": await count(User, User.status == "active"),
         "reps": await count(RepApplication, RepApplication.status == "approved"),
         "classes": await count(Class),

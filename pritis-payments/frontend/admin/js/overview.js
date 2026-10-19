@@ -47,6 +47,9 @@ async function init() {
   const counts = await api.get('/reports/overview');
 
   const waiting = [];
+  if (me.role !== 'accountant') {
+    waiting.push(tile('Support messages', counts.support_waiting, 'to answer', '/support.html'));
+  }
   waiting.push(tile('Rep applications', counts.rep_applications_waiting, 'to verify', '/rep-applications.html'));
   waiting.push(tile('Refunds', counts.refunds_waiting, money ? 'to approve' : 'waiting for approval', '/refunds.html'));
   if (money) {

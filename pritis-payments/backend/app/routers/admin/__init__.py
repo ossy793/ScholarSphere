@@ -14,11 +14,13 @@ from app.routers.admin import (
     settings,
     settlements,
     staff,
+    support,
 )
 
 router = APIRouter(prefix="/api/admin")
 router.include_router(reports.router)
 router.include_router(search.router)
+router.include_router(support.router)
 router.include_router(payouts.router)
 router.include_router(refunds.router)
 router.include_router(settlements.router)
