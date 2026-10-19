@@ -22,7 +22,7 @@
     <section class="panel" aria-labelledby="invite-title">
       <h2 id="invite-title">Invite a staff member</h2>
       <p class="muted small">They get an email with a link to set a password and an authenticator app. The link lasts 72 hours.</p>
-      <form id="invite-form" class="form-grid cols-2" novalidate>
+      <form method="post" id="invite-form" class="form-grid cols-2" novalidate>
         <label>Full name
           <input type="text" name="full_name" required minlength="2" maxlength="200">
         </label>

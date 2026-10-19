@@ -23,7 +23,7 @@
       <p class="alert alert-error" id="error" role="alert" hidden></p>
 
       <!-- Step 1: password -->
-      <form id="password-form" novalidate>
+      <form method="post" id="password-form" novalidate>
         <label>Email
           <input type="email" name="email" autocomplete="username" required>
         </label>
@@ -34,7 +34,7 @@
       </form>
 
       <!-- Step 2: authenticator code -->
-      <form id="code-form" novalidate hidden>
+      <form method="post" id="code-form" novalidate hidden>
         <p class="muted">Open your authenticator app and enter the 6-digit code for <strong>Pritis DPP</strong>.</p>
         <label>Authenticator code
           <input class="code-input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"

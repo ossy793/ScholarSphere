@@ -77,7 +77,7 @@
 
       <h3 class="subhead">Request a payout</h3>
       <p class="alert alert-warning small" id="payout-blocked" hidden></p>
-      <form id="payout-form" novalidate hidden>
+      <form method="post" id="payout-form" novalidate hidden>
         <div class="form-grid cols-2">
           <label>Amount (₦)
             <input type="text" name="amount" inputmode="decimal" placeholder="e.g. 5000">
@@ -108,7 +108,7 @@
       <p class="muted small">Payouts can only go to this verified account.</p>
       <p class="alert alert-warning small" id="change-status" hidden></p>
       <button type="button" class="btn btn-inline" id="change-toggle">Change payout account</button>
-      <form id="change-form" novalidate hidden>
+      <form method="post" id="change-form" novalidate hidden>
         <p class="muted small">Your new account is checked by Pritis before it's used. Payouts are paused until then.</p>
         <div class="form-grid cols-2">
           <label>Bank
