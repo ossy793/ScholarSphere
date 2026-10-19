@@ -17,7 +17,7 @@ const GOOGLE_ERRORS = {
   google_not_configured: 'Google sign-in is not available yet. Use email and password.',
   google_email_unverified: 'Your Google email is not verified. Sign up with email and password instead.',
   google_account_conflict: 'This email is already linked to a different Google account.',
-  google_no_account: 'There's no account with this Google email yet. Create an account first, then you can log in with Google.',
+  google_no_account: "There's no account with this Google email yet. Create an account first, then you can log in with Google.",
   account_disabled: 'This account has been disabled. Contact support.',
 };
 
