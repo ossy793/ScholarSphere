@@ -7,7 +7,6 @@ const next = safeNext(params.get('next'));
 
 const form = document.getElementById('login-form');
 const errorEl = document.getElementById('error');
-const googleLink = document.getElementById('google');
 const signupLink = document.getElementById('signup-link');
 const forgotLink = document.getElementById('forgot-link');
 const roleButtons = document.querySelectorAll('.role-switch button');
@@ -32,7 +31,6 @@ function selectRole(value) {
   role = value;
   store.set('dpp_role', role);
   roleButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === role)));
-  googleLink.href = `/api/user/auth/google?next=${encodeURIComponent(landing())}`;
   signupLink.href = `/signup.html?next=${encodeURIComponent(landing())}`;
   forgotLink.href = `/forgot-password.html?next=${encodeURIComponent(landing())}`;
 }
