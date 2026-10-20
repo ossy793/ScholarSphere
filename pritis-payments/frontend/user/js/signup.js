@@ -39,10 +39,15 @@ form.addEventListener('submit', async (event) => {
     return showError(errorEl, 'The two passwords do not match.');
   }
 
+  if (!form.elements.accept_terms.checked) {
+    form.elements.accept_terms.focus();
+    return showError(errorEl, 'Tick the box to agree to the Terms and Conditions.');
+  }
+
   const button = form.querySelector('button[type="submit"]');
   setBusy(button, true, 'Creating account…');
   try {
-    await api.post('/auth/signup', { full_name: fullName, email, password, ...profile.values });
+    await api.post('/auth/signup', { full_name: fullName, email, password, ...profile.values, accept_terms: true });
     // Signed in already; confirm the email with the code we just sent.
     location.href = `/verify-email.html?next=${encodeURIComponent(landing)}`;
   } catch (err) {

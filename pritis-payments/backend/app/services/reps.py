@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import crypto
 from app.core.clock import utcnow
+from app.core.legal import REP_AGREEMENT_VERSION
 from app.core.config import get_settings
 from app.core.errors import AppError, field_error
 from app.models import AdminUser, Class, ClassMembership, RepApplication, RepBankAccount, User
@@ -139,6 +140,8 @@ async def submit_application(
         raise AppError("already_rep", "You're already a verified rep", 409)
     if status == "pending":
         raise AppError("application_pending", "Your application is already being reviewed", 409)
+    if not form.accept_agreement:
+        raise field_error("accept_agreement", "Tick the box to accept the Rep Services Agreement", "required")
 
     university = await get_active_university(db, form.university_id)
     data, content_type, ext = await read_proof(proof)
@@ -182,7 +185,7 @@ async def submit_application(
 
     application = RepApplication(
         user_id=user.id, class_id=klass.id, proof_file=key, proof_content_type=content_type,
-        status="pending",
+        status="pending", agreement_accepted_at=utcnow(), agreement_version=REP_AGREEMENT_VERSION,
     )
     db.add(application)
     try:

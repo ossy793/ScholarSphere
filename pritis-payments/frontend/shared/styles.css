@@ -487,3 +487,11 @@ input[type="file"] { padding: 0.55rem; background: var(--bg); }
 .quote-box p { margin: 0; }
 .quote-message { background: var(--surface); border-radius: 10px; padding: 0.7rem 0.85rem; line-height: 1.5; }
 .quote-box .btn { justify-self: start; }
+
+/* Terms and Rep Agreement pages */
+.legal { max-width: 760px; line-height: 1.65; }
+.legal h2 { margin: 1.75rem 0 0.5rem; font-size: 1.1875rem; }
+.legal ul { padding-left: 1.25rem; display: grid; gap: 0.45rem; }
+.legal p { margin: 0 0 0.75rem; }
+.terms-check { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; line-height: 1.45; }
+.terms-check input { width: auto; flex: none; margin-top: 0.2rem; padding: 0; accent-color: var(--primary); }

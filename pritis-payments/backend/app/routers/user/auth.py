@@ -21,7 +21,8 @@ from app.core.cookies import (
 )
 from app.core.db import get_session
 from app.core.deps import get_current_user
-from app.core.errors import AppError, error_response
+from app.core.errors import AppError, error_response, field_error
+from app.core.legal import TERMS_VERSION
 from app.core.security import (
     create_access_token,
     hash_password,
@@ -88,6 +89,8 @@ async def csrf(request: Request, response: Response) -> CsrfOut:
 async def signup(
     body: SignupIn, request: Request, response: Response, db: AsyncSession = Depends(get_session)
 ) -> UserOut:
+    if not body.accept_terms:
+        raise field_error("accept_terms", "Tick the box to agree to the Terms and Conditions", "required")
     email = body.email.lower()
     taken = AppError("email_taken", "An account with this email already exists. Log in instead.", 409)
     if await db.scalar(select(User.id).where(User.email == email)):
@@ -100,6 +103,8 @@ async def signup(
         phone=body.phone,
         university_id=body.university_id,
         level=body.level,
+        terms_accepted_at=utcnow(),
+        terms_version=TERMS_VERSION,
     )
     db.add(user)
     try:

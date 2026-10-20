@@ -79,3 +79,4 @@
 @media (max-width: 420px) {
   .landing-bar #login-btn { display: none; } /* the hero has a log-in button too */
 }
+.copyright { max-width: 1100px; margin: 0.5rem auto 0; text-align: center; color: var(--muted); font-size: 0.8125rem; }

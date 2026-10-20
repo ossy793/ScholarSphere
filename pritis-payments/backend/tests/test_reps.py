@@ -66,7 +66,7 @@ async def _apply(client: AsyncClient, proof=("id.png", PNG, "image/png"), **over
         "full_name": "Ada Ngozi Obi", "matric_no": "190404001", "phone": "0803 123 4567",
         "university_id": await university_id(), "department": "Computer Science",
         "level": "200", "class_name": "CSC 200 Level", "session": "2025/2026",
-        "bank_code": "058", "account_number": "0123456789",
+        "bank_code": "058", "account_number": "0123456789", "accept_agreement": "on",
         **overrides,
     }
     return await client.post("/api/user/rep/applications", data=data, files={"proof": proof})
@@ -356,3 +356,15 @@ async def test_one_rep_cannot_see_another_class(support: AsyncClient, fake_payst
         # A plain student can't use rep routes at all.
         assert (await plain.get(f"/api/user/rep/classes/{class_b['id']}/members")).status_code == 403
         assert (await plain.get("/api/user/rep/class")).status_code == 403
+
+
+async def test_applying_needs_the_rep_agreement_and_records_it(student: AsyncClient, fake_paystack) -> None:
+    from app.core.legal import REP_AGREEMENT_VERSION
+    from app.models import RepApplication
+    resp = await _apply(student, accept_agreement="")
+    assert resp.status_code == 422
+    assert resp.json()["error"]["details"][0]["field"].endswith("accept_agreement")
+    assert (await _apply(student)).status_code == 201
+    async with SessionLocal() as db:
+        app_row = await db.scalar(select(RepApplication))
+    assert app_row.agreement_accepted_at is not None and app_row.agreement_version == REP_AGREEMENT_VERSION

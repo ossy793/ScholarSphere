@@ -135,6 +135,7 @@ form.addEventListener('submit', async (event) => {
     [!f.bank_code.value, 'Choose your bank.'],
     [!/^\d{10}$/.test(f.account_number.value), 'Enter your 10-digit account number.'],
     [resolvedFor !== `${f.bank_code.value}|${f.account_number.value}`, 'Wait for the account name to show, and check it is yours.'],
+    [!f.accept_agreement.checked, 'Tick the box to accept the Rep Services Agreement.'],
   ];
   const problem = problems.find(([bad]) => bad);
   if (problem) return showError(errorEl, problem[1]);
@@ -144,6 +145,7 @@ form.addEventListener('submit', async (event) => {
     data.append(name, String(f[name].value).trim());
   }
   data.append('university_id', universityId);
+  data.append('accept_agreement', 'true');
   data.append('proof', file);
 
   const button = form.querySelector('button[type="submit"]');

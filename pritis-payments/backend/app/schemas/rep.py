@@ -27,6 +27,7 @@ class RepApplicationForm(BaseModel):
     session: Annotated[str, StringConstraints(pattern=r"^\d{4}/\d{4}$")]
     bank_code: BankCode
     account_number: AccountNumber
+    accept_agreement: bool = False  # must be true: the "I agree to the Rep Agreement" box
 
     @field_validator("session")
     @classmethod

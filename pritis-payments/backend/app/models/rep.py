@@ -36,6 +36,9 @@ class RepApplication(IdMixin, TimestampMixin, Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reject_reason: Mapped[str | None] = mapped_column(Text)
+    # When the applicant accepted the Rep Services Agreement, and which version.
+    agreement_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    agreement_version: Mapped[str | None] = mapped_column(String(10))
 
 
 class RepBankAccount(IdMixin, TimestampMixin, Base):

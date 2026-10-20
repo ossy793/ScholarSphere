@@ -58,6 +58,7 @@ class SignupIn(ProfileFields):
     full_name: Name
     email: EmailStr
     password: Password
+    accept_terms: bool = False  # must be true: the "I agree to the Terms" box
 
 
 class ProfileIn(ProfileFields):

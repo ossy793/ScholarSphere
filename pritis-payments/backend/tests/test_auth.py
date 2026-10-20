@@ -289,3 +289,16 @@ async def test_tampered_access_token_is_rejected(raw_client: AsyncClient) -> Non
     resp = await raw_client.get("/api/user/me", headers={"Cookie": "dpp_access=not.a.jwt"})
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "not_authenticated"
+
+
+async def test_signup_needs_the_terms_and_records_them(client: AsyncClient) -> None:
+    from app.core.legal import TERMS_VERSION
+    from tests.conftest import signup_body
+    body = await signup_body("terms@example.com")
+    resp = await client.post("/api/user/auth/signup", json={**body, "accept_terms": False})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["details"][0]["field"].endswith("accept_terms")
+    assert (await client.post("/api/user/auth/signup", json=body)).status_code == 201
+    async with SessionLocal() as db:
+        user = await db.scalar(select(User).where(User.email == "terms@example.com"))
+    assert user.terms_accepted_at is not None and user.terms_version == TERMS_VERSION

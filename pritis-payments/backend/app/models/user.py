@@ -54,6 +54,9 @@ class User(IdMixin, TimestampMixin, Base):
     )
     level: Mapped[str | None] = mapped_column(String(3))
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When they ticked "I agree" to the Terms, and which version (app/core/legal.py).
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terms_version: Mapped[str | None] = mapped_column(String(10))
     status: Mapped[str] = mapped_column(String(20), server_default="active")
     # Login lockout after repeated wrong passwords.
     failed_login_count: Mapped[int] = mapped_column(Integer, server_default="0")

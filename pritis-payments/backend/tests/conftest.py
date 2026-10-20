@@ -111,6 +111,7 @@ async def signup_body(email: str = "ada@example.com", password: str = PASSWORD) 
         "phone": "0803 123 4567",
         "university_id": await university_id(),
         "level": "200",
+        "accept_terms": True,
     }
 
 
