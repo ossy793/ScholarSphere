@@ -18,18 +18,27 @@
     <div class="page-head"><h1>Users</h1></div>
     <form method="post" class="range-bar" id="search" novalidate>
       <label>Search
-        <input type="search" name="q" minlength="2" placeholder="Name, email, phone or matric number" autofocus>
+        <input type="search" name="q" placeholder="Name, email, phone or matric number">
+      </label>
+      <label>Show
+        <select name="kind">
+          <option value="all">Everyone</option>
+          <option value="students">Students</option>
+          <option value="reps">Reps</option>
+        </select>
       </label>
       <button type="submit" class="btn btn-primary btn-inline">Search</button>
     </form>
     <p class="alert alert-error" id="error" role="alert" hidden></p>
+    <p class="muted small" id="summary"></p>
 
-    <div class="table-wrap" id="results-wrap" hidden>
+    <div class="table-wrap" id="results-wrap">
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Matric</th><th>University · level</th><th>Joined</th></tr></thead>
         <tbody id="results"></tbody>
       </table>
     </div>
+    <button type="button" class="btn btn-inline" id="more" hidden>Load more</button>
 
     <section class="panel" id="detail" hidden>
       <h2 id="d-name"></h2>

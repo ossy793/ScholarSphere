@@ -206,3 +206,17 @@ async def test_ledger_totals_never_drift(seeded: dict) -> None:
         assert await ledger.unbalanced_transactions(db) == []
         entries = await db.scalar(select(func.count()).select_from(LedgerEntry))
     assert entries > 0
+
+
+async def test_users_list_without_searching(seeded: dict, clock) -> None:
+    support = await staff_client(clock, "support")
+    everyone = (await support.get("/api/admin/users")).json()
+    assert len(everyone) >= 3
+    assert [u["created_at"] for u in everyone] == sorted((u["created_at"] for u in everyone), reverse=True)
+    reps = (await support.get("/api/admin/users?kind=reps")).json()
+    assert reps and all(u["is_rep"] for u in reps)
+    students = (await support.get("/api/admin/users?kind=students")).json()
+    assert students and not any(u["is_rep"] for u in students)
+    page2 = (await support.get("/api/admin/users?limit=1&offset=1")).json()
+    assert page2[0]["id"] == everyone[1]["id"]
+    await support.__aexit__(None, None, None)

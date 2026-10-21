@@ -7,13 +7,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.deps import ACCOUNTANT, SUPER_ADMIN, SUPPORT, require_roles
 from app.core.errors import AppError
-from app.models import AdminUser, Class, ClassDue, ClassMembership, Payment, Refund, University, User
+from app.models import AdminUser, Class, ClassDue, ClassMembership, Payment, Refund, RepApplication, University, User
 from app.services import reps
 
 router = APIRouter(tags=["admin search"])
@@ -31,6 +31,7 @@ class UserRow(BaseModel):
     email_verified: bool
     status: str
     created_at: datetime
+    is_rep: bool = False  # a verified rep
 
 
 class PaymentRow(BaseModel):
@@ -65,12 +66,15 @@ def _like(q: str) -> str:
     return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-async def _user_row(db: AsyncSession, u: User) -> UserRow:
+async def _user_row(db: AsyncSession, u: User, is_rep: bool | None = None) -> UserRow:
     university = await db.get(University, u.university_id) if u.university_id else None
+    if is_rep is None:
+        is_rep = await reps.is_verified_rep(db, u.id)
     return UserRow(
         id=u.id, full_name=u.full_name, email=u.email, phone=u.phone, matric_no=u.matric_no,
         university=university.name if university else None, level=u.level,
         email_verified=u.email_verified_at is not None, status=u.status, created_at=u.created_at,
+        is_rep=is_rep,
     )
 
 
@@ -99,21 +103,35 @@ def _payment_row(p: Payment, u: User, class_name: str, title: str, refund_status
 
 @router.get("/users", response_model=list[UserRow])
 async def search_users(
-    q: str = Query(min_length=2, max_length=100, description="name, email, phone or matric number"),
+    q: str | None = Query(None, min_length=2, max_length=100, description="name, email, phone or matric number"),
+    kind: Literal["all", "students", "reps"] = "all",
+    offset: int = Query(0, ge=0, le=100_000),
+    limit: int = Query(50, ge=1, le=200),
     _: AdminUser = Depends(search_staff), db: AsyncSession = Depends(get_session),
 ) -> list[UserRow]:
-    pattern = _like(q.strip())
-    # Phones are stored as +234803…; staff type 0803… or 803… or 234803….
-    digits = "".join(ch for ch in q if ch.isdigit())
-    if digits.startswith("234"):
-        digits = digits[3:]
-    elif digits.startswith("0"):
-        digits = digits[1:]
-    conditions = [User.full_name.ilike(pattern), User.email.ilike(pattern), User.matric_no.ilike(pattern)]
-    if len(digits) >= 4:
-        conditions.append(User.phone.like(f"%{digits}%"))
-    users = (await db.scalars(select(User).where(or_(*conditions)).order_by(User.full_name).limit(50))).all()
-    return [await _user_row(db, u) for u in users]
+    """Everyone, newest first, or those matching q (by name). Filter to students or reps."""
+    is_rep = exists().where(RepApplication.user_id == User.id, RepApplication.status == "approved")
+    query = select(User, is_rep.label("is_rep"))
+    if q:
+        pattern = _like(q.strip())
+        # Phones are stored as +234803…; staff type 0803… or 803… or 234803….
+        digits = "".join(ch for ch in q if ch.isdigit())
+        if digits.startswith("234"):
+            digits = digits[3:]
+        elif digits.startswith("0"):
+            digits = digits[1:]
+        conditions = [User.full_name.ilike(pattern), User.email.ilike(pattern), User.matric_no.ilike(pattern)]
+        if len(digits) >= 4:
+            conditions.append(User.phone.like(f"%{digits}%"))
+        query = query.where(or_(*conditions)).order_by(User.full_name, User.id)
+    else:
+        query = query.order_by(User.created_at.desc(), User.id)
+    if kind == "reps":
+        query = query.where(is_rep)
+    elif kind == "students":
+        query = query.where(~is_rep)
+    rows = (await db.execute(query.offset(offset).limit(limit))).all()
+    return [await _user_row(db, u, rep) for u, rep in rows]
 
 
 @router.get("/users/{user_id}", response_model=UserDetail)
