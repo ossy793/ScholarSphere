@@ -1,4 +1,5 @@
-"""6-digit one-time codes sent by email: email verification and password reset."""
+"""6-digit one-time codes sent by email: email verification, password reset, and confirming
+a payout request (the code is tied to the amount, so it can't confirm a different one)."""
 
 import hmac
 from datetime import timedelta
@@ -14,12 +15,19 @@ from app.core.security import hash_otp, new_otp
 from app.models import User, UserToken
 from app.services.email import queue_email
 
-Purpose = Literal["verify_email", "reset_password"]
+Purpose = Literal["verify_email", "reset_password", "confirm_payout"]
 
 
-async def send_code(db: AsyncSession, user: User, purpose: Purpose) -> None:
+def _hash(user: User, code: str, context: str) -> str:
+    return hash_otp(user.id, f"{code}|{context}" if context else code)
+
+
+async def send_code(
+    db: AsyncSession, user: User, purpose: Purpose, *, context: str = "", extra: dict | None = None
+) -> None:
     """Issues a fresh code (cancelling earlier ones for the same purpose) and queues the email.
-    The email template has the same name as the purpose."""
+    The email template has the same name as the purpose. With a context (e.g. an amount),
+    the code only works together with that same context."""
     settings = get_settings()
     now = utcnow()
     await db.execute(
@@ -32,17 +40,17 @@ async def send_code(db: AsyncSession, user: User, purpose: Purpose) -> None:
         UserToken(
             user_id=user.id,
             purpose=purpose,
-            token_hash=hash_otp(user.id, code),
+            token_hash=_hash(user, code, context),
             expires_at=now + timedelta(minutes=settings.email_code_minutes),
         )
     )
     await queue_email(
         db, user.email, purpose,
-        {"full_name": user.full_name, "code": code, "minutes": settings.email_code_minutes},
+        {"full_name": user.full_name, "code": code, "minutes": settings.email_code_minutes, **(extra or {})},
     )
 
 
-async def use_code(db: AsyncSession, user: User | None, purpose: Purpose, code: str) -> None:
+async def use_code(db: AsyncSession, user: User | None, purpose: Purpose, code: str, *, context: str = "") -> None:
     """Consumes the code or raises AppError. The caller commits in both cases, so a
     wrong guess is counted.
 
@@ -71,7 +79,7 @@ async def use_code(db: AsyncSession, user: User | None, purpose: Purpose, code: 
         raise expired
     if token.attempts >= settings.email_code_max_attempts:
         raise AppError("code_expired", "Too many wrong attempts. Request a new code.", 400)
-    if not hmac.compare_digest(token.token_hash, hash_otp(user.id, code)):
+    if not hmac.compare_digest(token.token_hash, _hash(user, code, context)):
         token.attempts += 1
         left = settings.email_code_max_attempts - token.attempts
         if left <= 0:

@@ -96,31 +96,72 @@ function setupPayoutForm() {
     form.elements.amount.value = koboToNairaInput(wallet.available_kobo);
     updateQuote().catch((e) => showError(errorEl, e));
   });
-  let armed = false;
+  // Two steps (owner's request, 2026-10-22): a code is emailed for this exact amount, then
+  // the rep types it to confirm. A stolen password alone can't move the money.
+  const codeBox = document.getElementById('payout-code');
+  let pendingKobo = null;
+
+  function resetCode() {
+    pendingKobo = null;
+    codeBox.hidden = true;
+    form.elements.code.value = '';
+    button.hidden = false;
+  }
+
+  async function sendCode(kobo) {
+    const res = await api.post('/rep/payouts/code', { amount_kobo: kobo });
+    pendingKobo = kobo;
+    document.getElementById('payout-code-text').textContent =
+      `We've emailed a 6-digit code to ${res.email}. Enter it to confirm your payout of ${formatNaira(kobo)}. It expires in 10 minutes.`;
+    codeBox.hidden = false;
+    button.hidden = true;
+    form.elements.code.focus();
+  }
+
+  form.elements.amount.addEventListener('input', resetCode);
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     showError(errorEl, null);
     const kobo = nairaToKobo(form.elements.amount.value);
     if (!kobo) return;
-    if (!armed) {
-      armed = true;
-      button.textContent = 'Click again to confirm';
-      setTimeout(() => { armed = false; updateQuote().catch(() => {}); }, 5000);
-      return;
-    }
-    armed = false;
-    setBusy(button, true, 'Requesting…');
+    setBusy(button, true, 'Sending code…');
     try {
-      await api.post('/rep/payouts', { amount_kobo: kobo });
-      noticeFn('Payout requested. The money is on hold until Pritis approves it; we\'ll email you.');
-      form.reset();
-      await loadWallet();
+      await sendCode(kobo);
     } catch (err) {
       showError(errorEl, err);
     } finally {
       setBusy(button, false);
     }
   });
+
+  document.getElementById('payout-confirm').addEventListener('click', async (event) => {
+    showError(errorEl, null);
+    const code = String(form.elements.code.value).trim();
+    if (!/^\d{6}$/.test(code)) {
+      form.elements.code.focus();
+      return showError(errorEl, 'Enter the 6-digit code from the email.');
+    }
+    const confirm = event.currentTarget;
+    setBusy(confirm, true, 'Confirming…');
+    try {
+      await api.post('/rep/payouts', { amount_kobo: pendingKobo, code });
+      noticeFn("Payout requested. The money is on hold until Pritis approves it; we'll email you.");
+      form.reset();
+      resetCode();
+      await loadWallet();
+    } catch (err) {
+      showError(errorEl, err);
+    } finally {
+      setBusy(confirm, false);
+    }
+  });
+
+  document.getElementById('payout-resend').addEventListener('click', () => {
+    showError(errorEl, null);
+    sendCode(pendingKobo).catch((err) => showError(errorEl, err));
+  });
+  document.getElementById('payout-cancel').addEventListener('click', resetCode);
 }
 
 async function loadChange() {

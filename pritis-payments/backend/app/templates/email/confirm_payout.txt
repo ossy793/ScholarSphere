@@ -1,0 +1,9 @@
+Hello {{ full_name }},
+
+Use this code to confirm your payout request of {{ amount }}. {{ net }} will be sent to {{ bank }} once it's approved.
+
+Your code: {{ code }}
+
+It expires in {{ minutes }} minutes and only works for this amount. Never share it with anyone, including anyone claiming to be from Pritis.
+
+Didn't ask for a payout? Someone may be using your account. Don't use the code, change your password now, and contact Pritis support.

@@ -62,3 +62,12 @@ async def staff_client(clock: FakeClock, role: str) -> AsyncClient:
     await admin_csrf(c)
     await admin_login(c, clock, email, secret)
     return c
+
+
+async def request_payout(rep: AsyncClient, amount_kobo: int, email: str = "rep@example.com"):
+    """A payout request the way the site does it: emailed code first, then the request."""
+    sent = await rep.post("/api/user/rep/payouts/code", json={"amount_kobo": amount_kobo})
+    if sent.status_code != 200:
+        return sent
+    code = await latest_code(email, "confirm_payout")
+    return await rep.post("/api/user/rep/payouts", json={"amount_kobo": amount_kobo, "code": code})

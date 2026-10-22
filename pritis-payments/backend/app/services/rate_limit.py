@@ -35,6 +35,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "rep_apply": (5, 3600),
     "email_receipt": (5, 3600),  # per user: "email me the receipt again"
     "support_message": (10, 3600),  # per user: messages to support
+    "payout_code": (5, 600),  # per rep: payout confirmation codes emailed
 }
 
 _HIT = text(

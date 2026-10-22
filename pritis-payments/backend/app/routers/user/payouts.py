@@ -12,18 +12,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import crypto
 from app.core.db import get_session
 from app.core.deps import RepContext, get_current_rep
+from app.core.errors import AppError
 from app.models import BankAccountChange, Class, PayoutRequest, RepWallet
 from app.schemas.payouts import (
     BankChangeIn,
     BankChangeOut,
+    CodeSentOut,
     DueCollectionOut,
+    PayoutCodeIn,
     PayoutIn,
     PayoutOut,
     PayoutQuoteOut,
     StudentRowOut,
     WalletOut,
 )
-from app.services import bank_changes, collected, dues, payouts, paystack
+from app.services import bank_changes, collected, dues, payouts, paystack, rate_limit
 
 router = APIRouter(prefix="/rep", tags=["rep money"])
 
@@ -136,11 +139,26 @@ async def payout_quote(
     return PayoutQuoteOut(amount_kobo=q.payout_kobo, service_charge_kobo=q.service_charge_kobo, net_kobo=q.net_kobo)
 
 
+@router.post("/payouts/code", response_model=CodeSentOut)
+async def payout_code(
+    body: PayoutCodeIn, rep: RepContext = Depends(get_current_rep), db: AsyncSession = Depends(get_session)
+) -> CodeSentOut:
+    """Emails a code that confirms a payout of exactly this amount (10 minutes, 5 tries)."""
+    await rate_limit.enforce("payout_code", str(rep.user.id))
+    email = await payouts.send_confirmation_code(db, rep, body.amount_kobo)
+    await db.commit()
+    return CodeSentOut(email=email)
+
+
 @router.post("/payouts", response_model=PayoutOut, status_code=201)
 async def request_payout(
     body: PayoutIn, rep: RepContext = Depends(get_current_rep), db: AsyncSession = Depends(get_session)
 ) -> PayoutOut:
-    payout = await payouts.request_payout(db, rep, body.amount_kobo)
+    try:
+        payout = await payouts.request_payout(db, rep, body.amount_kobo, body.code)
+    except AppError:
+        await db.commit()  # a wrong code still counts as a try
+        raise
     await db.commit()
     return payout_out(payout)
 

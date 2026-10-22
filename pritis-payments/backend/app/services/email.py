@@ -51,6 +51,7 @@ SUBJECTS = {
     "support_reply": "Re: {subject} [support {ticket}]",
     "announcement": "{subject}",
     "revenue_account_changed": "Pritis DPP: the revenue bank account was changed",
+    "confirm_payout": "Your Pritis DPP payout code",
 }
 MAX_ATTEMPTS = 5
 

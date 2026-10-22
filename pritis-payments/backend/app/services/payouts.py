@@ -31,7 +31,7 @@ from app.core.deps import RepContext
 from app.core.errors import AppError
 from app.models import AdminUser, BankAccountChange, PayoutRequest, RepBankAccount, User
 from app.schemas.settings import FeeSettings
-from app.services import app_settings, audit, fees, ledger
+from app.services import app_settings, audit, codes, fees, ledger
 from app.services.email import queue_email
 from app.services.paystack import PaystackClient, TransferRefused
 
@@ -93,7 +93,8 @@ async def _staff_emails(db: AsyncSession) -> list[str]:
 # --- Requesting -------------------------------------------------------------------------
 
 
-async def request_payout(db: AsyncSession, rep: RepContext, amount_kobo: int) -> PayoutRequest:
+async def _check_request(db: AsyncSession, rep: RepContext, amount_kobo: int):
+    """Everything that must be true for this payout request. Returns (locked wallet, quote)."""
     if reason := await blocked_reason(db, rep.user.id):
         raise AppError("payout_blocked", reason, 409)
     wallet = await ledger.locked_wallet(db, rep.user.id)
@@ -103,6 +104,27 @@ async def request_payout(db: AsyncSession, rep: RepContext, amount_kobo: int) ->
     q = await quote(db, amount_kobo)
     if q.net_kobo <= 0:
         raise AppError("payout_too_small", "That amount is too small to cover the payout service charge.", 409)
+    return wallet, q
+
+
+async def send_confirmation_code(db: AsyncSession, rep: RepContext, amount_kobo: int) -> str:
+    """Step 1 of a payout request (owner's request, 2026-10-22): an emailed code that only
+    confirms this amount, so a stolen login alone can't move a rep's money. Returns the
+    address it went to."""
+    _, q = await _check_request(db, rep, amount_kobo)
+    account = await db.scalar(select(RepBankAccount).where(RepBankAccount.user_id == rep.user.id))
+    last4 = crypto.decrypt(account.account_number)[-4:]
+    await codes.send_code(db, rep.user, "confirm_payout", context=str(amount_kobo), extra={
+        "amount": naira(amount_kobo), "net": naira(q.net_kobo),
+        "bank": f"{account.bank_name} · {account.account_name} · ••••{last4}",
+    })
+    return rep.user.email
+
+
+async def request_payout(db: AsyncSession, rep: RepContext, amount_kobo: int, code: str) -> PayoutRequest:
+    """Step 2: the emailed code for this amount, then the request itself."""
+    await codes.use_code(db, rep.user, "confirm_payout", code, context=str(amount_kobo))
+    wallet, q = await _check_request(db, rep, amount_kobo)
 
     account = await db.scalar(select(RepBankAccount).where(RepBankAccount.user_id == rep.user.id))
     last4 = crypto.decrypt(account.account_number)[-4:]

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:24px;background:#F0F6FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0A1628;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #D6E4F7;border-radius:16px;padding:24px;">
+    <tr><td>
+      <p style="margin:0 0 16px;">Hello {{ full_name }},</p>
+      <p style="margin:0 0 12px;">Use this code to confirm your payout request of <strong>{{ amount }}</strong>. <strong>{{ net }}</strong> will be sent to {{ bank }} once it's approved.</p>
+      <p style="margin:0 0 16px;font-size:32px;font-weight:800;letter-spacing:8px;text-align:center;padding:14px;background:#F0F6FF;border-radius:12px;">{{ code }}</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#4A6080;">It expires in {{ minutes }} minutes and only works for this amount. Never share it with anyone, including anyone claiming to be from Pritis.</p>
+      <p style="margin:0;padding:12px;background:#FFF0F0;border-radius:10px;font-size:14px;"><strong>Didn't ask for a payout?</strong> Someone may be using your account. Don't use the code, change your password now, and contact Pritis support.</p>
+    </td></tr>
+  </table>
+</body>
+</html>

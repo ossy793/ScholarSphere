@@ -17,8 +17,17 @@ class PayoutQuoteOut(BaseModel):
     net_kobo: int
 
 
+class PayoutCodeIn(BaseModel):
+    amount_kobo: int = Field(gt=0, le=1_000_000_000_00)
+
+
 class PayoutIn(BaseModel):
     amount_kobo: int = Field(gt=0, le=1_000_000_000_00)
+    code: Annotated[str, StringConstraints(pattern=r"^\d{6}$")]  # emailed for this amount
+
+
+class CodeSentOut(BaseModel):
+    email: str
 
 
 class PayoutOut(BaseModel):

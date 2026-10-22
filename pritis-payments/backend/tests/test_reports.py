@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from app.core.db import SessionLocal
 from app.models import LedgerEntry, Payment, PayoutRequest, RepWallet
 from app.services import ledger
-from tests.people import staff_client, user_client
+from tests.people import request_payout, staff_client, user_client
 from tests.test_payments import charge_data, send_webhook
 from tests.test_payouts import (  # noqa: F401  (fixtures)
     PayoutPaystack,
@@ -46,11 +46,11 @@ async def seeded(funded: dict, ps: PayoutPaystack) -> dict:
     await _student_pays(funded, "s3@example.com", "ussd", 20_000)
 
     rep = funded["rep"]
-    paid = (await rep.post("/api/user/rep/payouts", json={"amount_kobo": 300_000})).json()
+    paid = (await request_payout(rep, 300_000)).json()
     await funded["accountant"].post(f"/api/admin/payouts/{paid['id']}/approve")
     row = await _payout_row(paid["id"])
     await send_webhook(funded["student"], transfer_event("transfer.success", row))
-    waiting = (await rep.post("/api/user/rep/payouts", json={"amount_kobo": 100_000})).json()
+    waiting = (await request_payout(rep, 100_000)).json()
     return {**funded, "paid_payout": paid, "waiting_payout": waiting}
 
 

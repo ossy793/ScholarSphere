@@ -90,7 +90,18 @@
           </table>
         </div>
         <button type="submit" class="btn btn-primary btn-inline" id="payout-button" disabled>Request payout</button>
-        <p class="muted small">Pritis checks every payout before it's sent to your account below.</p>
+        <div class="code-box" id="payout-code" hidden>
+          <p class="small" id="payout-code-text"></p>
+          <label>Code from the email
+            <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digits">
+          </label>
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-inline" id="payout-confirm">Confirm payout</button>
+            <button type="button" class="btn-link small" id="payout-resend">Send a new code</button>
+            <button type="button" class="btn-link small" id="payout-cancel">Cancel</button>
+          </div>
+        </div>
+        <p class="muted small">For your security we email you a code to confirm each payout. Pritis checks every payout before it's sent to your account below.</p>
       </form>
 
       <h3 class="subhead">Payout history</h3>

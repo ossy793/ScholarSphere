@@ -68,7 +68,7 @@ class UserToken(IdMixin, TimestampMixin, Base):
 
     __tablename__ = "user_tokens"
     __table_args__ = (
-        CheckConstraint("purpose IN ('verify_email', 'reset_password')", name="purpose"),
+        CheckConstraint("purpose IN ('verify_email', 'reset_password', 'confirm_payout')", name="purpose"),
         CheckConstraint("attempts >= 0", name="attempts_non_negative"),
     )
 

@@ -11,6 +11,7 @@ from app.core.errors import AppError
 from app.models import EmailOutbox, LedgerEntry, PayoutRequest, RepBankAccount, RepWallet
 from app.services import ledger, payouts
 from app.services.paystack import Bank, TransferRefused
+from tests.people import request_payout
 from tests.test_payments import (  # noqa: F401  (fixtures)
     FakePaystack,
     _pay,
@@ -100,7 +101,7 @@ async def _balanced() -> bool:
 
 
 async def _request(funded: dict, amount: int = 500_000) -> dict:
-    resp = await funded["rep"].post("/api/user/rep/payouts", json={"amount_kobo": amount})
+    resp = await request_payout(funded["rep"], amount)
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -277,12 +278,12 @@ async def test_cannot_approve_twice(funded: dict, ps: PayoutPaystack) -> None:
 
 
 async def test_request_limits(funded: dict) -> None:
-    resp = await funded["rep"].post("/api/user/rep/payouts", json={"amount_kobo": 600_000})
+    resp = await request_payout(funded["rep"], 600_000)
     assert resp.json()["error"]["code"] == "insufficient_available"
-    resp = await funded["rep"].post("/api/user/rep/payouts", json={"amount_kobo": 500})
+    resp = await request_payout(funded["rep"], 500)
     assert resp.json()["error"]["code"] == "payout_too_small"
     await _request(funded, 200_000)
-    resp = await funded["rep"].post("/api/user/rep/payouts", json={"amount_kobo": 100_000})
+    resp = await request_payout(funded["rep"], 100_000)
     assert resp.json()["error"]["code"] == "payout_blocked"  # one open request at a time
 
 
@@ -295,7 +296,7 @@ async def test_support_and_students_cannot_touch_payouts(funded: dict, clock) ->
         assert (await support.post(f"/api/admin/payouts/{payout['id']}/approve")).status_code == 403
     finally:
         await support.__aexit__(None, None, None)
-    assert (await funded["student"].post("/api/user/rep/payouts", json={"amount_kobo": 100})).status_code == 403
+    assert (await request_payout(funded["student"], 100)).status_code == 403
 
 
 # --- Changing the payout bank account ---------------------------------------------------------------
@@ -309,7 +310,7 @@ async def test_bank_change_pauses_payouts_until_approved(funded: dict, ps: Payou
 
     wallet = (await rep.get("/api/user/rep/wallet")).json()
     assert wallet["can_request"] is False and "paused" in wallet["blocked_reason"]
-    assert (await rep.post("/api/user/rep/payouts", json={"amount_kobo": 100_000})).json()["error"]["code"] == "payout_blocked"
+    assert (await request_payout(rep, 100_000)).json()["error"]["code"] == "payout_blocked"
 
     accountant = funded["accountant"]
     change = (await accountant.get("/api/admin/bank-changes")).json()[0]
@@ -378,3 +379,37 @@ async def test_another_rep_cannot_see_the_paid_list(funded: dict) -> None:
             assert (await other.get(f"/api/user/rep/dues/{funded['due_id']}/{path}")).status_code == 404
     finally:
         await other.__aexit__(None, None, None)
+
+
+# --- The emailed code (owner's request, 2026-10-22) ------------------------------------------------
+
+
+async def test_payout_needs_the_emailed_code_for_that_amount(funded: dict) -> None:
+    rep = funded["rep"]
+    # No code at all: refused.
+    assert (await rep.post("/api/user/rep/payouts", json={"amount_kobo": 300_000})).status_code == 422
+    sent = await rep.post("/api/user/rep/payouts/code", json={"amount_kobo": 300_000})
+    assert sent.json() == {"email": "rep@example.com"}
+    async with SessionLocal() as db:
+        mail = await db.scalar(select(EmailOutbox).where(EmailOutbox.template == "confirm_payout"))
+    assert mail.to_email == "rep@example.com" and mail.payload["amount"] == "₦3,000"
+    assert mail.payload["bank"] == "GTBank · ADA OBI · ••••6789"
+    code = mail.payload["code"]
+    # A wrong code is counted; the right code for a different amount doesn't work either.
+    bad = await rep.post("/api/user/rep/payouts", json={"amount_kobo": 300_000, "code": "000000" if code != "000000" else "111111"})
+    assert bad.json()["error"]["code"] == "code_invalid"
+    other = await rep.post("/api/user/rep/payouts", json={"amount_kobo": 400_000, "code": code})
+    assert other.json()["error"]["code"] == "code_invalid"
+    assert (await _wallet()).held_kobo == 0  # nothing moved
+    ok = await rep.post("/api/user/rep/payouts", json={"amount_kobo": 300_000, "code": code})
+    assert ok.status_code == 201 and ok.json()["status"] == "requested"
+    # A code works once.
+    again = await rep.post("/api/user/rep/payouts", json={"amount_kobo": 300_000, "code": code})
+    assert again.status_code in (400, 409)
+
+
+async def test_no_code_is_sent_for_a_payout_that_cannot_happen(funded: dict) -> None:
+    resp = await funded["rep"].post("/api/user/rep/payouts/code", json={"amount_kobo": 900_000})
+    assert resp.json()["error"]["code"] == "insufficient_available"
+    async with SessionLocal() as db:
+        assert await db.scalar(select(EmailOutbox.id).where(EmailOutbox.template == "confirm_payout")) is None
